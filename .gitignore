@@ -1,0 +1,11 @@
+.direnv
+*.pdf
+*.out
+*.bbl
+*.fdb_latexmk
+*.fls
+*.log
+*.blg
+*.aux
+*.synctex.gz
+*.toc
