@@ -1,30 +1,30 @@
 % CUSTOM maketitle
 \makeatletter
- \def\@maketitle{%
+\def\@maketitle{%
   \newpage
   \null
   \vskip 1.em
   \begin{center}%
-  \let \footnote \thanks
+    \let \footnote \thanks
     {\LARGE \bfseries\@title \par}%
     \vskip 1.em%
-    {\large \langCourse \par}%
-     {\large \langInstitute \par}%
+      {\large \langCourse \par}%
+      {\large \langInstitute \par}%
     \vskip 1.em%
-    {\large
-      \lineskip .5em%
-      \begin{tabular}[t]{c}%
-        \@author { --- } \@istid \\
-        {\href{mailto:\@email}{\tt\@email}}
-      \end{tabular}\par}%
-          \vskip 1.em%
-    \ifx\@coadvisor\undefined      
-        {\large \langAdvisor: \@advisor \par}%
-    \else
-        {\large \langAdvisor: \@advisor \par}%
-        {\large \langCoadvisor: \@coadvisor \par}%
+      {\large
+        \lineskip .5em%
+        \begin{tabular}[t]{c}%
+          \@author { --- } \@istid \\
+          {\href{mailto:\@email}{\tt\@email}}
+        \end{tabular}\par}%
+    \vskip 1.em%
+    \ifx\@coadvisor\undefined
+      {\large \langAdvisor: \@advisor \par}%
+      \else
+      {\large \langAdvisor: \@advisor \par}%
+      {\large \langCoadvisor: \@coadvisor \par}%
     \fi
-    
+
   \end{center}%
   \par
   \vskip 1em}
@@ -91,16 +91,16 @@
 % Set links for references and citations in document
 \usepackage{hyperref}
 \hypersetup{ colorlinks=true,
-             citecolor=cyan,
-             linkcolor=darkgray,
-             urlcolor=teal,
-             breaklinks=true,
-             bookmarksnumbered=true,
-             bookmarksopen=true,
+  citecolor=cyan,
+  linkcolor=darkgray,
+  urlcolor=teal,
+  breaklinks=true,
+  bookmarksnumbered=true,
+  bookmarksopen=true,
 }
 
 % Provides better support for handling and breaking URLs.
-\usepackage{url} 
+\usepackage{url}
 
 % The package 'graphicx' supports formats PNG and JPG.
 % Package 'subfigure' allows to place figures within figures with own caption. 
@@ -108,7 +108,7 @@
 \usepackage{graphicx}
 \usepackage[hang,small,bf,tight]{subfigure}
 
-\usepackage[format=hang,labelfont=bf,font=small]{caption} 
+\usepackage[format=hang,labelfont=bf,font=small]{caption}
 % the following customization adds vertical space between caption and the table
 %\captionsetup[table]{skip=10pt}
 
@@ -119,7 +119,7 @@
 \definecolor{forestgreen}{RGB}{34,139,34}
 \definecolor{orangered}{RGB}{239,134,64}
 \definecolor{lightred}{rgb}{1,0.4,0.5}
-\definecolor{orange}{rgb}{1,0.45,0.13}	
+\definecolor{orange}{rgb}{1,0.45,0.13}
 \definecolor{darkblue}{rgb}{0.0,0.0,0.6}
 \definecolor{lightblue}{rgb}{0.1,0.57,0.7}
 \definecolor{gray}{rgb}{0.4,0.4,0.4}
@@ -143,12 +143,12 @@
 % For Gantt chart generation
 \usepackage{pgfgantt}
 % For dummy text generation
-\usepackage{lipsum} 
+\usepackage{lipsum}
 
 % To define margins to be OF THE SAME DIMENSIONS AS DEI MASTER TEMPLATE
 \usepackage{geometry}
-\geometry{ 
-  a4paper,         
+\geometry{
+  a4paper,
   inner=1in,
   outer=1in,
   headheight=16pt,
@@ -158,7 +158,7 @@
   headsep=25pt,
   top=106pt,
   marginparwidth=56pt,
-    heightrounded,   % integer number of lines
+  heightrounded,   % integer number of lines
 }
 
 % The package 'acronym' garantees that all acronyms definitions are 
@@ -178,30 +178,30 @@
 % To insert good looking code
 \usepackage{listings}
 \lstdefinestyle{mystyle}{
-    backgroundcolor=\color{white},   % choose the background color
-    basicstyle=\ttfamily\small,      % the size of the fonts used for the code
-    breakatwhitespace=false,         % sets if automatic breaks should only happen at whitespace
-    breaklines=true,                 % sets automatic line breaking
-    captionpos=b,                    % sets the caption-position to bottom
-    commentstyle=\color{green!40!black},  % comment style
-    keywordstyle=\color{blue},       % keyword style
-    keywordstyle={[2]\color{purple!80!black}}, % additional keywords
-    keywordstyle={[3]\color{orange}}, % additional keywords
-    identifierstyle=\color{black},   % identifier style
-    numberstyle=\tiny\color{gray},   % the style used for line-numbers
-    numbers=left,                    % where to put the line-numbers
-    numbersep=5pt,                   % how far the line-numbers are from the code
-    stringstyle=\color{orange},      % string literal style
-    showspaces=false,                % show spaces everywhere adding particular underscores
-    showstringspaces=false,          % underline spaces within strings only
-    showtabs=false,                  % show tabs within strings adding particular underscores
-    tabsize=4,                       % default tabsize
-    emph={int,char,double,float,unsigned,void},
-    emphstyle={\color{blue}},
-    emph={[2]for, while, do, if, else, switch, case},
-    emphstyle={[2]\color{purple!80!black}},
-    emph={[3]printf, scanf, cout, cin, endl, include},
-    emphstyle={[3]\color{orange}}
+  backgroundcolor=\color{white},   % choose the background color
+  basicstyle=\ttfamily\small,      % the size of the fonts used for the code
+  breakatwhitespace=false,         % sets if automatic breaks should only happen at whitespace
+  breaklines=true,                 % sets automatic line breaking
+  captionpos=b,                    % sets the caption-position to bottom
+  commentstyle=\color{green!40!black},  % comment style
+  keywordstyle=\color{blue},       % keyword style
+  keywordstyle={[2]\color{purple!80!black}}, % additional keywords
+  keywordstyle={[3]\color{orange}}, % additional keywords
+  identifierstyle=\color{black},   % identifier style
+  numberstyle=\tiny\color{gray},   % the style used for line-numbers
+  numbers=left,                    % where to put the line-numbers
+  numbersep=5pt,                   % how far the line-numbers are from the code
+  stringstyle=\color{orange},      % string literal style
+  showspaces=false,                % show spaces everywhere adding particular underscores
+  showstringspaces=false,          % underline spaces within strings only
+  showtabs=false,                  % show tabs within strings adding particular underscores
+  tabsize=4,                       % default tabsize
+  emph={int,char,double,float,unsigned,void},
+  emphstyle={\color{blue}},
+  emph={[2]for, while, do, if, else, switch, case},
+  emphstyle={[2]\color{purple!80!black}},
+  emph={[3]printf, scanf, cout, cin, endl, include},
+  emphstyle={[3]\color{orange}}
 }
 % Use the defined style for code listings
 \lstset{style=mystyle}
@@ -216,5 +216,65 @@
 
 
 % acmart uses Libertine for text, Inconsolata for monospaced font and newtxmath for math:
-\usepackage[varqu]{zi4} 
+\usepackage[varqu]{zi4}
 \usepackage{newtxmath}
+
+
+%%%%%%%%% Specific to this thesis %%%%%%%%%
+
+% For some reason I needed this to silence a font size warning
+\usepackage{anyfontsize}
+
+% Some notation commands
+\newcommand{\sizeof}[1]{\phi\bigl(#1\bigr)}
+\newcommand{\dual}[1]{\overline{#1}}
+
+% Type names
+\newcommand{\closet}{\textbf{close}}
+\newcommand{\waitt}{\textbf{wait}}
+\newcommand{\choicet}[1]{\textbf{choice of}\,\{#1\}}
+\newcommand{\offert}[1]{\textbf{offer of}\,\{#1\}}
+\newcommand{\labelt}[2]{|\##1:#2}
+\newcommand{\sendt}[2]{\textbf{send}\,#1;#2}
+\newcommand{\recvt}[2]{\textbf{recv}\,#1;#2}
+\newcommand{\bangt}[1]{!#1}
+\newcommand{\whynott}[1]{?#1}
+
+% Compilation environment 
+\newenvironment{compilation}[1]
+{
+  \begingroup
+  \newcommand{\compiled}[1]{[[##1]]}
+
+  % Short name for the current environment
+  \newcommand{\env}{\varepsilon}
+
+  % CLASS
+  \newcommand{\cut}[3]{\textbf{cut}\,\{##1\,|##2|\,##3\}}
+  \newcommand{\close}[1]{\textbf{close}\,##1}
+  \newcommand{\wait}[2]{\textbf{wait}\,##1;##2}
+
+  % IR
+  \newcommand{\beginir}{\\&\hspace{2.5em}}
+  \newcommand{\oneargir}[2]{\beginir\textbf{##1}\,##2}
+  \newcommand{\mkoneargir}[2]{\newcommand{##1}[1]{\beginir\textbf{##2}(####1)}}
+  \newcommand{\mktwoargir}[2]{\newcommand{##1}[2]{\beginir\textbf{##2}(####1, ####2)}}
+  \newcommand{\mkthreeargir}[2]{\newcommand{##1}[3]{\beginir\textbf{##2}(####1, ####2, ####3)}}
+  \newcommand{\labelir}[1]{\\&\hspace{1.25em}\texttt{##1:}}
+  \newcommand{\note}{&&\%\ }
+
+  \mkthreeargir{\initsession}{initSession}
+  \mkoneargir{\flip}{flip}
+  \mkoneargir{\pushclose}{pushClose}
+  \mkoneargir{\popclose}{popClose}
+  \newcommand{\recurse}[2]{\beginir\compiled{##1}_{##2}}
+
+  $$
+    \begin{aligned}
+       & \compiled{#1}_\env \equiv
+      }
+      {
+    \end{aligned}
+  $$
+  \endgroup
+}
