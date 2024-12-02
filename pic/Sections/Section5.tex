@@ -17,7 +17,7 @@ The fields \texttt{written} and \texttt{read} are used to keep track of how many
 
 Finally, the \texttt{buffer} field is an array of bytes which stores the data exchanged between the two end points of the session. Its size is determined at allocation time, and is at most $255$ bytes.
 
-\begin{figure}[!h]
+\begin{figure}[H]
     \centering
     \begin{lstlisting}[language=C]
 struct record {
@@ -34,7 +34,7 @@ struct record {
 
 Figure \ref{fig:EnvironmentType} shows the C type which describes an environment. It contains a pointer to the first exponential closure in the environment, and an array of pointers to session records, of at most $255$ elements.
 
-\begin{figure}[!h]
+\begin{figure}[H]
     \centering
     \begin{lstlisting}[language=C]
 struct environment {
@@ -48,7 +48,7 @@ struct environment {
 
 The exponential closures form a linked list, where each closure points to its parent closure, as shown in Figure \ref{fig:ExponentialType}. The \texttt{cont} field stores the program address to jump to, and the \texttt{size} field stores the size of the environment that should be created when the closure is instantiated.
 
-\begin{figure}[!h]
+\begin{figure}[H]
     \centering
     \begin{lstlisting}[language=C]
 struct exponential {
@@ -63,7 +63,7 @@ struct exponential {
 
 Finally, we define a C type for tasks in Figure \ref{fig:TaskType}. Tasks store a program address and an environment to switch to. Additionally, they store a pointer to the next task in the linked list of tasks. These are used to implement the CLASS parallel construct sequentially.
 
-\begin{figure}[!h]
+\begin{figure}[H]
     \centering
     \begin{lstlisting}[language=C]
 struct task {
@@ -80,7 +80,7 @@ struct task {
 
 Translated IR instructions operate on the registers shown in Figure \ref{fig:Registers}. The \texttt{env} register points to the current environment, on which operations are performed. The \texttt{task} registers point to the next task to be executed. The rest of the registers are used to store temporary values.
 
-\begin{figure}[!h]
+\begin{figure}[H]
     \centering
     \begin{lstlisting}[language=C]
 struct environment *env, *tmp_env;
@@ -98,7 +98,7 @@ The main function of the generated C program is shown in Figure \ref{fig:MainFun
 
 For each process definition, a label of the form \texttt{proc\_X} is generated, where \texttt{X} is the name of the process. The code each for process definition is generated from its IR instructions, immediately after the label.
 
-\begin{figure}[!h]
+\begin{figure}[H]
     \centering
     \begin{lstlisting}[language=C]
 int main() {
@@ -127,7 +127,7 @@ end:
 
 Sessions are initialized by the \texttt{initSession} instruction. This instruction receives the index \texttt{record} of the session record in the current environment, the \texttt{size} of the session record buffer in bytes, and the initial continuation of the session, referenced by a label \texttt{cont}. The generated C code for this instruction is shown in Figure \ref{fig:InitSessionIR}.
 
-\begin{figure}[!h]
+\begin{figure}[H]
     \centering
     \begin{lstlisting}[language=C]
 /* initSession(record, size, cont) */
@@ -147,6 +147,9 @@ env->records[record]->read = 0;
 In this section we describe the compilation process from a CLASS program to the intermediate representation (IR) we defined in the previous section.
 
 \subsubsection{Buffer Size Calculation}
+
+% TODO: optimize this so that buffers have the minimum size possible
+% E.g., send A; recv A; send A; close should have size S, not 3S.
 
 We denote the size, in bytes, of the buffer necessary for the full execution of a session of type $A$, as $\sizeof A$. This size is computed through pattern matching on the session type, through the rules introduced below.
 
@@ -187,42 +190,234 @@ $$
     \sizeof{X} = 0
 $$
 
-\subsubsection{Constructs}
+\subsubsection{Environment}
 
-\begin{figure}[!h]
+First we introduce notation to represent the state of the compiler, which we refer to as the environment. An environment $(\varepsilon, \eta)$ is a pair, where $\varepsilon$ is a mapping from session names to their current modes $m$, and $\eta$ is the a mapping from session names to their session record indices.
+
+We define $\varepsilon[x \mapsto m]$ to be the environment $\varepsilon$ where the mode of session $x$ is updated to $m$, and $\eta[x \mapsto n]$ to be the environment $\eta$ where the session record index of session $x$ is updated to $n$. Additionally, $\eta(x)$ denotes the session record index of $x$.
+
+The mode of a session is either $\readmode$ or $\writemode$, and indicates whether the session was last read from, or written to, respectively.
+
+We denote $\#\eta$ as the number of mappings in $\eta$.
+The session record index mapping can be determined for a given process through the function $n(\eta, P)$. This function expands $\eta$ to include space for new bindings in $P$, and is defined by pattern matching on the process $P$.
+
+For the $\cutp$ process, we reserve a new binding for $x$ in $\eta$.
+
+$$
+n(\eta, \cutc{P}{x}{Q}) = n(n(\eta[x \mapsto \#\eta], P), Q)
+$$
+
+For the $\sendp$ process, we reserve a new binding for $y$ in $\eta$.
+
+$$
+n(\eta, \sendc{x}{y}{P}{Q}) = n(n(\eta[y \mapsto \#\eta], P), Q)
+$$
+
+Similarly, we define $n$ for the $\recvp$ process.
+
+$$
+n(\eta, \recvc{x}{y}{P}) = n(\eta[y \mapsto \#\eta], P)
+$$
+
+For the $\parp$ process, we simply join the mappings of the two processes.
+
+$$
+n(\eta, \parc{P}{Q}) = n(n(\eta, P), Q)
+$$
+
+We do the same for all branches of $\casep$.
+
+$$
+n(\eta, \casec{x}{\labelc{a}{A},\,\dots,\,\labelc{z}{Z}}) = n(n(\dots n(\eta, A), \dots), Z)
+$$
+
+For all other processes of the form $\alpha; P$, we simply recurse on $P$.
+
+$$
+n(\eta, \alpha; P) = n(\eta, P)
+$$
+
+Finally, for processes $\emptyp$, $\closep$, $\fwdp$ and $\bangp$, we return just $\eta$:
+
+$$
+n(\eta, \emptyc) = n(\eta, \closec{x}) = n(\eta, \fwdc{x}{y}) = n(\eta, \bangc{x}{y}{P}) = \eta
+$$
+
+Notice that the right-hand side of $\bangp$ isn't considered when computing $\eta$. This is due to $P$ operating on a completely separate environment.
+
+% Finally, we denote $\# \varepsilon$ as the number of mappings in the environment $\varepsilon$.
+
+\subsubsection{Compilation and Flips}
+
+The compilation of a CLASS process $P$ to the IR on a given environment $(\varepsilon,\eta)$ is represented by $\compiled{P}_{\varepsilon,\eta}$. Additionally, we define the concept of an action $\mathcal{A}$, as a process which performs some operation on a session's buffer. Actions are typically processes of the form $\alpha; P$. We denote the subject $s(\mathcal{A})$ of an action $\mathcal{A}$ as the leftmost name occurrence in $\mathcal{A}$. For example, $s(\waitc{x}{P}) = x$.
+
+Additionally, we divide actions into two categories: writing actions and reading actions. The former write to the session buffer, and the latter read from it. They are denoted as $\mathcal{A}_w$ and $\mathcal{A}_r$, respectively.
+
+Whenever a reading action $\mathcal{A}_r$ is compiled with subject $x$ and environment $(\varepsilon[x \mapsto \writemode], \eta)$, a flip is generated to switch the session record $\eta(x)$ to read mode, as seen in Figure \ref{fig:ReadActionCompilation}.
+
+\begin{figure}[H]
     \centering
-    \begin{compilation}{\cut{P}{x: A}{Q}}
-        \initsession{n}{s}{\texttt{rhs}} \note n = \env(x), s = \phi(A)
-        \recurse{P}{\env,\ x \rightarrow \texttt{write}}
-        \labelir{rhs}
-        \recurse{Q}{\env,\ x \rightarrow \texttt{read}}
+    \begin{compilation}{\mathcal{A}_r}{\varepsilon[s(\mathcal{A}_r) \mapsto \writemode],\eta}
+        \flip{\eta(s(\mathcal{A}_r))}
+        \recurse{\mathcal{A}_r}{\varepsilon[s(\mathcal{A}_r) \mapsto \readmode],\eta}
     \end{compilation}
-    \caption{Compilation of a cut construct}
+    \caption{Compilation of a reading action}
+    \label{fig:ReadActionCompilation}
+\end{figure}
+
+This ensures that, for a given session, the currently executing end point executes as many operations as possible without flipping to the other end point. Flips only occur when after writing data, a read operation is performed. In that scenario, the other end point still hasn't written that data, and thus, the session must be flipped to the other endpoint.
+
+\subsubsection{Cut}
+
+We start by defining the compilation of a $\cutp$ process, in Figure \ref{fig:CutCompilation}. We assume, without loss of generality, that $A$ is a positive type, and thus, that $P$ will be writing to $x$ before $Q$.
+
+The process initializes a session record in the environment with a new label \texttt{rhs} as continuation, and then recursively compiles $P$ with the updated environment, with the session in $\writemode$ mode. Finally, it compiles $Q$ in an environment where the session is in $\readmode$ mode, in front of the label \texttt{rhs}.
+
+\begin{figure}[H]
+    \centering
+    \begin{compilation}{\cutc{P}{x: A}{Q}}{\varepsilon,\eta}
+        \initsession{\eta(x)}{\phi(A)}{\texttt{rhs}}
+        \recurse{P}{\varepsilon[x \mapsto \writemode],\eta}
+        \labelir{rhs}
+        \recurse{Q}{\varepsilon[x \mapsto \readmode],\eta}
+    \end{compilation}
+    \caption{Compilation of a cut process}
     \label{fig:CutCompilation}
 \end{figure}
 
-\begin{compilation}{\close{c}}
-    \pushclose{n} \note n = \env(c)
-    \flip n
-\end{compilation}
+By compiling $P$ with $x$ in $\writemode$ mode, we generate a flip to $Q$ only when data has already been written to the session buffer. Since data has already been written, $Q$ is compiled with $x$ in $\readmode$, making sure that a flip is only generated when reading after $Q$ has also already written data.
 
-\begin{compilation}{\wait{c}{P}}
-    \popclose{n} \note n = \env(c)
-    \recurse{P}{\env,\ c \rightarrow \emptyset}
-\end{compilation}
+\subsubsection{Parallel and Empty}
 
-% \begin{compilation}
-% \compiled{\close c}_\epsilon \equiv\ 
-%     & \pushclose n; &&\% n = \epsilon(c) \\
-%     & \flip n;      &&\%
-% \end{compilation}
+The compilation of a $\parp$ process is shown in Figure \ref{fig:ParCompilation}. The process starts by generating code to insert a new task for executing $Q$ into the task linked list. Then, it compiles $P$, which will be executed immediately.
 
+\begin{figure}[H]
+    \centering
+    \begin{compilation}{\parc{P}{Q}}{\varepsilon,\eta}
+        \newtask{rhs}
+        \recurse{P}{\varepsilon,\eta}
+        \labelir{rhs}
+        \recurse{Q}{\varepsilon,\eta}
+    \end{compilation}
+    \caption{Compilation of a parallel process}
+    \label{fig:ParCompilation}
+\end{figure}
 
-% \begin{compilation}
-%     \compiled{\wait c; P}_\epsilon \equiv\
-%         & \popclose n; &&\% n = \epsilon(c) \\
-%         & \compiled{P}_\epsilon &&
-%     \end{compilation}
+The $\emptyp$ process is compiled as shown in Figure \ref{fig:EmptyCompilation}. The process marks the end of the current task, as it has no continuation. The flow of control is thus simply passed to the next task in the linked list.
+
+\begin{figure}[H]
+    \centering
+    \begin{compilation}{\emptyc}{\varepsilon,\eta}
+        \nexttask
+    \end{compilation}
+    \caption{Compilation of an empty process}
+    \label{fig:EmptyCompilation}
+\end{figure}
+
+\subsubsection{Forwarding}
+
+The $\fwdp$ process is compiled trivially as shown in Figure \ref{fig:ForwardCompilation}. This step simply translates session names to their respective session record indices.
+
+\begin{figure}[H]
+    \centering
+    \begin{compilation}{\fwdc{x}{y}}{\varepsilon,\eta}
+        \fwd{\eta(x)}{\eta(y)}
+    \end{compilation}
+    \caption{Compilation of a forward process}
+    \label{fig:ForwardCompilation}
+\end{figure}
+
+\subsubsection{Close and Wait}
+
+The compilation of a $\closep$ process is shown in Figure \ref{fig:CloseCompilation}. The process pushes a close token to the session buffer of record $\eta(x)$, and then flips back to the other end point of the session.
+
+This action doesn't have a continuation, as the session is closed and no more writing operations can be performed on it. The flow of control is passed to the other end point of the session, and won't return.
+
+\begin{figure}[H]
+    \centering
+    \begin{compilation}{\closec{x}}{\varepsilon,\eta}
+        \pushclose{\eta(x)}
+        \flip{\eta(x)}
+    \end{compilation}
+    \caption{Compilation of a close process}
+    \label{fig:CloseCompilation}
+\end{figure}
+
+The $\waitp$ process is compiled as shown in Figure \ref{fig:WaitCompilation}. The close token is popped from the buffer of the session record $\eta(x)$, the session's resources are freed, and the continuation $P$ is compiled in the environment $\varepsilon$, where $x$ is no longer bound.
+
+\begin{figure}[H]
+    \centering
+    \begin{compilation}{\waitc{x}{P}}{\varepsilon[x \mapsto \readmode],\eta}
+        \popclose{\eta(x)}
+        \freesession{\eta(x)}
+        \recurse{P}{\varepsilon,\eta}
+    \end{compilation}
+    \caption{Compilation of a wait process}
+    \label{fig:WaitCompilation}
+\end{figure}
+
+\subsubsection{Offer and Choice}
+
+The compilation of a $\casep$ process is shown in Figure \ref{fig:OfferCompilation}. The compiler generates code which reads a tag from the session buffer of record $\eta(x)$ and jumps to the corresponding label, and then recurses, generating code for each possible branch, preceded by the respective label.
+
+\begin{figure}[H]
+    \centering
+    \begin{compilation}{\casec{x}{\labelc{a}{A},\,\dots,\,\labelc{z}{Z}}}{\varepsilon[x \mapsto \readmode],\eta}
+        \poptag{\eta(x)}{\{\labelc{a}{\texttt{a}},\,\dots,\,\labelc{z}{\texttt{z}}\}}
+        \labelir{a}
+        \recurse{A}{\varepsilon[x \mapsto \readmode],\eta}
+        \beginir\dots
+        \labelir{z}
+        \recurse{Z}{\varepsilon[x \mapsto \readmode],\eta}
+    \end{compilation}
+    \caption{Compilation of an offer process}
+    \label{fig:OfferCompilation}
+\end{figure}
+
+The compilation of choice processes is shown in Figure \ref{fig:ChoiceCompilation}. Code is generated which writes a tag to the session buffer of record $\eta(x)$ and then recurses for the continuation.
+
+\begin{figure}[H]
+    \centering
+    \begin{compilation}{\choosec{a}{x}{P}}{\varepsilon,\eta}
+        \pushtag{\eta(x)}{\#a}
+        \recurse{P}{\varepsilon[x \mapsto \writemode],\eta}
+    \end{compilation}
+    \caption{Compilation of a choice process}
+    \label{fig:ChoiceCompilation}
+\end{figure}
+
+\subsubsection{Send and Receive}
+
+The compilation of a $\sendp$ process is shown in Figure \ref{fig:SendCompilation}. The process initializes a session record with a new label \texttt{lhs} as continuation, and generates an instruction to push that new session record, $\eta(y)$, to the buffer of $\eta(x)$. Then, it compiles $Q$ with $x$ in $\writemode$ mode. Finally, it compiles $P$ with the $y$ in $\readmode$ mode, in front of the label \texttt{lhs}.
+
+In $P$, $y$ is set to $\readmode$ mode as the flow will only jump to $P$ after data has been written to the buffer.
+
+\begin{figure}[H]
+    \centering
+    \begin{compilation}{\sendc{x}{y:A}{P}{Q}}{\varepsilon,\eta}
+        \initsession{\eta(y)}{\phi(A)}{\texttt{lhs}}
+        \pushsession{\eta(x)}{\eta(y)}
+        \recurse{Q}{\varepsilon[x \mapsto \writemode],\eta}
+        \labelir{lhs}
+        \recurse{P}{\varepsilon[y \mapsto \readmode],\eta}
+    \end{compilation}
+    \caption{Compilation of a send process}
+    \label{fig:SendCompilation}
+\end{figure}
+
+The $\recvp$ process is compiled as shown in Figure \ref{fig:ReceiveCompilation}. The process generates code to pop a session record from the buffer of $\eta(x)$ and then simply recurses for the continuation $P$.
+
+In $P$, $y$ is set to $\writemode$ mode, as the flow should only jump to the other endpoint immediately before a read operation is performed.
+
+\begin{figure}[H]
+    \centering
+    \begin{compilation}{\recvc{x}{y}{P}}{\varepsilon,\eta}
+        \popsession{\eta(x)}{\eta(y)}
+        \recurse{P}{\varepsilon[y \mapsto \writemode],\eta}
+    \end{compilation}
+    \caption{Compilation of a receive process}
+    \label{fig:ReceiveCompilation}
+\end{figure}
 
 % This section describes in detail the architecture of our CLASS compiler, including the different phases of the compilation process and the data structures kept by the compiler.
 

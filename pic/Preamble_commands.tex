@@ -228,6 +228,7 @@
 % Some notation commands
 \newcommand{\sizeof}[1]{\phi\bigl(#1\bigr)}
 \newcommand{\dual}[1]{\overline{#1}}
+\newcommand{\compiled}[1]{[[#1]]}
 
 % Type names
 \newcommand{\closet}{\textbf{close}}
@@ -240,38 +241,67 @@
 \newcommand{\bangt}[1]{!#1}
 \newcommand{\whynott}[1]{?#1}
 
+% Process names
+\newcommand{\emptyp}{\textbf{()}}
+\newcommand{\fwdp}{\textbf{fwd}}
+\newcommand{\cutp}{\textbf{cut}}
+\newcommand{\parp}{\textbf{par}}
+\newcommand{\closep}{\textbf{close}}
+\newcommand{\waitp}{\textbf{wait}}
+\newcommand{\casep}{\textbf{case of}}
+\newcommand{\sendp}{\textbf{send}}
+\newcommand{\recvp}{\textbf{recv}}
+\newcommand{\bangp}{\textbf{!}}
+
+% CLASS
+\newcommand{\fwdc}[2]{\fwdp\,#1;#2}
+\newcommand{\cutc}[3]{\cutp\,\{#1\,|#2|\,#3\}}
+\newcommand{\parc}[2]{\parp\,\{#1\,||\,#2\}}
+\newcommand{\emptyc}{\emptyp}
+\newcommand{\closec}[1]{\closep\,#1}
+\newcommand{\waitc}[2]{\waitp\,#1;#2}
+\newcommand{\choosec}[3]{\##1\ #2;#3}
+\newcommand{\casec}[2]{\textbf{case}\,#1\,\textbf{of}\,\{#2\}}
+\newcommand{\labelc}[2]{|\##1:#2}
+\newcommand{\sendc}[4]{\sendp\,#1(#2.\,#3);#4}
+\newcommand{\recvc}[3]{\recvp\,#1(#2);#3}
+\newcommand{\bangc}[3]{\bangp\,#1(#2);#3}
+
+% Session modes
+\newcommand{\writemode}{\texttt{write}}
+\newcommand{\readmode}{\texttt{read}}
+
 % Compilation environment 
-\newenvironment{compilation}[1]
+\newenvironment{compilation}[2]
 {
   \begingroup
-  \newcommand{\compiled}[1]{[[##1]]}
-
-  % Short name for the current environment
-  \newcommand{\env}{\varepsilon}
-
-  % CLASS
-  \newcommand{\cut}[3]{\textbf{cut}\,\{##1\,|##2|\,##3\}}
-  \newcommand{\close}[1]{\textbf{close}\,##1}
-  \newcommand{\wait}[2]{\textbf{wait}\,##1;##2}
 
   % IR
   \newcommand{\beginir}{\\&\hspace{2.5em}}
-  \newcommand{\oneargir}[2]{\beginir\textbf{##1}\,##2}
-  \newcommand{\mkoneargir}[2]{\newcommand{##1}[1]{\beginir\textbf{##2}(####1)}}
-  \newcommand{\mktwoargir}[2]{\newcommand{##1}[2]{\beginir\textbf{##2}(####1, ####2)}}
-  \newcommand{\mkthreeargir}[2]{\newcommand{##1}[3]{\beginir\textbf{##2}(####1, ####2, ####3)}}
+  \newcommand{\mkzeroargir}[2]{\newcommand{##1}{\beginir\textbf{##2}();}}
+  \newcommand{\mkoneargir}[2]{\newcommand{##1}[1]{\beginir\textbf{##2}(####1);}}
+  \newcommand{\mktwoargir}[2]{\newcommand{##1}[2]{\beginir\textbf{##2}(####1, ####2);}}
+  \newcommand{\mkthreeargir}[2]{\newcommand{##1}[3]{\beginir\textbf{##2}(####1, ####2, ####3);}}
   \newcommand{\labelir}[1]{\\&\hspace{1.25em}\texttt{##1:}}
   \newcommand{\note}{&&\%\ }
 
+  \mkoneargir{\newtask}{newTask}
+  \mkzeroargir{\nexttask}{nextTask}
   \mkthreeargir{\initsession}{initSession}
+  \mkoneargir{\freesession}{freeSession}
   \mkoneargir{\flip}{flip}
+  \mktwoargir{\fwd}{fwd}
   \mkoneargir{\pushclose}{pushClose}
   \mkoneargir{\popclose}{popClose}
+  \mktwoargir{\pushtag}{pushTag}
+  \mktwoargir{\poptag}{popTag}
+  \mktwoargir{\pushsession}{pushSession}
+  \mktwoargir{\popsession}{popSession}
   \newcommand{\recurse}[2]{\beginir\compiled{##1}_{##2}}
 
   $$
     \begin{aligned}
-       & \compiled{#1}_\env \equiv
+       & \compiled{#1}_{#2} \equiv
       }
       {
     \end{aligned}
