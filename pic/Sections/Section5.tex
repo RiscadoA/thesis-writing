@@ -419,6 +419,35 @@ In $P$, $y$ is set to $\writemode$ mode, as the flow should only jump to the oth
     \label{fig:ReceiveCompilation}
 \end{figure}
 
+\subsubsection{Process Definitions and Calls}
+
+The compilation of a process definition is shown in Figure \ref{fig:ProcessDefCompilation}. A label is generated for the process definition and code is generated for the process $P$ with environment $(\varepsilon,\eta)$. $\varepsilon$ contains only the bindings for each argument of the process definition, each one initialized in $\readmode$. $\eta$ is generated from $P$.
+
+\begin{figure}[H]
+    \centering
+    \begin{compilation}{\procdefc{foo}{x_1:A_1,\,\dots,\,x_n:A_n}{P}}{\emptyset,\emptyset}
+        \labelir{proc\_foo}
+        \recurse{P}{\emptyset[x_1 \mapsto \readmode,\,\dots,\,x_n \mapsto \readmode],\,n(\emptyset, P)}
+    \end{compilation}
+    \caption{Compilation of a process definition}
+    \label{fig:ProcessDefCompilation}
+\end{figure}
+
+To call a process from another process, code is generated which initializes an environment of size $\#n(\emptyset, P)$, where $P$ is the process definition being called, as seen in Figure \ref{fig:ProcessCallCompilation}. The passed arguments are bound to the corresponding session record indices in the new environment, and additionally, a flip is inserted for argument $x_i$ if it's type $A_i$ is a reading type and $x_i$ is in $\writemode$ mode in $\varepsilon$.
+
+\begin{figure}[H]
+    \centering
+    \begin{compilation}{\proccallc{foo}{x_1,\,\dots,\,x_n}}{\varepsilon,\eta}
+        \flip{\eta(x_1)} \note \text{only included if $x_1$ is in $\writemode$ mode in $\varepsilon$ and $A_1$ is a reading type}
+        \beginir\dots
+        \flip{\eta(x_n)} \note \text{only included if $x_n$ is in $\writemode$ mode in $\varepsilon$ and $A_n$ is a reading type}
+        \initenv{n(\emptyset, P)}{\{0 \mapsto \eta(x_1),\,\dots,\, n-1 \mapsto \eta(x_n)\}}
+        \jump{\texttt{proc\_foo}}
+    \end{compilation}
+    \caption{Compilation of a process call}
+    \label{fig:ProcessCallCompilation}
+\end{figure}
+
 % This section describes in detail the architecture of our CLASS compiler, including the different phases of the compilation process and the data structures kept by the compiler.
 
 % Our CLASS compiler is built on top of the existing SAM and CLASS interpreter codebase. We reuse the existing lexer, parser and type checker code, and extend it with a new code generation phase. Finally, the GNU C code outputted by the code generation phase is compiled using GCC to produce the final executable.
