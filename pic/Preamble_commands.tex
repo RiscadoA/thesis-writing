@@ -225,6 +225,9 @@
 % For some reason I needed this to silence a font size warning
 \usepackage{anyfontsize}
 
+% These are useful!
+\newcommand{\todo}[1]{\textcolor{red}{\textbf{#1}}}
+
 % Some notation commands
 \newcommand{\sizeof}[1]{\phi\bigl(#1\bigr)}
 \newcommand{\dual}[1]{\overline{#1}}
@@ -280,21 +283,23 @@
 
   % IR
   \newcommand{\beginir}{\\&\hspace{2.5em}}
-  \newcommand{\mkzeroargir}[2]{\newcommand{##1}{\beginir\textbf{##2}();}}
-  \newcommand{\mkoneargir}[2]{\newcommand{##1}[1]{\beginir\textbf{##2}(####1);}}
-  \newcommand{\mktwoargir}[2]{\newcommand{##1}[2]{\beginir\textbf{##2}(####1, ####2);}}
-  \newcommand{\mkthreeargir}[2]{\newcommand{##1}[3]{\beginir\textbf{##2}(####1, ####2, ####3);}}
+  \newcommand{\mkzeroargir}[2]{\newcommand{##1}{\beginir\texttt{##2}();}}
+  \newcommand{\mkoneargir}[2]{\newcommand{##1}[1]{\beginir\texttt{##2}(####1);}}
+  \newcommand{\mktwoargir}[2]{\newcommand{##1}[2]{\beginir\texttt{##2}(####1, ####2);}}
+  \newcommand{\mkthreeargir}[2]{\newcommand{##1}[3]{\beginir\texttt{##2}(####1, ####2, ####3);}}
   \newcommand{\labelir}[1]{\\&\hspace{1.25em}\texttt{##1:}}
   \newcommand{\note}{\quad\%\ }
 
   \mkoneargir{\newtask}{newTask}
   \mkzeroargir{\nexttask}{nextTask}
-  \mktwoargir{\initenv}{initEnv}
   \mkthreeargir{\initsession}{initSession}
   \mkoneargir{\freesession}{freeSession}
-  \mkoneargir{\jump}{jump}
+  \mkthreeargir{\call}{call}
   \mkoneargir{\flip}{flip}
-  \mktwoargir{\fwd}{fwd}
+  \mktwoargir{\fwdww}{fwdWW}
+  \mktwoargir{\fwdwr}{fwdWR}
+  \mktwoargir{\fwdrw}{fwdRW}
+  \mktwoargir{\fwdrr}{fwdRR}
   \mkoneargir{\pushclose}{pushClose}
   \mkoneargir{\popclose}{popClose}
   \mktwoargir{\pushtag}{pushTag}
