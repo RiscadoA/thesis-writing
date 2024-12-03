@@ -7,31 +7,38 @@
 
 %% Saved with string encoding Unicode (UTF-8) 
 
-
-@inproceedings{McDonagh:2011dp,
-  author    = {McDonagh, P. and Vallati, C. and Pande, A. and Mohapatra, P. and Perry, P. and Mingozzi, E.},
-  booktitle = {Wireless Personal Multimedia Communications (WPMC), 2011 14th International Symposium on},
-  issn      = {1347-6890},
-  month     = {Oct},
-  pages     = {1-5},
-  title     = {Investigation of scalable video delivery using H.264 SVC on an LTE network},
-  year      = {2011}
+@inproceedings{Caires:2024,
+  author = {Caires, Lu\'{\i}s and Toninho, Bernardo},
+  title = {The Session Abstract Machine},
+  year = {2024},
+  isbn = {978-3-031-57261-6},
+  publisher = {Springer-Verlag},
+  address = {Berlin, Heidelberg},
+  url = {https://doi.org/10.1007/978-3-031-57262-3_9},
+  doi = {10.1007/978-3-031-57262-3_9},
+  abstract = {We build on a fine-grained analysis of session-based interaction as provided by the linear logic typing disciplines to introduce the SAM, an abstract machine for mechanically executing session-typed processes. A remarkable feature of the SAM’s design is its ability to naturally segregate and coordinate sequential with concurrent session behaviours. In particular, implicitly sequential parts of session programs may be efficiently executed by deterministic sequential application of SAM transitions, amenable to compilation, and without concurrent synchronisation mechanisms. We provide an intuitive discussion of the SAM structure and its underlying design, and state and prove its correctness for executing programs in a session calculus corresponding to full classical linear logic CLL. We also discuss extensions and applications of the SAM to the execution of linear and session-based programming languages.},
+  booktitle = {Programming Languages and Systems: 33rd European Symposium on Programming, ESOP 2024, Held as Part of the European Joint Conferences on Theory and Practice of Software, ETAPS 2024, Luxembourg City, Luxembourg, April 6–11, 2024, Proceedings, Part I},
+  pages = {206–235},
+  numpages = {30},
+  keywords = {Abstract machine, Session Types, Linear Logic},
+  location = {Luxembourg City, Luxembourg}
 }
 
-
-@inproceedings{Feller:2011ys,
-  author    = {Feller, C. and Wuenschmann, J. and Roll, T. and Rothermel, A.},
-  booktitle = {Consumer Electronics - Berlin (ICCE-Berlin), 2011 IEEE International Conference on},
-  doi       = {10.1109/ICCE-Berlin.2011.6031852},
-  pages     = {57-61},
-  title     = {{The VP8 video codec - overview and comparison to H.264/AVC}},
-  year      = {2011}
-}
-
- @inproceedings{Goodfellow:2014,
-  author    = {Goodfellow, Ian J. and Pouget-Abadie, Jean and Mirza, Mehdi and Xu, Bing and Warde-Farley, David and Ozair, Sherjil and Courville, Aaron and Bengio, Yoshua},
-  booktitle = {Proceedings of the 27th International Conference on Neural Information Processing Systems - Volume 2},
-  pages     = {2672–2680},
-  title     = {Generative Adversarial Nets},
-  year      = {2014}
+@article{Rocha:2021,
+  author = {Rocha, Pedro and Caires, Lu\'{\i}s},
+  title = {Propositions-as-types and shared state},
+  year = {2021},
+  issue_date = {August 2021},
+  publisher = {Association for Computing Machinery},
+  address = {New York, NY, USA},
+  volume = {5},
+  number = {ICFP},
+  url = {https://doi.org/10.1145/3473584},
+  doi = {10.1145/3473584},
+  abstract = {We develop a principled integration of shared mutable state into a proposition-as-types linear logic interpretation of a session-based concurrent programming language. While the foundation of type systems for the functional core of programming languages often builds on the proposition-as-types correspondence, automatically ensuring strong safety and liveness properties, imperative features have mostly been handled by extra-logical constructions. Our system crucially builds on the integration of nondeterminism and sharing, inspired by logical rules of differential linear logic, and ensures session fidelity, progress, confluence and normalisation, while being able to handle first-class shareable reference cells storing any persistent object. We also show how preservation and, perhaps surprisingly, progress, resiliently survive in a natural extension of our language with first-class locks. We illustrate the expressiveness of our language with examples highlighting detailed features, up to simple shareable concurrent ADTs.},
+  journal = {Proc. ACM Program. Lang.},
+  month = aug,
+  articleno = {79},
+  numpages = {30},
+  keywords = {Shared State, Session Types, Propositions-as-Types}
 }
