@@ -718,7 +718,7 @@ In $P$, $y$ is set to $\writemode$ mode, as the flow should only jump to the oth
     \centering
     \begin{compilation}{\recvc{x}{y}{P}}{\varepsilon,\eta}
         \popsession{\eta(x)}{\eta(y)}
-        \recurse{P}{\varepsilon[y \mapsto \writemode],\eta}
+        \recurse{P}{\varepsilon[x \mapsto \readmode, y \mapsto \writemode],\eta}
     \end{compilation}
     \caption{Compilation of a receive process}
     \label{fig:ReceiveCompilation}
