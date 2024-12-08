@@ -543,17 +543,21 @@ Notice that the right-hand side of $\bangp$ isn't considered when computing $\et
 
 \subsubsection{Compilation and Flips}
 
-The compilation of a CLASS process $P$ to the IR on a given environment $(\varepsilon,\eta)$ is represented by $\compiled{P}_{\varepsilon,\eta}$. Additionally, we define the concept of an action $\mathcal{A}$, as a process which performs some operation on a session's buffer. Actions are typically processes of the form $\alpha; P$. We denote the subject $s(\mathcal{A})$ of an action $\mathcal{A}$ as the leftmost name occurrence in $\mathcal{A}$. For example, $s(\waitc{x}{P}) = x$.
+The compilation of a CLASS process $P$ to the IR on a given environment $\varepsilon$ is represented by $\compiled{P}_\varepsilon$. We define the concept of an action $\mathcal{A}$, as a process which performs some operation on a session's buffer.
 
-Additionally, we divide actions into two categories: writing actions and reading actions. The former write to the session buffer, and the latter read from it. They are denoted as $\mathcal{A}_w$ and $\mathcal{A}_r$, respectively.
+Actions are typically processes of the form $\alpha; P$, with the exception of the $\closep$ action, which has no continuation $P$. We denote the subject $s(\mathcal{A})$ of an action $\mathcal{A}$ as the leftmost name occurrence in $\mathcal{A}$. For example, $s(\waitc{x}{P}) = x$.
 
-Whenever a reading action $\mathcal{A}_r$ is compiled with subject $x$ and environment $(\varepsilon[x \mapsto \writemode], \eta)$, a flip is generated to switch the session record $\eta(x)$ to read mode, as seen in Figure \ref{fig:ReadActionCompilation}.
+The remainder $r(\tau)$ of a type $\tau$ is defined as the type which is left after executing the next possible action on a session of type $\tau$. For example, $r(\sendt{A}{B}) = B$. The remainder is not defined for types $\closet{}$ and $\waitt{}$.
+
+Whenever an action $\mathcal{A}$ with subject $s$ of type $\tau$ is compiled, if $\tau$ is a positive type and $r(\tau)$ is a negative type, a flip is generated, as seen in Figure \ref{fig:ReadActionCompilation}.
+
+% TODO: figure out notation for inserting a flip after the command but before the continuation
 
 \begin{figure}[H]
     \centering
-    \begin{compilation}{\mathcal{A}_r}{\varepsilon[s(\mathcal{A}_r) \mapsto \writemode],\eta}
-        \flip{\eta(s(\mathcal{A}_r))}
-        \recurse{\mathcal{A}_r}{\varepsilon[s(\mathcal{A}_r) \mapsto \readmode],\eta}
+    \begin{compilation}{\mathcal{A}}{\varepsilon}
+        \flip{\varepsilon(s(\mathcal{A}))}
+        \recurse{P(\mathcal{A})}{\varepsilon}
     \end{compilation}
     \caption{Compilation of a reading action}
     \label{fig:ReadActionCompilation}
