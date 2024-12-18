@@ -108,6 +108,8 @@ Finally, the exponential connectives allow weakening and contracting of contexts
 % Interesting explanation on the answer here, maybe I should write something similar:
 % https://math.stackexchange.com/questions/1834022/what-is-the-intuition-behind-the-negative-exponential-in-linear-logic
 
+\todo{I think it would be important to at least explain the mix and cut rules here}
+
 \subsection{Process Calculus}
 
 Process calculi are formal languages for modeling concurrent systems, where processes interact by sending and receiving messages. One of the most well-known process calculus is CCS (Calculus of Communicating Systems) \cite{Milner:1980}, which introduced the notion of parallel composition, restriction and communication.
@@ -159,7 +161,7 @@ $$
     \cutc{P}{x: A}{Q}
 $$
 
-which composes two processes $P$ and $Q$ that run concurrently and communicate through a session $x$, where the endpoint $x$ in $Q$ obeys type $A$, and the endpoint $x$ in $P$ obeys type $\dual{A}$. This composition corresponds to the cut rule of linear logic. It restricts interactions between $P$ and $Q$ to the session $x$, which is essential to achieve desirable metatheoretical properties such as deadlock freedom.
+which composes two processes $P$ and $Q$ that run concurrently and communicate through a session $x$, where the endpoint $x$ in $Q$ obeys type $A$, and the endpoint $x$ in $P$ obeys type $\dual{A}$. This composition corresponds to the cut rule of linear logic, i.e., no session other than $x$ appears simultaneously in both $P$ and $Q$. It thus restricts interactions between $P$ and $Q$ to the session $x$, which is essential to achieve desirable metatheoretical properties such as deadlock freedom.
 
 One other way of composing processes is through the $\parp$ construct, which allows for parallel composition of processes. The process
 
@@ -167,7 +169,7 @@ $$
     \parc{P}{Q}
 $$
 
-runs $P$ and $Q$ concurrently, without any communication between them. This composition corresponds to the mix rule of linear logic. Additionally, there's the $\fwdp$ construct, which allows forwarding messages between sessions, acting as a bridge between two sessions. For example
+runs $P$ and $Q$ concurrently, without any communication between them. This composition corresponds to the mix rule of linear logic, i.e., no session appears simultaneously in both $P$ and $Q$. Additionally, there's the $\fwdp$ construct, which allows forwarding messages between sessions, acting as a bridge between two sessions. For example
 
 $$
     \fwdc{x}{y}
