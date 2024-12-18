@@ -229,43 +229,87 @@ Types are formed from type variables, units ($\mathbf{1}$ and $\bot$), multiplic
 We now define typing contexts: a typing context is a finite partial assignment from names to types, denoted by
 
 $$
-\underbrace{x_1 : A_1,\,\dots,\,x_n : A_n}_\Delta\ ;\ 
-\underbrace{y_1 : B_1,\,\dots,\,y_m : B_m}_\Gamma
+    \underbrace{x_1 : A_1,\,\dots,\,x_n : A_n}_\Delta\ ;\
+    \underbrace{y_1 : B_1,\,\dots,\,y_m : B_m}_\Gamma
 $$
 
 where $\Delta$ represents the linear part of the context and $\Gamma$ the unrestricted (exponential) part. The empty context is written as $\emptyset$. We write the disjoint union of two contexts as $\Delta_1, \Delta_2$ (separated by a comma).
 
 \todo{Should I show some typing judgments here? Maybe for cut, par and some other action?}
 
-% A CLASS program is a collection of type definitions and process definitions. Each profess definition receives any number of channels as argument, and each channel is associated with a session type. In Figure \ref{fig:CLASSBasicProc}, we present a simple process which receives a channel \texttt{x} and immediately closes it.
+\subsection{Syntax of CLASS}
 
-% \begin{figure}[H]
-%     \centering
-%     \begin{lstlisting}[language=CLASS]
-% proc foo(x: close) {
-%     close x
-% }
-%     \end{lstlisting}
-%     \caption{Process which receives a channel \texttt{x} and immediately closes it}
-%     \label{fig:CLASSBasicProc}
-% \end{figure}
+The syntax of CLASS we'll be using on this thesis differs slightly from $\mu$CLL. The types of CLASS follow the correspondence to $\mu$CLL presented in Table \ref{tab:CLASSTypes}, and are defined by the following BNF grammar:
 
-% In Figure \ref{fig:CLASSBasicProc}, we present a simple process which introduces a new session \texttt{x} with the $\cutp$ construct. A $\cutp$ is represented as $\cutc{P}{x: A}{Q}$. The session $x$ is bound to a channel in $P$ with type $\dual{A}$, and bound to a channel in $Q$ with type $A$, such that both channels are the two ends of the same session. In this example, $P = \waitc{x}{\emptyp}$.
+\begin{align*}
+    A, B ::=\  & X \text{ (type variable)}                 &  & |\ \sim X \text{ (dual type variable)}        \\
+    |\         & \closet                                   &  & |\ \waitt                                     \\
+    |\         & \offert{\labelt{inl}{A}\ \labelt{inr}{B}} &  & |\ \choicet{\labelt{inl}{A}\ \labelt{inr}{B}} \\
+    |\         & \sendt{A}{B}                              &  & |\ \recvt{A}{B}                               \\
+    |\         & \bangt{A}                                 &  & |\ \whynott{A}                                \\
+    |\         & \sendtyt{X}{A}                            &  & |\ \recvtyt{X}{A}
+\end{align*}
 
-% \begin{figure}[H]
-%     \centering
-%     \begin{lstlisting}[language=CLASS]
-% proc simple_cut() {
-%     cut {
-%         wait x;
-%         ()
-%         |x: close|
-%         foo(x)
-%     }
-% }
-%     \end{lstlisting}
-%     \caption{Process which invokes \texttt{foo} with a new channel \texttt{x}}
-%     \label{fig:CLASSBasicProc}
-% \end{figure}
+\begin{table}
+    \centering
+    \caption{Mapping $\mu$CLL types to CLASS types}
+    \label{tab:CLASSTypes}
+    \begin{tabular}{ll}
+        \toprule
+        $\mu$CLL Type & CLASS Type                                  \\
+        \midrule
+        $\mathbf{1}$  & $\closet$                                   \\
+        $\bot$        & $\waitt$                                    \\
+        $A \with B$   & $\offert{\labelt{inl}{A}\ \labelt{inr}{B}}$ \\
+        $A \oplus B$  & $\choicet{\labelt{inl}{A} \labelt{inr}{B}}$ \\
+        $A \otimes B$ & $\sendt{A}{B}$                              \\
+        $A \parr B$   & $\recvt{A}{B}$                              \\
+        $\oc A$       & $\bangt{A}$                                 \\
+        $\wn A$       & $\whynott{A}$                               \\
+        $\exists X.A$ & $\sendtyt{X}{A}$                            \\
+        $\forall X.A$ & $\recvtyt{X}{A}$                            \\
+        $\mu X.A$     & --                                          \\
+        $\nu X.A$     & --                                          \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+Note that recursive types are defined indirectly, through the \texttt{rec} keyword in definitions, as will be shown below. A CLASS program is composed of a collection of type definitions and process definitions, with the following BNF grammar:
+
+\begin{align*}
+    \text{Program} ::=\  & \text{ProcDef}\ \text{Program} &  & |\ \text{ProcDef} \\
+    |\                   & \text{TypeDef}\ \text{Program} &  & |\ \text{TypeDef}
+\end{align*}
+
+A type definition associates a name $X$ to a session type $A$, and can either be a simple type definition, or a recursive type definition. Optionally, type definitions may also receive type variables as parameters, which are bound in $A$. The BNF grammar for type definitions is as follows:
+
+\begin{align*}
+    \text{TypeDef} ::=\  & \typedefc{X}{A}                     &  & |\ \rectypedefc{X}{A}                     \\
+    |\                   & \typedefgc{X}{X_1,\,\dots,\,X_n}{A} &  & |\ \rectypedefgc{X}{X_1,\,\dots,\,X_n}{A} \\
+\end{align*}
+
+A process definition associates a name $\texttt{proc\_id}$ to a process $P$, which receives a list of channels $x_1,\,\ldots,\,x_n$ to be bound in $P$, with types $A_1, \ldots, A_n$, respectively. The BNF grammar for process definitions is as follows:
+
+\begin{align*}
+    \text{ProcDef} ::=\  & \procdefc{proc\_id}{x_1: A_1,\ \dots,\ x_n: A_n}{P}                        \\
+    |\                   & \procdefgc{proc\_id}{X_1,\ \dots,\ X_n}{x_1: A_1,\ \dots,\ x_n: A_n}{P}    \\
+    |\                   & \recprocdefc{proc\_id}{x_1: A_1,\ \dots,\ x_n: A_n}{P}                     \\
+    |\                   & \recprocdefgc{proc\_id}{X_1,\ \dots,\ X_n}{x_1: A_1,\ \dots,\ x_n: A_n}{P}
+\end{align*}
+
+Finally, processes in CLASS are defined by the following BNF grammar, where $x$ and $y$ are session endpoints:
+
+\begin{align*}
+    P, Q ::=\  & \cutc{P}{x: A}{Q}                                          &  & |\ \parc{P}{Q}       \\
+    |\         & \fwdc{x}{y}                                                &  & |\ \emptyc           \\
+    |\         & \closec{x}                                                 &  & |\ \waitc{x}{P}      \\
+    |\         & \casec{x}{\labelc{c$_1$}{P_1}\ \dots\ \labelc{c$_n$}{P_n}} &  & |\ \choosec{c}{x}{P} \\
+    |\         & \sendc{x}{y}{P}{Q}                                         &  & |\ \recvc{x}{y}{Q}   \\
+    |\         & \bangc{x}{y}{P}                                            &  & |\ \whynotc{x}{P}    \\
+    |\         & \sendtyc{x}{B}{P}                                          &  & |\ \recvtyc{x}{X}{P} \\
+    |\         & \unfoldmuc{x}{P}                                           &  & |\ \unfoldnuc{x}{P}
+\end{align*}
+
+These have a direct correspondence to the process composition constructs in $\mu$CLL and the actions shown in Table \ref{tab:muCLLActions}. Note that in CLASS the sum/choice type is expanded to allow for an arbitrary number of choices, as opposed to $\mu$CLL, where the sum type is binary. This simplifies the syntax of the language, and all arbitrary sized sums can be trivially encoded as binary sums.
 
 \subsection{Linear Session Abstract Machine}

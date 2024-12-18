@@ -255,6 +255,8 @@
 \newcommand{\recvt}[2]{\textbf{recv}\,#1;#2}
 \newcommand{\bangt}[1]{!#1}
 \newcommand{\whynott}[1]{?#1}
+\newcommand{\sendtyt}[2]{\textbf{sendty}\,#1;#2}
+\newcommand{\recvtyt}[2]{\textbf{recvty}\,#1;#2}
 
 % Process names
 \newcommand{\classp}[1]{\textbf{\textcolor{purple}{#1}}}
@@ -296,7 +298,14 @@
 \newcommand{\unfoldmuc}[2]{\unfoldmup\,#1;#2}
 \newcommand{\unfoldnuc}[2]{\unfoldnup\,#1;#2}
 \newcommand{\corecc}[4]{\corecp\,#1(#2);\,#3\ [#4]}
-\newcommand{\procdefc}[3]{\classp{proc}\ \texttt{#1}(#2)\,\{#3\}}
+\newcommand{\typedefc}[2]{\classp{type}\ \texttt{#1}\,\{#2\};;}
+\newcommand{\rectypedefc}[2]{\classp{rec}\ \typedefc{#1}{#2}}
+\newcommand{\typedefgc}[3]{\classp{type}\ \texttt{#1}(#2)\,\{#3\};;}
+\newcommand{\rectypedefgc}[3]{\classp{rec}\ \typedefgc{#1}{#2}{#3}}
+\newcommand{\procdefc}[3]{\classp{proc}\ \texttt{#1}(#2)\,\{#3\};;}
+\newcommand{\procdefgc}[4]{\classp{proc}\ \texttt{#1}<#2>(#3)\,\{#4\};;}
+\newcommand{\recprocdefc}[3]{\classp{rec}\ \procdefc{#1}{#2}{#3}}
+\newcommand{\recprocdefgc}[4]{\classp{rec}\ \procdefgc{#1}{#2}{#3}{#4}}
 \newcommand{\proccallc}[2]{\texttt{#1}(#2)}
 
 % Session modes
