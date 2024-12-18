@@ -1,37 +1,269 @@
 
-\section{Background} 
+\section{Background}
 
-\subsection{CLL}
+In this section, we introduce the theoretical foundations of linear logic and session types, and then present the programming language CLASS \cite{Rocha:2021} and the abstract machine SAM \cite{Caires:2024}, on which this work is based.
+
+\subsection{Linear Logic}
+
+Introduced by Girard \cite{Girard:1987} in the 80's, linear logic is a logic where propositions are consumed exactly once, as opposed to classical logic where propositions can be used any number of times. This property makes linear a logic ideal for modeling resources on real-world systems, and more importantly for this work, for modeling concurrent systems.
+
+\todo{Should I introduce classical linear logic notation BNF here?}
+
+\todo{All of this should have better citations:}
+
+Connectives of classic linear logic are divided into three groups: multiplicative, additive and exponential. Multiplicative connectives are $\otimes$ (tensor), $\parr$ (par), $1$ and $\bot$. Additive connectives are $\with$ (with), $\oplus$ (plus), $\top$ and $0$. Exponential connectives are $\oc$ (of course) and $\wn$ (why not).
+
+Additionally, each connective has a dual connective (or involution), represented by $\dual{A}$, which is defined as follows:
+
+\begin{align*}
+    \dual{A \otimes B} & \equiv \dual{A} \parr \dual{B}   \\
+    \dual{A \parr B}   & \equiv \dual{A} \otimes \dual{B} \\
+    \dual{A \with B}   & \equiv \dual{A} \oplus \dual{B}  \\
+    \dual{A \oplus B}  & \equiv \dual{A} \with \dual{B}   \\
+    \dual{1}           & \equiv \bot                      \\
+    \dual{\bot}        & \equiv 1                         \\
+    \dual{\oc A}       & \equiv \wn \dual{A}              \\
+    \dual{\wn A}       & \equiv \oc \dual{A}
+\end{align*}
+
+Multiplicative conjunction $\otimes$ is the tensor product of two propositions and it is equivalent to the logical conjunction in classical logic. Multiplicative disjunction $\parr$ is the par product of two propositions and it is equivalent to the logical disjunction in classical logic. The unit of $\otimes$ is $1$ and the unit of $\parr$ is $\bot$.
+
+\begin{figure}[H]
+    \begin{minipage}{0.45\textwidth}
+        \begin{prooftree}
+            \AxiomC{$\vdash \Gamma, A$}
+            \AxiomC{$\vdash \Delta, B$}
+            \BinaryInfC{$\vdash \Gamma, \Delta, A \otimes B$}
+        \end{prooftree}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.45\textwidth}
+        \begin{prooftree}
+            \AxiomC{$\vdash \Gamma, A, B$}
+            \UnaryInfC{$\vdash \Gamma, A \parr B$}
+        \end{prooftree}
+    \end{minipage}
+\end{figure}
+
+Additive conjunction $\with$ is the with product of two propositions, and additive disjunction $\oplus$ is the plus product of two propositions. The unit of $\with$ is $\top$ and the unit of $\oplus$ is $0$. Once again, $\with$ and $\oplus$ are equivalent to the logical conjunction and disjunction in classical logic, respectively. They differ from $\otimes$ and $\parr$ in that the context in the multiplicative connectives is split in two, while in the additive connectives the context in the premises is the same as the context in the conclusion.
+
+\begin{figure}[H]
+    \begin{minipage}{0.3\textwidth}
+        \begin{prooftree}
+            \AxiomC{$\vdash \Gamma, A$}
+            \AxiomC{$\vdash \Gamma, B$}
+            \BinaryInfC{$\vdash \Gamma, A \with B$}
+        \end{prooftree}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.3\textwidth}
+        \begin{prooftree}
+            \AxiomC{$\vdash \Gamma, A$}
+            \UnaryInfC{$\vdash \Gamma, A \oplus B$}
+        \end{prooftree}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.3\textwidth}
+        \begin{prooftree}
+            \AxiomC{$\vdash \Gamma, B$}
+            \UnaryInfC{$\vdash \Gamma, A \oplus B$}
+        \end{prooftree}
+    \end{minipage}
+\end{figure}
+
+Finally, the exponential connectives allow weakening and contracting of contexts in a controlled manner.
+
+\begin{figure}[H]
+    \begin{minipage}{0.225\textwidth}
+        \begin{prooftree}
+            \AxiomC{$\vdash \Gamma$}
+            \UnaryInfC{$\vdash \Gamma, \wn A$}
+        \end{prooftree}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.225\textwidth}
+        \begin{prooftree}
+            \AxiomC{$\vdash \Gamma, \wn A, \wn A$}
+            \UnaryInfC{$\vdash \Gamma, \wn A$}
+        \end{prooftree}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.225\textwidth}
+        \begin{prooftree}
+            \AxiomC{$\vdash \Gamma, A$}
+            \UnaryInfC{$\vdash \Gamma, \wn A$}
+        \end{prooftree}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.225\textwidth}
+        \begin{prooftree}
+            \AxiomC{$\vdash \wn \Gamma, A$}
+            \UnaryInfC{$\vdash \wn \Gamma, \oc A$}
+        \end{prooftree}
+    \end{minipage}
+\end{figure}
+
+
+\todo{I don't really understand the exponential rules...}
+% Interesting explanation on the answer here, maybe I should write something similar:
+% https://math.stackexchange.com/questions/1834022/what-is-the-intuition-behind-the-negative-exponential-in-linear-logic
+
+\subsection{Process Calculus}
+
+Process calculi are formal languages for modeling concurrent systems, where processes interact by sending and receiving messages. One of the most well-known process calculus is CCS (Calculus of Communicating Systems) \cite{Milner:1980}, which introduced the notion of parallel composition, restriction and communication.
+
+
+In the 90's, Milner et al \cite{Milner:1992:1,Milner:1992:2} introduced $\pi$-calculus, a process calculus that allows for mobility of processes - channels, through which processes communicate, can themselves be sent and received.
+
+\todo{Is it worth it to explain the constructs of $\pi$-calculus here? What more should I add?}
+
+\subsection{Session Types}
+
+Session types, first introduced by Honda \cite{Honda:1993}, and expanded upon by Honda et al. \cite{Honda:1998}, are a type discipline for communication-based programming that ensures that the communication between two parties is well-typed. Essentially, session types are a type discipline for process calculi, where operations on channels must follow the protocol defined by the session type.
+
+Operations on session types include sending and receiving, branching and selection and recursion. Session types have been used to model and verify communication protocols, enforcing their correctness. They have been implemented in various programming languages \todo{cite examples}.
+
+More recently, session types have been extended to linear session types \cite{Caires:2010}. \todo{explain relevancy}
+
+\subsection{CLASS}
+
+CLASS (Classic Linear Logic with Affine Shared State) is a core session-typed language with shared affine state \cite{Rocha:2021}. In CLASS, well-typed programs are guaranteed to never deadlock on communication or reference cell acquisition, and to not leak any memory. Additionally, programs always terminate, while still allowing for higher-order polymorphic functional code and even recursion.
+
+\subsubsection{\texorpdfstring{$\mu$}{mu}CLL}
+
+In this section, we present the basic constructs of CLASS. We start by the pure fragment of the language, dubbed $\mu$CLL. As the name suggests, $\mu$CLL is related, via a propositions-as-types correspondence \cite{Caires:2016} \todo{(cite more stuff)}, to second-order classical linear logic, extended with mix and inductive/coinductive types.
+
+As usual in session-typed based programming languages \todo{(cite stuff)}, in $\mu$CLL processes communicate through sessions $x, y, z, \ldots$. Each session has two endpoints, and each endpoint is associated with a session type, which describes the communication protocol that the two endpoints must follow. We write $x: A$ to denote that the session endpoint $x$ obeys type $A$. These types describe the direction, order and content of the messages exchanged. For example
+
+$$
+    x : \dual{\text{Nat}} \otimes \text{Bool} \otimes \mathbf{1}
+$$
+
+describes a session $x$ that must first receive a natural number, then send a boolean, and finally close, after which no more messages can be exchanged. The dual connective $\dual{A}$ is used to represent the dual of a type $A$, and is used to describe the type of the other endpoint of the session. The dual of the type before, for example, is
+
+$$
+    x : \text{Nat} \parr \dual{\text{Bool}} \parr \bot
+$$
+
+which describes a session $x$ that must first send a natural number, then receive a boolean, and finally wait for the other endpoint to close.
+
+Additionally, session types can be seen as dynamic entities which evolve as the communication progresses. For example, after sending a natural number, the session type of the endpoint $x$ in the previous example would become
+
+$$
+    x : \dual{\text{Bool}} \parr \bot
+$$
+
+The most fundamental process composition operation in $\mu$CLL is the $\cutp$ operator
+
+$$
+    \cutc{P}{x: A}{Q}
+$$
+
+which composes two processes $P$ and $Q$ that run concurrently and communicate through a session $x$, where the endpoint $x$ in $Q$ obeys type $A$, and the endpoint $x$ in $P$ obeys type $\dual{A}$. This composition corresponds to the cut rule of linear logic. It restricts interactions between $P$ and $Q$ to the session $x$, which is essential to achieve desirable metatheoretical properties such as deadlock freedom.
+
+One other way of composing processes is through the $\parp$ construct, which allows for parallel composition of processes. The process
+
+$$
+    \parc{P}{Q}
+$$
+
+runs $P$ and $Q$ concurrently, without any communication between them. This composition corresponds to the mix rule of linear logic. Additionally, there's the $\fwdp$ construct, which allows forwarding messages between sessions, acting as a bridge between two sessions. For example
+
+$$
+    \fwdc{x}{y}
+$$
+
+redirects messages sent to $x$ to $y$, and vice-versa, where $x$ and $y$ are session endpoints with dual types.
+
+Table \ref{tab:muCLLActions} presents the actions that can be performed on session types in $\mu$CLL.
+
+\begin{table}
+    \centering
+    \caption{Actions and their respective types and descriptions in $\mu$CLL}
+    \label{tab:muCLLActions}
+    \begin{tabular}{lll}
+        \toprule
+        Type          & Action                                            & Description                                           \\
+        \midrule
+        $\mathbf{1}$  & $\closec{x}$                                      & Close $x$                                             \\
+        $\bot$        & $\waitc{x}{P}$                                    & Wait for $x$ to close, then run $P$                   \\
+        $A \with B$   & $\casec{x}{\labelc{inl}{P_1}\ \labelc{inr}{P_2}}$ & Receive a choice $c$ through $x$, then run $P_c$      \\
+        $A \oplus B$  & $\choosec{c}{x}{P}$                               & Send choice $c$ through $x$, then run $P$             \\
+        $A \otimes B$ & $\sendc{x}{y}{P}{Q}$                              & Send $y$ through $x$, then run $Q$                    \\
+        $A \parr B$   & $\recvc{x}{y}{Q}$                                 & Receive $y$ through $x$, then run $Q$                 \\
+        $\oc A$       & $\bangc{x}{y}{P}$                                 & Replicate a session $y$ interacted with by $P$ on $x$ \\
+        $\wn A$       & $\whynotc{x}{P}$                                  & Make $x$ unrestricted, then run $P$                   \\
+                      & $\callc{x}{y}{P}$                                 & Invokes $x$ with argument $y$ and runs $P$            \\
+        $\exists X.A$ & $\sendtyc{x}{B}{P}$                               & Send a type $B$ through $x$, then run $P$             \\
+        $\forall X.A$ & $\recvtyc{x}{X}{P}$                               & Receive a type $X$ through $x$, then run $P$          \\
+        $\mu X.A$     & $\unfoldmuc{x}{P}$                                & Unfold $x$, then run $P$                              \\
+        $\nu X.A$     & $\unfoldnuc{x}{P}$                                & Unfold $x$, then run $P$                              \\
+                      & $\corecc{X}{z, \vec{w}}{P}{x, \vec{y}}$           & Corecursive definition with body $P$                  \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsubsection{Type System}
+
+The types of $\mu$CLL are defined by the following BNF grammar:
+
+\begin{align*}
+    A, B ::=\  & X \text{ (type variable)}    &  & |\ \dual{X} \text{ (dual type variable)} \\
+    |\         & \mathbf{1} \text{ (one)}     &  & |\ \bot \text{ (bottom)}                 \\
+    |\         & A \otimes B \text{ (tensor)} &  & |\ A \parr B \text{ (par)}               \\
+    |\         & A \with B \text{ (with)}     &  & |\ A \oplus B \text{ (plus)}             \\
+    |\         & \oc A \text{ (of course)}    &  & |\ \wn A \text{ (why not)}               \\
+    |\         & \exists X.A \text{ (exists)} &  & |\ \forall X.A \text{ (forall)}          \\
+    |\         & \mu X.A \text{ (mu)}         &  & |\ \nu X.A \text{ (nu)}
+\end{align*}
+
+Types are formed from type variables, units ($\mathbf{1}$ and $\bot$), multiplicatives ($\otimes$ and $\parr$), additives ($\with$ and $\oplus$), exponentials ($\oc$ and $\wn$), existential and universal second-order type quantifiers ($\exists$ and $\forall$), and inductive types ($\mu$ and $\nu$). Types $\exists X.A$, $\forall X.A$, $\mu X.A$ and $\nu X.A$ all bind type variables $X$ in their bodies $A$. Additionally, types are equipped with a duality operator $\dual{A}$ corresponding to linear logic negation and which captures the symmetry behavior in interaction. The duality operator is defined as follows:
+
+\begin{align*}
+    \dual{\mathbf{1}} \equiv \bot    &  & \dual{A \otimes B} \equiv \dual{A} \parr \dual{B} &  & \dual{A \oplus B} \equiv \dual{A} \with \dual{B} \\
+    \dual{\oc A} \equiv \wn \dual{A} &  & \dual{\exists X.A} \equiv \forall X.\dual{A}      &  & \dual{\mu X.A} \equiv \nu X.\dual{A}
+\end{align*}
+
+We now define typing contexts: a typing context is a finite partial assignment from names to types, denoted by
+
+$$
+\underbrace{x_1 : A_1,\,\dots,\,x_n : A_n}_\Delta\ ;\ 
+\underbrace{y_1 : B_1,\,\dots,\,y_m : B_m}_\Gamma
+$$
+
+where $\Delta$ represents the linear part of the context and $\Gamma$ the unrestricted (exponential) part. The empty context is written as $\emptyset$. We write the disjoint union of two contexts as $\Delta_1, \Delta_2$ (separated by a comma).
+
+\todo{Should I show some typing judgments here? Maybe for cut, par and some other action?}
+
+% A CLASS program is a collection of type definitions and process definitions. Each profess definition receives any number of channels as argument, and each channel is associated with a session type. In Figure \ref{fig:CLASSBasicProc}, we present a simple process which receives a channel \texttt{x} and immediately closes it.
+
+% \begin{figure}[H]
+%     \centering
+%     \begin{lstlisting}[language=CLASS]
+% proc foo(x: close) {
+%     close x
+% }
+%     \end{lstlisting}
+%     \caption{Process which receives a channel \texttt{x} and immediately closes it}
+%     \label{fig:CLASSBasicProc}
+% \end{figure}
+
+% In Figure \ref{fig:CLASSBasicProc}, we present a simple process which introduces a new session \texttt{x} with the $\cutp$ construct. A $\cutp$ is represented as $\cutc{P}{x: A}{Q}$. The session $x$ is bound to a channel in $P$ with type $\dual{A}$, and bound to a channel in $Q$ with type $A$, such that both channels are the two ends of the same session. In this example, $P = \waitc{x}{\emptyp}$.
+
+% \begin{figure}[H]
+%     \centering
+%     \begin{lstlisting}[language=CLASS]
+% proc simple_cut() {
+%     cut {
+%         wait x;
+%         ()
+%         |x: close|
+%         foo(x)
+%     }
+% }
+%     \end{lstlisting}
+%     \caption{Process which invokes \texttt{foo} with a new channel \texttt{x}}
+%     \label{fig:CLASSBasicProc}
+% \end{figure}
 
 \subsection{Linear Session Abstract Machine}
-
-% \subsection{Subsection 1}
-% \lipsum[10]
-% \begin{enumerate}
-%     \item Point 1
-%     \item Point 2
-%     \item Point 3
-% \end{enumerate}
-% \lipsum[1]
-
-% Consider Table~\ref{tab:example} below.
-% %% For tables, see:
-% % - https://jdhao.github.io/2019/08/27/latex_table_with_booktabs/
-% % - https://people.inf.ethz.ch/markusp/teaching/guides/guide-tables.pdf
-% \begin{table}
-%     \centering
-%     \caption{Description}
-%     \label{tab:example}
-%     \begin{tabular}{@{}lllll@{}}
-%         \toprule
-%         \multirow{2}{*}[-1em]{Models} & \multicolumn{3}{c}{Metric 1} & Metric 2\\
-%         \addlinespace[10pt]
-%         \cmidrule(lr){2-4} \cmidrule(lr){5-5} \\
-%         {} & precision & recall & F-score  & R@10 \\
-%         \midrule
-%         model 1 & 0.67  & 0.8 & 0.729  & 0.75 \\
-%         model 2 & 0.8 & 0.9 & 0.847 & 0.85 \\
-%         \bottomrule
-%     \end{tabular}
-% \end{table}
-

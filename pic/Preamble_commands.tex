@@ -225,13 +225,25 @@
 % For some reason I needed this to silence a font size warning
 \usepackage{anyfontsize}
 
+% Symbols for linear logic
+\usepackage{cmll}
+
+% For proof trees
+\usepackage{bussproofs}
+
 % These are useful!
 \newcommand{\todo}[1]{\textcolor{red}{\textbf{#1}}}
+
+% Useful for CLASS snippets
+\lstdefinelanguage{CLASS}{
+  morekeywords={proc, cut, close, wait, case, of, send, recv, choice, offer, !, ?},
+  sensitive=true,
+}
 
 % Some notation commands
 \newcommand{\sizeof}[1]{\phi\bigl(#1\bigr)}
 \newcommand{\dual}[1]{\overline{#1}}
-\newcommand{\compiled}[1]{[[#1]]}
+\newcommand{\compiled}[1]{\lBrack#1\rBrack}
 
 % Type names
 \newcommand{\closet}{\textbf{close}}
@@ -245,31 +257,46 @@
 \newcommand{\whynott}[1]{?#1}
 
 % Process names
-\newcommand{\emptyp}{\textbf{()}}
-\newcommand{\fwdp}{\textbf{fwd}}
-\newcommand{\cutp}{\textbf{cut}}
-\newcommand{\parp}{\textbf{par}}
-\newcommand{\closep}{\textbf{close}}
-\newcommand{\waitp}{\textbf{wait}}
-\newcommand{\casep}{\textbf{case of}}
-\newcommand{\sendp}{\textbf{send}}
-\newcommand{\recvp}{\textbf{recv}}
-\newcommand{\bangp}{\textbf{!}}
+\newcommand{\classp}[1]{\textbf{\textcolor{purple}{#1}}}
+\newcommand{\emptyp}{\classp{()}}
+\newcommand{\fwdp}{\classp{fwd}}
+\newcommand{\cutp}{\classp{cut}}
+\newcommand{\parp}{\classp{par}}
+\newcommand{\closep}{\classp{close}}
+\newcommand{\waitp}{\classp{wait}}
+\newcommand{\casep}{\classp{case of}}
+\newcommand{\sendp}{\classp{send}}
+\newcommand{\recvp}{\classp{recv}}
+\newcommand{\bangp}{\classp{!}}
+\newcommand{\whynotp}{\classp{?}}
+\newcommand{\callp}{\classp{call}}
+\newcommand{\sendtyp}{\classp{sendty}}
+\newcommand{\recvtyp}{\classp{recvty}}
+\newcommand{\unfoldmup}{\classp{unfold$_\mu$}}
+\newcommand{\unfoldnup}{\classp{unfold$_\nu$}}
+\newcommand{\corecp}{\classp{corec}}
 
 % CLASS
-\newcommand{\fwdc}[2]{\fwdp\,#1;#2}
-\newcommand{\cutc}[3]{\cutp\,\{#1\,|#2|\,#3\}}
-\newcommand{\parc}[2]{\parp\,\{#1\,||\,#2\}}
+\newcommand{\fwdc}[2]{\fwdp\,#1\,#2}
+\newcommand{\cutc}[3]{\cutp\,\{#1\,\classp{|}#2\classp{|}\,#3\}}
+\newcommand{\parc}[2]{\parp\,\{#1\,\classp{||}\,#2\}}
 \newcommand{\emptyc}{\emptyp}
 \newcommand{\closec}[1]{\closep\,#1}
 \newcommand{\waitc}[2]{\waitp\,#1;#2}
 \newcommand{\choosec}[3]{\##1\ #2;#3}
-\newcommand{\casec}[2]{\textbf{case}\,#1\,\textbf{of}\,\{#2\}}
-\newcommand{\labelc}[2]{|\##1:#2}
+\newcommand{\casec}[2]{\classp{case}\,#1\,\classp{of}\,\{#2\}}
+\newcommand{\labelc}[2]{\classp{|\##1}:#2}
 \newcommand{\sendc}[4]{\sendp\,#1(#2.\,#3);#4}
 \newcommand{\recvc}[3]{\recvp\,#1(#2);#3}
 \newcommand{\bangc}[3]{\bangp\,#1(#2);#3}
-\newcommand{\procdefc}[3]{\textbf{proc}\ \texttt{#1}(#2)\,\{#3\}}
+\newcommand{\whynotc}[2]{\whynotp\,#1;#2}
+\newcommand{\callc}[3]{\callp\,#1(#2);#3}
+\newcommand{\sendtyc}[3]{\sendtyp\,#1\,#2;#3}
+\newcommand{\recvtyc}[3]{\recvtyp\,#1\,#2;#3}
+\newcommand{\unfoldmuc}[2]{\unfoldmup\,#1;#2}
+\newcommand{\unfoldnuc}[2]{\unfoldnup\,#1;#2}
+\newcommand{\corecc}[4]{\corecp\,#1(#2);\,#3\ [#4]}
+\newcommand{\procdefc}[3]{\classp{proc}\ \texttt{#1}(#2)\,\{#3\}}
 \newcommand{\proccallc}[2]{\texttt{#1}(#2)}
 
 % Session modes
