@@ -231,6 +231,9 @@
 % For proof trees
 \usepackage{bussproofs}
 
+% For multiply counters, which I use for indentation in class environments
+\usepackage{calc}
+
 % These are useful!
 \newcommand{\todo}[1]{\textcolor{red}{\textbf{#1}}}
 
@@ -246,20 +249,22 @@
 \newcommand{\compiled}[1]{\lBrack#1\rBrack}
 
 % Type names
-\newcommand{\closet}{\textbf{close}}
-\newcommand{\waitt}{\textbf{wait}}
-\newcommand{\choicet}[1]{\textbf{choice of}\,\{#1\}}
-\newcommand{\offert}[1]{\textbf{offer of}\,\{#1\}}
-\newcommand{\labelt}[2]{|\##1:#2}
-\newcommand{\sendt}[2]{\textbf{send}\,#1;#2}
-\newcommand{\recvt}[2]{\textbf{recv}\,#1;#2}
-\newcommand{\bangt}[1]{!#1}
-\newcommand{\whynott}[1]{?#1}
-\newcommand{\sendtyt}[2]{\textbf{sendty}\,#1;#2}
-\newcommand{\recvtyt}[2]{\textbf{recvty}\,#1;#2}
+\newcommand{\classt}[1]{\textbf{\textcolor{forestgreen}{#1}}}
+\newcommand{\closet}{\classt{close}}
+\newcommand{\waitt}{\classt{wait}}
+\newcommand{\choicet}[1]{\classt{choice of}\,\{#1\}}
+\newcommand{\offert}[1]{\classt{offer of}\,\{#1\}}
+\newcommand{\labelt}[2]{\classt{|\##1}:#2}
+\newcommand{\sendt}[2]{\classt{send}\,#1;#2}
+\newcommand{\recvt}[2]{\classt{recv}\,#1;#2}
+\newcommand{\bangt}[1]{\classt{!}#1}
+\newcommand{\whynott}[1]{\classt{?}#1}
+\newcommand{\sendtyt}[2]{\classt{sendty}\,#1;#2}
+\newcommand{\recvtyt}[2]{\classt{recvty}\,#1;#2}
+\newcommand{\dualt}[1]{\classt{$\sim$}#1}
 
 % Process names
-\newcommand{\classp}[1]{\textbf{\textcolor{purple}{#1}}}
+\newcommand{\classp}[1]{\textbf{\textcolor{darkblue}{#1}}}
 \newcommand{\emptyp}{\classp{()}}
 \newcommand{\fwdp}{\classp{fwd}}
 \newcommand{\cutp}{\classp{cut}}
@@ -267,6 +272,7 @@
 \newcommand{\closep}{\classp{close}}
 \newcommand{\waitp}{\classp{wait}}
 \newcommand{\casep}{\classp{case of}}
+\newcommand{\labelp}[1]{\classp{\##1}}
 \newcommand{\sendp}{\classp{send}}
 \newcommand{\recvp}{\classp{recv}}
 \newcommand{\bangp}{\classp{!}}
@@ -284,33 +290,97 @@
 \newcommand{\parc}[2]{\parp\,\{#1\,\classp{||}\,#2\}}
 \newcommand{\emptyc}{\emptyp}
 \newcommand{\closec}[1]{\closep\,#1}
-\newcommand{\waitc}[2]{\waitp\,#1;#2}
-\newcommand{\choosec}[3]{\##1\ #2;#3}
+\newcommand{\waitc}[1]{\waitp\,#1;}
+\newcommand{\choosec}[2]{\classp{\##1}\ #2;}
 \newcommand{\casec}[2]{\classp{case}\,#1\,\classp{of}\,\{#2\}}
-\newcommand{\labelc}[2]{\classp{|\##1}:#2}
-\newcommand{\sendc}[4]{\sendp\,#1(#2.\,#3);#4}
-\newcommand{\recvc}[3]{\recvp\,#1(#2);#3}
-\newcommand{\bangc}[3]{\bangp\,#1(#2);#3}
-\newcommand{\whynotc}[2]{\whynotp\,#1;#2}
-\newcommand{\callc}[3]{\callp\,#1(#2);#3}
-\newcommand{\sendtyc}[3]{\sendtyp\,#1\,#2;#3}
-\newcommand{\recvtyc}[3]{\recvtyp\,#1\,#2;#3}
-\newcommand{\unfoldmuc}[2]{\unfoldmup\,#1;#2}
-\newcommand{\unfoldnuc}[2]{\unfoldnup\,#1;#2}
+\newcommand{\labelc}[2]{\classp{|}\labelp{#1}:#2}
+\newcommand{\sendc}[3]{\sendp\,#1(#2.\,#3);}
+\newcommand{\recvc}[2]{\recvp\,#1(#2);}
+\newcommand{\bangc}[2]{\bangp\,#1(#2);}
+\newcommand{\whynotc}[1]{\whynotp\,#1;}
+\newcommand{\callc}[2]{\callp\,#1(#2);}
+\newcommand{\sendtyc}[2]{\sendtyp\,#1\,#2;}
+\newcommand{\recvtyc}[2]{\recvtyp\,#1\,#2;}
+\newcommand{\unfoldmuc}[1]{\unfoldmup\,#1;}
+\newcommand{\unfoldnuc}[1]{\unfoldnup\,#1;}
 \newcommand{\corecc}[4]{\corecp\,#1(#2);\,#3\ [#4]}
-\newcommand{\typedefc}[2]{\classp{type}\ \texttt{#1}\,\{#2\};;}
+\newcommand{\typedefc}[2]{\classp{type}\ #1\,\{#2\};;}
 \newcommand{\rectypedefc}[2]{\classp{rec}\ \typedefc{#1}{#2}}
-\newcommand{\typedefgc}[3]{\classp{type}\ \texttt{#1}(#2)\,\{#3\};;}
+\newcommand{\typedefgc}[3]{\classp{type}\ #1(#2)\,\{#3\};;}
 \newcommand{\rectypedefgc}[3]{\classp{rec}\ \typedefgc{#1}{#2}{#3}}
 \newcommand{\procdefc}[3]{\classp{proc}\ \texttt{#1}(#2)\,\{#3\};;}
-\newcommand{\procdefgc}[4]{\classp{proc}\ \texttt{#1}<#2>(#3)\,\{#4\};;}
+\newcommand{\procdefgc}[4]{\classp{proc}\ \texttt{#1}\langle#2\rangle(#3)\,\{#4\};;}
 \newcommand{\recprocdefc}[3]{\classp{rec}\ \procdefc{#1}{#2}{#3}}
 \newcommand{\recprocdefgc}[4]{\classp{rec}\ \procdefgc{#1}{#2}{#3}{#4}}
 \newcommand{\proccallc}[2]{\texttt{#1}(#2)}
+\newcommand{\proccallgc}[3]{\texttt{#1}\langle#2\rangle(#3)}
+\newcommand{\printc}[1]{\texttt{print("#1")};}
+\newcommand{\printlnc}[1]{\texttt{println("#1")};}
 
 % Session modes
 \newcommand{\writemode}{\texttt{write}}
 \newcommand{\readmode}{\texttt{read}}
+
+% Indented CLASS environment
+\newcounter{indentlevel}
+\newlength{\indentstep}
+\newenvironment{class}
+{
+  \begingroup
+
+  \setcounter{indentlevel}{0}
+
+  \setlength{\indentstep}{1.5em}
+
+  \newcommand{\iz}{\addtocounter{indentlevel}{1}}
+  \newcommand{\dz}{\addtocounter{indentlevel}{-1}}
+  \newcommand{\pz}{\hspace*{\the\indentstep*\value{indentlevel}}}
+  \newcommand{\z}{\\&\pz}
+
+  % CLASS
+  \let\cuti\cutc
+  \renewcommand{\cutc}[3]{\cuti{\iz\z##1\z}{##2}{\z##3\dz\z}}
+  \let\pari\parc
+  \renewcommand{\parc}[2]{\pari{\iz\z##1\z}{\z##2\dz\z}}
+  \let\waiti\waitc
+  \renewcommand{\waitc}[1]{\waiti{##1}\z}
+  \let\sendi\sendc
+  \renewcommand{\sendc}[3]{\sendi{##1}{##2}{##3}\z}
+  \let\recvi\recvc
+  \renewcommand{\recvc}[2]{\recvi{##1}{##2}\z}
+  \let\choosei\choosec
+  \renewcommand{\choosec}[2]{\choosei{##1}{##2}\z}
+  \let\casei\casec
+  \renewcommand{\casec}[2]{\casei{##1}{##2\z}}
+  \let\labeli\labelc
+  \renewcommand{\labelc}[2]{\iz\z\labeli{##1}{##2}\dz}
+  \let\unfoldmui\unfoldmuc
+  \renewcommand{\unfoldmuc}[1]{\unfoldmui{##1}\z}
+  \let\unfoldnui\unfoldnuc
+  \renewcommand{\unfoldnuc}[1]{\unfoldnui{##1}\z}
+  \let\procdefi\procdefc
+  \renewcommand{\procdefc}[3]{\procdefi{##1}{##2}{\iz\z##3\dz\z}}
+  \let\procdefgi\procdefgc
+  \renewcommand{\procdefgc}[4]{\procdefgi{##1}{##2}{##3}{\iz\z##4\dz\z}}
+  \let\typedefi\typedefc
+  \renewcommand{\typedefc}[2]{\typedefi{##1}{\iz\z##2\dz\z}}
+  \let\typedefgi\typedefgc
+  \renewcommand{\typedefgc}[3]{\typedefgi{##1}{##2}{\iz\z##3\dz\z}}
+  \let\printi\printc
+  \renewcommand{\printc}[1]{\printi{##1}\z}
+  \let\printlni\printlnc
+  \renewcommand{\printlnc}[1]{\printlni{##1}\z}
+
+  $$
+    \begin{aligned}
+       & \pz
+      }
+      {
+    \end{aligned}
+  $$
+
+  \endgroup
+}
 
 % Compilation environment 
 \newenvironment{compilation}[2]

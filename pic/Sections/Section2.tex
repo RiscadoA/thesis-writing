@@ -237,7 +237,7 @@ where $\Delta$ represents the linear part of the context and $\Gamma$ the unrest
 
 \todo{Should I show some typing judgments here? Maybe for cut, par and some other action?}
 
-\subsection{Syntax of CLASS}
+\subsubsection{Syntax of CLASS}
 
 The syntax of CLASS we'll be using on this thesis differs slightly from $\mu$CLL. The types of CLASS follow the correspondence to $\mu$CLL presented in Table \ref{tab:CLASSTypes}, and are defined by the following BNF grammar:
 
@@ -249,6 +249,8 @@ The syntax of CLASS we'll be using on this thesis differs slightly from $\mu$CLL
     |\         & \bangt{A}                                 &  & |\ \whynott{A}                                \\
     |\         & \sendtyt{X}{A}                            &  & |\ \recvtyt{X}{A}
 \end{align*}
+
+\todo{Add shared state types here}
 
 \begin{table}
     \centering
@@ -300,16 +302,227 @@ A process definition associates a name $\texttt{proc\_id}$ to a process $P$, whi
 Finally, processes in CLASS are defined by the following BNF grammar, where $x$ and $y$ are session endpoints:
 
 \begin{align*}
-    P, Q ::=\  & \cutc{P}{x: A}{Q}                                          &  & |\ \parc{P}{Q}       \\
-    |\         & \fwdc{x}{y}                                                &  & |\ \emptyc           \\
-    |\         & \closec{x}                                                 &  & |\ \waitc{x}{P}      \\
-    |\         & \casec{x}{\labelc{c$_1$}{P_1}\ \dots\ \labelc{c$_n$}{P_n}} &  & |\ \choosec{c}{x}{P} \\
-    |\         & \sendc{x}{y}{P}{Q}                                         &  & |\ \recvc{x}{y}{Q}   \\
-    |\         & \bangc{x}{y}{P}                                            &  & |\ \whynotc{x}{P}    \\
-    |\         & \sendtyc{x}{B}{P}                                          &  & |\ \recvtyc{x}{X}{P} \\
-    |\         & \unfoldmuc{x}{P}                                           &  & |\ \unfoldnuc{x}{P}
+    P, Q ::=\  & \cutc{P}{x: A}{Q}                                          &  & |\ \parc{P}{Q}                                                 \\
+    |\         & \fwdc{x}{y}                                                &  & |\ \emptyc                                                     \\
+    |\         & \closec{x}                                                 &  & |\ \waitc{x}{P}                                                \\
+    |\         & \casec{x}{\labelc{c$_1$}{P_1}\ \dots\ \labelc{c$_n$}{P_n}} &  & |\ \choosec{c}{x}{P}                                           \\
+    |\         & \sendc{x}{y}{P}{Q}                                         &  & |\ \recvc{x}{y}{Q}                                             \\
+    |\         & \bangc{x}{y}{P}                                            &  & |\ \whynotc{x}{P}                                              \\
+    |\         & \sendtyc{x}{B}{P}                                          &  & |\ \recvtyc{x}{X}{P}                                           \\
+    |\         & \unfoldmuc{x}{P}                                           &  & |\ \unfoldnuc{x}{P}                                            \\
+    |\         & \proccallc{proc\_id}{x_1,\,\dots\,,x_n}                    &  & |\ \proccallgc{proc\_id}{X_1,\,\dots,\,X_n}{x_1,\,\dots,\,x_m} \\
+    |\         & \printc{some\_string}{P}                                   &  & |\ \printlnc{some\_string}{P}
 \end{align*}
 
-These have a direct correspondence to the process composition constructs in $\mu$CLL and the actions shown in Table \ref{tab:muCLLActions}. Note that in CLASS the sum/choice type is expanded to allow for an arbitrary number of choices, as opposed to $\mu$CLL, where the sum type is binary. This simplifies the syntax of the language, and all arbitrary sized sums can be trivially encoded as binary sums.
+\todo{Add shared state constructs here}
+
+These have a direct correspondence to the process composition constructs in $\mu$CLL and the actions shown in Table \ref{tab:muCLLActions}. Note that in CLASS the sum/choice type is expanded to allow for an arbitrary number of choices, as opposed to $\mu$CLL, where the sum type is binary. This simplifies the syntax of the language, and all arbitrary sized sums can be trivially encoded as binary sums. Additionally, we have the process definition call construct, similar to a function call in an imperative language, which allows for reducing code duplication, and the print constructs.
+
+\subsubsection{Example Programs}
+
+We now present some example programs in CLASS, starting with a simple program which does nothing but close a session (Figure \ref{fig:CLASSWaitCloseExample}). The \texttt{main} process definition never has any channel or type arguments. In this program, a session $x$ is initialized through a $\cutp$. Its type annotation $x: \closet$ indicates that on the right-hand side of the $\cutp$ the only action that can (and must) be performed is $\closep$. On the left-hand side, the dual is true - that is, the actions on $x$ must match the dual type of $\closet$, which is $\waitt$. The $\waitp$ action has a continuation, which in this case is set to $\emptyc$ (empty), indicating that the process has terminated.
+
+\begin{figure}[H]
+    \centering
+    \begin{class}
+        \procdefc{main}{}{
+            \cutc{
+                \waiti{x}\emptyc
+            }{x: \closet}{
+                \closec{x}
+            }
+        }
+    \end{class}
+    \caption{Wait and Close CLASS Example}
+    \label{fig:CLASSWaitCloseExample}
+\end{figure}
+
+In Figure \ref{fig:CLASSSendAndReceiveExample} we present a program that sends a session $y$ of type $\waitt$ through a session $x$, which then continues with type $\waitt$. The sent session $y$ has one of its end points defined by the closure $\waitc{y}{\emptyc}$, and the other end point is received by $x$, which then closes it.
+
+On the right-hand side of the cut, session $y$ is received and bound to $z$. The type system forces both $x$ and $z$ to be closed, and since $\closep$ has no continuation, we must use the $\parp$ construct to close both sessions.
+
+\begin{figure}[H]
+    \centering
+    \begin{class}
+        \procdefc{main}{}{
+            \cutc{
+                \sendc{x}{y}{\waiti{y}\emptyc}
+                \waiti{x}\emptyc
+            }{x: \recvt{\closet}{\closet}}{
+                \recvc{x}{z}
+                {\pari{\closec{x}}{\closec{z}}}
+            }
+        }
+    \end{class}
+    \caption{Send and Receive CLASS Example}
+    \label{fig:CLASSSendAndReceiveExample}
+\end{figure}
+
+In Figure \ref{fig:CLASSChoiceExample} we present a program with a cut where the left-hand side offers a choice between two actions, and the right-hand side chooses one of them. The right-hand side chooses the $\classp{\#inl}$ label, and thus must then follow the contract specified by the type $\waitt$. If the right-hand side had chosen the $\classp{\#inr}$ label, the type would be $\closet$.
+
+\begin{figure}[H]
+    \centering
+    \begin{class}
+        \procdefc{main}{}{
+            \cutc{
+                \casec{x}{
+                    \labelc{inl}{\closec{x}}
+                    \labelc{inr}{\waiti{x}\emptyc}
+                }
+            }{x: \choicet{\labelt{inl}{\waitt}\ \labelt{inr}{\closet}}}{
+                \choosec{inl}{x}{\waiti{x}\emptyc}
+            }
+        }
+    \end{class}
+    \caption{Choice CLASS Example}
+    \label{fig:CLASSChoiceExample}
+\end{figure}
+
+The forward construct $\fwdp$ is used to link two sessions together, making them behave as if they were the same session. In Figure \ref{fig:CLASSForwardExample} we present a program similar to the one in Figure \ref{fig:CLASSWaitCloseExample}, where instead of directly closing the session $x$ on the right-hand side, we initialize a new session $y$ with a new cut, and forward all messages sent to $x$ to $y$.
+
+\begin{figure}[H]
+    \centering
+    \begin{class}
+        \procdefc{main}{}{
+            \cutc{
+                \waiti{x}\emptyc
+            }{x: \closet}{
+                \cutc{
+                    \fwdc{x}{y}
+                }{y: \closet}{
+                    \closec{y}
+                }
+            }
+        }
+    \end{class}
+    \caption{Forwarding CLASS Example}
+    \label{fig:CLASSForwardExample}
+\end{figure}
+
+Figure \ref{fig:CLASSProcDefExample} presents a program equivalent to the one in Figure \ref{fig:CLASSWaitCloseExample}, but which calls a process definition $\texttt{foo}$ instead of directly closing the session $x$.
+
+\begin{figure}[H]
+    \centering
+    \begin{class}
+        \procdefc{foo}{x: \closet}{
+            \closec{x}
+        }\z\z
+        \procdefc{main}{}{
+            \cutc{
+                \waiti{x}\emptyc
+            }{x: \closet}{
+                \proccallc{foo}{x}
+            }
+        }
+    \end{class}
+    \caption{Process Definition Call CLASS Example}
+    \label{fig:CLASSProcDefExample}
+\end{figure}
+
+When writing complex programs in CLASS, we use type definitions to simplify the code. In Figure \ref{fig:CLASSBoolExample}, a type $Bool$ is defined which is equivalent to a choice of two labels, each option leading to $\waitt$. Then, this definition can be used in the type annotations of the processes. The \texttt{printBool} process definition receives a session $x$ of type $\dualt{Bool}$, i.e., receives a choice of one of two labels, and prints the choice made.
+
+The main process definition \texttt{main} initializes a session $x$ of type $Bool$ with the choice $\labelp{false}$, and calls the \texttt{printBool} process definition with it. Running this program will print \texttt{false}.
+
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \begin{class}
+            \typedefc{Bool}{\choicet{\iz\z
+                    \labelt{false}{\waitt}\z
+                    \labelt{true}{\waitt}\dz\z
+                }}
+            \z\z
+            \procdefc{printBool}{x: \dualt{Bool}}{
+                \casec{x}{
+                    \labelc{false}{\printlni{false}\closec{x}}
+                    \labelc{true}{\printlni{true}\closec{x}}
+                }
+            }
+        \end{class}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.45\textwidth}
+        \begin{class}
+            \procdefc{main}{}{
+                \cutc{
+                    \proccallc{printBool}{x}
+                }{x: Bool}{
+                    \choosec{false}{x}
+                    \waiti{x}\emptyc
+                }
+            }
+        \end{class}
+    \end{minipage}
+    \caption{Definition and Use of a Boolean Type in CLASS}
+    \label{fig:CLASSBoolExample}
+\end{figure}
+
+CLASS supports defining inductive types and processes. Figure \ref{fig:CLASSNatExample} presents a inductive definition of natural numbers in CLASS, and a recursive process that prints a natural number. The unfold actions $\unfoldmuc{x}$ and $\unfoldnuc{x}$ are used to unfold the inductive type $Nat$, i.e., transform $Nat$ into $\choicet{\labelt{zero}{\waitt}\ \labelt{succ}{Nat}}$. Unfold actions are added implicitly, but they are explicit in the example for clarity. This example prints \texttt{S S 0}, representing the number $2$.
+
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \begin{class}
+            \rectypedefc{Nat}{\choicet{\iz\z
+                    \labelt{zero}{\waitt}\z
+                    \labelt{succ}{Nat}\dz\z
+                }}
+            \z\z
+            \recprocdefc{printNat}{x: \dualt{Nat}}{
+                \unfoldnuc{x}
+                \casec{x}{
+                    \labelc{zero}{\printlni{0}\closec{x}}
+                    \labelc{true}{\printi{S}\proccallc{printNat}{x}}
+                }
+            }
+        \end{class}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.45\textwidth}
+        \begin{class}
+            \procdefc{main}{}{
+                \cutc{
+                    \proccallc{printNat}{x}
+                }{x: Nat}{
+                    \unfoldmui{x}\choosec{succ}{x}
+                    \unfoldmui{x}\choosec{succ}{x}
+                    \unfoldmui{x}\choosec{zero}{x}
+                    \waiti{x}\emptyc
+                }
+            }
+        \end{class}
+    \end{minipage}
+    \caption{Inductive Natural Number Definition in CLASS}
+    \label{fig:CLASSNatExample}
+\end{figure}
+
+The last example we present, in Figure \ref{fig:CLASSPolymorphismExample}, is a simple demonstration of polymorphism in CLASS. The type definition \texttt{List} is a polymorphic type that receives a type variable $X$, and is defined as a choice between two labels, one for the empty list and another for a list with a head of type $X$ and a tail of type $List\ X$. The inductive process definition \texttt{concatList} operates on lists of a generic type $X$: it receives two lists $x$ and $y$ of type $List\ X$, and concatenates them into a new list $z$ of type $List\ X$. Unfolds have been omitted for brevity, but they are implicit in the example.
+
+The concatenation is done by matching on the first list $x$. If it is $\labelp{nil}$, then the list $y$ is forwarded into $z$ without modification. If it is $\labelp{cons}$, then we extract the head $a$ from $x$, and insert it into $z$, by choosing the $\labelp{cons}$ label on $z$ and sending $a$ to $z$. Finally, the process calls itself recursively with the same type $X$, the tail of $x$, the same list $y$, and the new list $z$.
+
+\begin{figure}[H]
+    \centering
+    \begin{class}
+        \rectypedefgc{List}{X}{\choicet{\iz\z
+                \labelt{nil}{\waitt}\z
+                \labelt{cons}{\sendt{X}{List}}\dz\z
+            }}
+        \z\z
+        \recprocdefgc{concatList}{X}{x: \dualt{List(X)}, y: \dualt{List(X)}, z: List(X)}{
+            \casec{x}{
+                \labelc{nil}{\fwdc{y}{z}}
+                \labelc{cons}{\iz\z
+                    \recvc{x}{a}
+                    \choosec{cons}{z}
+                    \sendc{z}{b}{\fwdc{a}{b}}
+                    \proccallgc{concatList}{X}{x, y, z}
+                    \dz
+                }
+            }
+        }
+    \end{class}
+    \caption{Polymorphic List Concatenation in CLASS}
+    \label{fig:CLASSPolymorphismExample}
+\end{figure}
 
 \subsection{Linear Session Abstract Machine}
