@@ -129,7 +129,7 @@ More recently, session types have been extended to linear session types \cite{Ca
 
 \subsection{CLASS}
 
-CLASS (Classic Linear Logic with Affine Shared State) is a core session-typed language with shared affine state \cite{Rocha:2021}. In CLASS, well-typed programs are guaranteed to never deadlock on communication or reference cell acquisition, and to not leak any memory. Additionally, programs always terminate, while still allowing for higher-order polymorphic functional code and even recursion.
+CLASS (Classic Linear Logic with Affine Shared State) is an experimental language for session-based programs \cite{Rocha:2022, Rocha:2021}. In CLASS, well-typed programs are guaranteed to never deadlock on communication or reference cell acquisition, and to not leak any memory. Additionally, programs always terminate, while still allowing for higher-order polymorphic functional code and even recursion.
 
 \subsubsection{\texorpdfstring{$\mu$}{mu}CLL}
 
@@ -358,7 +358,7 @@ On the right-hand side of the cut, session $y$ is received and bound to $z$. The
     \label{fig:CLASSSendAndReceiveExample}
 \end{figure}
 
-In Figure \ref{fig:CLASSChoiceExample} we present a program with a cut where the left-hand side offers a choice between two actions, and the right-hand side chooses one of them. The right-hand side chooses the $\classp{\#inl}$ label, and thus must then follow the contract specified by the type $\waitt$. If the right-hand side had chosen the $\classp{\#inr}$ label, the type would be $\closet$.
+In Figure \ref{fig:CLASSChoiceExample} we present a program with a cut where the left-hand side offers a choice between two actions, and the right-hand side chooses one of them. The right-hand side chooses the $\labelp{inl}$ label, and thus must then follow the contract specified by the type $\waitt$. If the right-hand side had chosen the $\labelp{inr}$ label, the type would be $\closet$.
 
 \begin{figure}[H]
     \centering
@@ -526,3 +526,150 @@ The concatenation is done by matching on the first list $x$. If it is $\labelp{n
 \end{figure}
 
 \subsection{Linear Session Abstract Machine}
+
+In this section, an overview of Linear Session Abstract Machine (Linear SAM) is given. The Linear SAM, introduced by Luís Caires and Bernardo Toninho in 2024, is a virtual machine for executing session processes typed by (classical) linear logic \cite{Caires:2024}. It provides an ``efficient deterministic execution model for the implicitly sequential
+session-typed program idioms'', and a proof-of-concept implementation of it was integrated as an alternative backend for CLASS \cite{Rocha:2022}.
+
+Its most important contribution to this thesis is its specification of formal operational semantics which allows us to sequentially execute CLASS programs, where communication between processes is buffered, in a deterministic manner, while respecting the session types.
+
+The core components of the SAM are session references $x, y$, values $V ::= \checkmark\ |\ \labelp{c}\ |\ \text{clos}(x, P)$, queues $q ::= \text{nil}\ |\ V\ |\ V@q$, session records $R ::= x\langle q,P\rangle y$ and the heap $H ::= x \mapsto R$, where $P$ is a process. Values $V$ can either be the close token $\checkmark$, a label $\#c$, or a closure $\text{clos}(x, P)$, where $x$ is a session reference and $P$ is a process. Queues $q$ are sequences of values, and session records $R$ are tuples of session references $x, y$, a queue $q$ and a process $P$. The heap $H$ maps session references to session records.
+
+\subsubsection{Reduction Rules}
+
+The Linear SAM is a state transition system, where the state is a tuple $(P, H)$, with the heap $H$ and a process $P$. The transition relation is defined by a set of rules, some of which are presented in this section.
+
+The $\cutp$ rule, shown in Figure \ref{fig:SAMCutRule}, inserts a new session record in the heap, associated to the session reference $x$, for executing the continuation $Q$ of the process $P$, assuming, without loss of generality, that $A$ is a positive type, i.e., that $P$ will push values into the session queue, and $Q$ will later pop them. Essentially, the rule transitions to a state where $P$ will be executed immediately, and where $Q$ is delayed to a later time. If $A$ is a negative type, we simply apply the rule but with $P$ and $Q$ swapped.
+
+\begin{figure}[H]
+    \centering
+    $$
+        (\cutc{P}{x: A^+}{Q}, H)
+        \Mapsto
+        (P, H[x: A^+\langle\text{nil},\{y/x\}Q\rangle y:\dual{A^+}])
+    $$
+    \caption{SAM Cut Reduction Rule}
+    \label{fig:SAMCutRule}
+\end{figure}
+
+The $\closep$ rule, shown in Figure \ref{fig:SAMCloseRule}, pushes the close token $\checkmark$ into the session queue, and then transitions to the continuation $P$ previously stored in the session record. $P$ will eventually pop the close token from the queue and free the session record. Note that the queue $q$ might not be empty - other positive actions might have preceded the close action and pushed values into the queue. The close token is appended to the end of the queue, and thus will be the last value to be popped.
+
+\begin{figure}[H]
+    \centering
+    $$
+        (\closec{x}, H[x:\closet\langle q, P\rangle y:B])
+        \Mapsto
+        (P,H[x:\emptyset\langle q@\checkmark, \emptyp\rangle y:B])
+    $$
+    \caption{SAM Close Reduction Rule}
+    \label{fig:SAMCloseRule}
+\end{figure}
+
+The $\waitp$ rule, shown in Figure \ref{fig:SAMWaitRule}, pops the close token $\checkmark$ from the session queue, frees the session record, and transitions to the continuation of the $\waitp$ action.
+
+\begin{figure}[H]
+    \centering
+    $$
+        (\waitc{y}P, H[x:\emptyset\langle\checkmark, \emptyp\rangle y:\waitt])
+        \Mapsto
+        (P,H)
+    $$
+    \caption{SAM Wait Reduction Rule}
+    \label{fig:SAMWaitRule}
+\end{figure}
+
+The choice rule, shown in Figure \ref{fig:SAMChoiceRule}, given an action $\choosec{c}{x}P$, pushes the label $\labelp{c}$ into the session queue and changes the process to $P$. Note that in this rule, we perform a write-to-read adjustment, denoted by $(P,H[x:A\langle q,Q\rangle y:B])^{wr}$. This operation swaps $P$ with $Q$, if and only if $A$ is a negative type. This operation ensures that the next action will be executed by the positive endpoint of the session. In this specific rule, we perform the write-to-read adjustment because the choice action is a positive action, which means we're pushing values for the other endpoint to pop later on. If the continuation process $P$ on this endpoint will next perform a read action on $x$, i.e., $A$ is negative, then, for that action to be executed, the other endpoint must first perform the corresponding write action.
+
+\begin{figure}[H]
+    \centering
+    $$
+        (\choosec{c}{x}P, H[x:\choicet{\labelt{c}{A},\ \dots}\langle q, Q\rangle y:B])
+        \Mapsto
+        (P,H[x:A\langle q@\labelp{c}, Q\rangle y:B])^{wr}
+    $$
+    \caption{SAM Choice Reduction Rule}
+    \label{fig:SAMChoiceRule}
+\end{figure}
+
+The offer rule, shown in Figure \ref{fig:SAMOfferRule}, performs the dual operation of the choice rule - it pops a label from the session queue, and transitions to the continuation of the $\casep$ action corresponding to the label. The rule performs a read-to-write adjustment, denoted by $[x:A\langle q, Q\rangle y:B]^{rw}$. This adjustment swaps the two endpoints of the session record, $x:A$ and $y:B$, if and only if $q$ is empty. Since processes are well-typed, then, if $q$ is empty, $P$ should have no more reads to perform. This adjustment then allows $P$ to start writing to the session.
+
+\begin{figure}[H]
+    \centering
+    $$
+        (\casec{x}{\labelc{c}{P_c},\dots}, H[x:A\langle \labelp{c}@q, Q\rangle y:\offert{\labelt{c}{B_c},\dots}])
+        \Mapsto
+        (P_c,H[x:A\langle q, Q\rangle y:B_c]^{rw})
+    $$
+    \caption{SAM Offer Reduction Rule}
+    \label{fig:SAMOfferRule}
+\end{figure}
+
+Finally, we show the $\fwdp$ rule in Figure \ref{fig:SAMForwardRule}, where we assume that, without loss of generality, $B^+$ is a positive type. The rule merges two session records, $(z:A\langle q_1, Q\rangle x:\dual{B^+})$ and $(y:B^+\langle q_2, Q\rangle w:C)$, into a single session record with continuation $P$ and queue $q_2@q_1$. If $B^+$ is a negative type, we swap $x$ and $y$ which gives us the equivalent process $\fwdc{y}{x}$.  Since $x$ is the read endpoint of the session and $y$ is the write endpoint, then $Q$ must have written through $z$ the contents of $q_1$. and the current process will have written through $y$ the contents of $q_2$. Thus, $P$ is waiting to read the contents of $q_2@q_1$.
+
+\begin{figure}[H]
+    \centering
+    $$
+        (\fwdc{x}{y}, H[z:A\langle q_1, Q\rangle x:\dual{B^+}][y:B^+\langle q_2, P\rangle w:C])
+        \Mapsto
+        (P,H[z:A\langle q_2@q_1, Q\rangle w:C])
+    $$
+    \caption{SAM Forward Reduction Rule}
+    \label{fig:SAMForwardRule}
+\end{figure}
+
+\subsubsection{Example Execution}
+
+In this section we present two simple examples of iteratively applying the reduction rules shown in the previous section, in order to execute processes. We omit the type annotations for brevity. Consider the process $P$ shown below:
+
+$$
+    P \equiv \cutc{\waitc{x}{\emptyc}}{x}{\closec{x}}
+$$
+
+The execution of $P$ is shown in Figure \ref{fig:SAMExampleExecutionP}. The initial state of the SAM is $(P, \emptyset)$. We first apply the $\cutp$ rule, which allocates a new session record in the heap, and transitions to $\closep$, as it corresponds to the positive type $\closet$. We apply the $\closep$ rule, which pushes the close token $\checkmark$ into the queue, and transitions to the session record continuation $\waitp$. Finally, we apply the $\waitp$ rule, which pops the close token $\checkmark$ from the queue, and transitions to the continuation $\emptyc$, reaching the final state $(\emptyc, \emptyset)$.
+
+\begin{figure}[H]
+    \begin{align*}
+        (P, \emptyset)
+         & \equiv
+        (\cutc{\waitc{x}{\emptyc}}{x}{\closec{x}}, \emptyset)       \\
+         & \Mapsto
+        (\closec{x}, x\langle nil, \waitc{y}\emptyc\rangle y)                \\
+         & \Mapsto (\waitc{y}\emptyc, x\langle \checkmark, \emptyp\rangle y) \\
+         & \Mapsto
+        (\emptyc, \emptyset)
+    \end{align*}
+    \caption{Example Execution of Process $P$}
+    \label{fig:SAMExampleExecutionP}
+\end{figure}
+
+The second example is the process $Q$ shown below:
+
+$$
+    Q \equiv
+    \cutc{
+        \choosec{inl}{x}
+        \waitc{x}\emptyc
+    }{x}{
+        \casec{x}{
+            \labelc{inl}{\closec{x}}
+            \labelc{inr}{\waitc{x}\emptyc}
+        }
+    }
+$$
+
+We show its execution in Figure \ref{fig:SAMExampleExecutionQ}. We first apply the $\cutp$ rule, which inserts a new session record in the heap. Then, we apply the choice rule, which pushes the label $\labelp{inl}$ into the queue of the session record, after which, we do a write-to-read adjustment, and transition to the continuation $\casep$. Then, we apply the $\casep$ reduction rule, which pops the label $\labelp{inl}$ from the queue, and transitions to the continuation matching the label. After that, this time we do a read-to-write adjustment, which means we swap the session endpoints. With the endpoints swapped, we can finally apply the $\closep$ and $\waitp$ rules as in the previous example and reach the final state $(\emptyc, \emptyset)$.
+
+\begin{figure}[H]
+    \begin{align*}
+        (Q, \emptyset)
+         & \Mapsto
+        (\choosec{inl}{x}\waitc{x}\emptyc, x\langle nil, \casec{y}{\labelc{inl}{\closec{y}}\labelc{inr}{\waitc{y}\emptyc}}\rangle y)          \\
+         & \Mapsto (\waitc{x}\emptyc, x\langle \labelp{inl}, \casec{y}{\labelc{inl}{\closec{y}}\labelc{inr}{\waitc{y}\emptyc}}\rangle y)^{wr} \\
+         & \equiv (\casec{y}{\labelc{inl}{\closec{y}}\labelc{inr}{\waitc{y}\emptyc}}, x\langle \labelp{inl}, \waitc{x}\emptyc\rangle y)       \\
+         & \Mapsto (\closec{y}, x\langle nil, \waitc{x}\emptyc\rangle y)^{rw}                                                                 \\
+         & \equiv (\closec{y}, y\langle nil, \waitc{x}\emptyc\rangle x)                                                                       \\
+         & \Mapsto (\waitc{x}\emptyc, x\langle \checkmark, \emptyp\rangle y)                                                                  \\
+         & \Mapsto (\emptyc, \emptyset)
+    \end{align*}
+    \caption{Example Execution of Process $Q$}
+    \label{fig:SAMExampleExecutionQ}
+\end{figure}
