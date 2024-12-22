@@ -160,9 +160,9 @@ In Figure \ref{fig:PiCalculusExample} we present a simple $\pi$-calculus example
 
 \subsection{Session Types}
 
-Session types, first introduced by Honda \cite{Honda:1993}, and expanded upon by Honda et al. \cite{Honda:1998}, are a type discipline for communication-based programming that ensures that the communication between two parties is well-typed. Essentially, session types are a type discipline for process calculi, where operations on channels must follow the protocol defined by the session type.
+Session types, first introduced by Honda \cite{Honda:1993}, and expanded upon by Honda et al. \cite{Honda:1998}, are a type discipline for communication-based programming that ensures that the communication between two parties is well-typed. Essentially, session types are a type discipline for process calculi, such as $\pi$-calculus, where operations on channels must follow the protocol defined by the session type. 
 
-Operations on session types include sending and receiving, branching and selection and recursion. Session types have been used to model and verify communication protocols, enforcing their correctness. They have been implemented in various programming languages \todo{cite examples}.
+Operations on session types include sending and receiving, branching and selection and recursion. Session types have been used to model and verify communication protocols, enforcing their correctness. They have been implemented in various programming languages, either as a language feature, such as in Scribble \cite{Yoshida:2014} and Effpi \cite{Scalas:2019}, or as a library, such as in Rust \cite{Jespersen:2015} and Haskell \cite{Pucella:2008}.
 
 More recently, session types have been extended to linear session types \cite{Caires:2010}. \todo{explain relevancy}
 
