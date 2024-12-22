@@ -1,7 +1,7 @@
 
 \section{Background}
 
-In this section, we introduce the theoretical foundations of linear logic and session types, and then present the programming language CLASS \cite{Rocha:2021} and the abstract machine SAM \cite{Caires:2024}, on which this work is based.
+In this section, the theoretical foundations of linear logic, process calculi and session types are introduced, and then the programming language CLASS \cite{Rocha:2021} and the abstract machine SAM \cite{Caires:2024}, on which this work was built on top of, are presented.
 
 \subsection{Linear Logic}
 
@@ -58,7 +58,7 @@ We also define the initial and cut rules, in Figure \ref{fig:LinearLogicInitialC
     \label{fig:LinearLogicInitialCutRules}
 \end{figure}
 
-Multiplicative conjunction $\otimes$ is the tensor product of two propositions and it is equivalent to the logical conjunction in classical logic. Multiplicative disjunction $\parr$ is the par product of two propositions and it is equivalent to the logical disjunction in classical logic. The unit of $\otimes$ is $1$ and the unit of $\parr$ is $\bot$.
+Multiplicative conjunction $\otimes$ is the tensor product of two propositions and it is equivalent to the logical conjunction in classical logic. Multiplicative disjunction $\parr$ is the par product of two propositions and it is equivalent to the logical disjunction in classical logic. The unit of $\otimes$ is $1$ and the unit of $\parr$ is $\bot$. The reduction rules for $\otimes$ and $\parr$ are presented in Figure \ref{fig:LinearLogicMultiplicativeRules}.
 
 \begin{figure}[H]
     \begin{minipage}{0.45\textwidth}
@@ -75,9 +75,11 @@ Multiplicative conjunction $\otimes$ is the tensor product of two propositions a
             \UnaryInfC{$\vdash \Gamma, A \parr B$}
         \end{prooftree}
     \end{minipage}
+    \caption{Linear Logic Multiplicative Rules}
+    \label{fig:LinearLogicMultiplicativeRules}
 \end{figure}
 
-Additive conjunction $\with$ is the with product of two propositions, and additive disjunction $\oplus$ is the plus product of two propositions. The unit of $\with$ is $\top$ and the unit of $\oplus$ is $0$. Once again, $\with$ and $\oplus$ are equivalent to the logical conjunction and disjunction in classical logic, respectively. They differ from $\otimes$ and $\parr$ in that the context in the multiplicative connectives is split in two, while in the additive connectives the context in the premises is the same as the context in the conclusion.
+Additive conjunction $\with$ and additive disjunction $\oplus$ are, respectively, the with product of two propositions, and the plus product of two propositions. Their reduction rules can be seen in Figure \ref{fig:LinearLogicAdditiveRules}. The unit of $\with$ is $\top$ and the unit of $\oplus$ is $0$. Once again, $\with$ and $\oplus$ are equivalent to the logical conjunction and disjunction in classical logic, respectively. They differ from $\otimes$ and $\parr$ in that the context in the multiplicative connectives is split in two, while in the additive connectives the context in the premises is the same as the context in the conclusion.
 
 \begin{figure}[H]
     \begin{minipage}{0.3\textwidth}
@@ -101,9 +103,11 @@ Additive conjunction $\with$ is the with product of two propositions, and additi
             \UnaryInfC{$\vdash \Gamma, A \oplus B$}
         \end{prooftree}
     \end{minipage}
+    \caption{Linear Logic Additive Rules}
+    \label{fig:LinearLogicAdditiveRules}
 \end{figure}
 
-Finally, the exponential connectives allow weakening and contracting of contexts in a controlled manner.
+Finally, the exponential connectives allow weakening and contracting of contexts in a controlled manner, through the rules in Figure \ref{fig:LinearLogicExponentialRules}.
 
 \begin{figure}[H]
     \begin{minipage}{0.225\textwidth}
@@ -133,9 +137,21 @@ Finally, the exponential connectives allow weakening and contracting of contexts
             \UnaryInfC{$\vdash \wn \Gamma, \oc A$}
         \end{prooftree}
     \end{minipage}
+    \caption{Linear Logic Exponential Rules}
+    \label{fig:LinearLogicExponentialRules}
 \end{figure}
 
-Classical linear logic can be interpreted computationally \cite{Abramsky:1993} as a language for modeling concurrent systems. The cut rule corresponds to the composition of two processes, the initial rule corresponds to the creation of processes and the additive and multiplicative rules Correspond to the communication of processes.
+Classical linear logic can be interpreted computationally \cite{Abramsky:1993} as a language for modeling concurrent systems. The cut rule can be interpreted as the composition of two processes, the initial rule as the creation of processes, and the additive and multiplicative rules as communication between processes. We can also extend classical linear logic with a mix rule (Figure \ref{fig:LinearLogicMixRule}), which allows us to model parallel composition of processes.
+
+\begin{figure}[H]
+    \begin{prooftree}
+        \AxiomC{$\vdash \Gamma$}
+        \AxiomC{$\vdash \Delta$}
+        \BinaryInfC{$\vdash \Gamma, \Delta$}
+    \end{prooftree}
+    \caption{Linear Logic Mix Rule}
+    \label{fig:LinearLogicMixRule}
+\end{figure}
 
 \subsection{Process Calculus}
 
@@ -172,7 +188,7 @@ CLASS (Classic Linear Logic with Affine Shared State) is an experimental languag
 
 \subsubsection{\texorpdfstring{$\mu$}{mu}CLL}
 
-In this section, we present the basic constructs of CLASS. We start by the pure fragment of the language, dubbed $\mu$CLL. As the name suggests, $\mu$CLL is related, via a propositions-as-types correspondence \cite{Caires:2016} \todo{(cite more stuff)}, to second-order classical linear logic, extended with mix and inductive/coinductive types.
+We start by presenting the pure fragment of CLASS, dubbed $\mu$CLL. As the name suggests, $\mu$CLL is related, via a propositions-as-types correspondence \cite{Caires:2016}, to classical linear logic, extended with mix and inductive/coinductive types.
 
 As usual in session-typed based programming languages \todo{(cite stuff)}, in $\mu$CLL processes communicate through sessions $x, y, z, \ldots$. Each session has two endpoints, and each endpoint is associated with a session type, which describes the communication protocol that the two endpoints must follow. We write $x: A$ to denote that the session endpoint $x$ obeys type $A$. These types describe the direction, order and content of the messages exchanged. For example
 
