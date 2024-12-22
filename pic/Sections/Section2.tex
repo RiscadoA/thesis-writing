@@ -7,24 +7,56 @@ In this section, we introduce the theoretical foundations of linear logic and se
 
 Introduced by Girard \cite{Girard:1987} in the 80's, linear logic is a logic where propositions are consumed exactly once, as opposed to classical logic where propositions can be used any number of times. This property makes linear a logic ideal for modeling resources on real-world systems, and more importantly for this work, for modeling concurrent systems.
 
-\todo{Should I introduce classical linear logic notation BNF here?}
-
-\todo{All of this should have better citations:}
-
 Connectives of classic linear logic are divided into three groups: multiplicative, additive and exponential. Multiplicative connectives are $\otimes$ (tensor), $\parr$ (par), $1$ and $\bot$. Additive connectives are $\with$ (with), $\oplus$ (plus), $\top$ and $0$. Exponential connectives are $\oc$ (of course) and $\wn$ (why not).
 
-Additionally, each connective has a dual connective (or involution), represented by $\dual{A}$, which is defined as follows:
+Here we present a definition of linear logic as a sequent calculus \cite{Abramsky:1993}, where a sequent is a list of propositions separated by a comma, and a turnstile $\vdash$ separates the antecedent from the succedent. In linear logic, each connective has a dual connective (or involution), represented by $\dual{A}$, which is defined in Figure \ref{fig:LinearLogicDual}. As such, there's no need for propositions to be placed before the turnstile, as they can be replaced by their involution on the succedent.
 
-\begin{align*}
-    \dual{A \otimes B} & \equiv \dual{A} \parr \dual{B}   \\
-    \dual{A \parr B}   & \equiv \dual{A} \otimes \dual{B} \\
-    \dual{A \with B}   & \equiv \dual{A} \oplus \dual{B}  \\
-    \dual{A \oplus B}  & \equiv \dual{A} \with \dual{B}   \\
-    \dual{1}           & \equiv \bot                      \\
-    \dual{\bot}        & \equiv 1                         \\
-    \dual{\oc A}       & \equiv \wn \dual{A}              \\
-    \dual{\wn A}       & \equiv \oc \dual{A}
-\end{align*}
+\begin{figure}[H]
+    \begin{align*}
+        \dual{A \otimes B} & \equiv \dual{A} \parr \dual{B}   \\
+        \dual{A \parr B}   & \equiv \dual{A} \otimes \dual{B} \\
+        \dual{A \with B}   & \equiv \dual{A} \oplus \dual{B}  \\
+        \dual{A \oplus B}  & \equiv \dual{A} \with \dual{B}   \\
+        \dual{1}           & \equiv \bot                      \\
+        \dual{\bot}        & \equiv 1                         \\
+        \dual{\oc A}       & \equiv \wn \dual{A}              \\
+        \dual{\wn A}       & \equiv \oc \dual{A}
+    \end{align*}
+    \caption{Dual Connectives in Classical Linear Logic}
+    \label{fig:LinearLogicDual}
+\end{figure}
+
+Proofs of sequents can be constructed through inference rules. The only structural rule that we define is the exchange rule (Figure \ref{fig:LinearLogicExchangeRule}), as the order of propositions isn't important in linear logic. The weakening and contraction rules are not present, as we want to model resources that can't be duplicated or discarded.
+
+\begin{figure}[H]
+    \begin{prooftree}
+        \AxiomC{$\vdash \Gamma, A, B, \Delta$}
+        \UnaryInfC{$\vdash \Gamma, B, A, \Delta$}
+    \end{prooftree}
+    \caption{Linear Logic Exchange Rule}
+    \label{fig:LinearLogicExchangeRule}
+\end{figure}
+
+We also define the initial and cut rules, in Figure \ref{fig:LinearLogicInitialCutRules}. The cut rule allows for the composition of two proofs, and the initial rule allows for the introduction of a proposition and its dual without any premises.
+
+\begin{figure}[H]
+    \begin{minipage}{0.45\textwidth}
+        \begin{prooftree}
+            \AxiomC{}
+            \UnaryInfC{$\vdash A, \dual{A}$}
+        \end{prooftree}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.45\textwidth}
+        \begin{prooftree}
+            \AxiomC{$\vdash \Gamma, A$}
+            \AxiomC{$\vdash \Delta, \dual{A}$}
+            \BinaryInfC{$\vdash \Gamma, \Delta$}
+        \end{prooftree}
+    \end{minipage}
+    \caption{Linear Logic Initial and Cut Rules}
+    \label{fig:LinearLogicInitialCutRules}
+\end{figure}
 
 Multiplicative conjunction $\otimes$ is the tensor product of two propositions and it is equivalent to the logical conjunction in classical logic. Multiplicative disjunction $\parr$ is the par product of two propositions and it is equivalent to the logical disjunction in classical logic. The unit of $\otimes$ is $1$ and the unit of $\parr$ is $\bot$.
 
@@ -103,21 +135,28 @@ Finally, the exponential connectives allow weakening and contracting of contexts
     \end{minipage}
 \end{figure}
 
-
-\todo{I don't really understand the exponential rules...}
-% Interesting explanation on the answer here, maybe I should write something similar:
-% https://math.stackexchange.com/questions/1834022/what-is-the-intuition-behind-the-negative-exponential-in-linear-logic
-
-\todo{I think it would be important to at least explain the mix and cut rules here}
+Classical linear logic can be interpreted computationally \cite{Abramsky:1993} as a language for modeling concurrent systems. The cut rule corresponds to the composition of two processes, the initial rule corresponds to the creation of processes and the additive and multiplicative rules Correspond to the communication of processes.
 
 \subsection{Process Calculus}
 
 Process calculi are formal languages for modeling concurrent systems, where processes interact by sending and receiving messages. One of the most well-known process calculus is CCS (Calculus of Communicating Systems) \cite{Milner:1980}, which introduced the notion of parallel composition, restriction and communication.
 
+In the 90's, Milner et al \cite{Milner:1992:1,Milner:1992:2} introduced $\pi$-calculus, a process calculus that allows for mobility of processes - channels, through which processes communicate, can themselves be sent and received. It unifies data with communication channels, treating them as first-class citizens. This allows for more complex communication patterns, where the topology of the network can change dynamically. $\pi$-calculus can be used to encode various computation paradigms, such as $\lambda$-calculus and Turing machines, and thus, is a universal model of computation.
 
-In the 90's, Milner et al \cite{Milner:1992:1,Milner:1992:2} introduced $\pi$-calculus, a process calculus that allows for mobility of processes - channels, through which processes communicate, can themselves be sent and received.
+Processes can be seen as a generalization of functions, where the input and output can be sent over a channel - a function call can be seen as sending the input over a channel, and then receiving the output over the same channel. Additionally, coroutine constructs and generator expressions common in modern languages such as Python can also be easily modeled as a process calculus, where calls to \textit{yield} statements can be seen as sending values over a channel. Channels in $\pi$-calculus can also be replicated, which makes it possible to model services that can be accessed by multiple clients, such as web servers.
 
-\todo{Is it worth it to explain the constructs of $\pi$-calculus here? What more should I add?}
+In Figure \ref{fig:PiCalculusExample} we present a simple $\pi$-calculus example, where a channel $x$ is created, and two processes are composed in parallel. The first process sends a message over $x$ and then terminates. The second process receives a message $y$ over $x$, prints it, and then terminates.
+
+\begin{figure}[H]
+    \centering
+    \begin{align*}
+        (\nu x)\,(\,& \overline{x}\langle\texttt{"Hello World!"}\rangle.0 \\
+        |\         & x(y).\texttt{print}(y).0\,)
+    \end{align*}
+    \caption{Simple $\pi$-calculus example}
+    \label{fig:PiCalculusExample}
+\end{figure}
+
 
 \subsection{Session Types}
 
@@ -630,7 +669,7 @@ The execution of $P$ is shown in Figure \ref{fig:SAMExampleExecutionP}. The init
     \begin{align*}
         (P, \emptyset)
          & \equiv
-        (\cutc{\waitc{x}{\emptyc}}{x}{\closec{x}}, \emptyset)       \\
+        (\cutc{\waitc{x}{\emptyc}}{x}{\closec{x}}, \emptyset)                \\
          & \Mapsto
         (\closec{x}, x\langle nil, \waitc{y}\emptyc\rangle y)                \\
          & \Mapsto (\waitc{y}\emptyc, x\langle \checkmark, \emptyp\rangle y) \\
