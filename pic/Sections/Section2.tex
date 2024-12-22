@@ -180,7 +180,7 @@ Session types, first introduced by Honda \cite{Honda:1993}, and expanded upon by
 
 Operations on session types include sending and receiving, branching and selection and recursion. Session types have been used to model and verify communication protocols, enforcing their correctness. They have been implemented in various programming languages, either as a language feature, such as in Scribble \cite{Yoshida:2014} and Effpi \cite{Scalas:2019}, or as a library, such as in Rust \cite{Jespersen:2015} and Haskell \cite{Pucella:2008}.
 
-More recently, session types have been extended to linear session types \cite{Caires:2010}. \todo{explain relevancy}
+More recently, session types have been extended to linear session types \cite{Caires:2010}. \todo{TODO: write a lot more about this}
 
 \subsection{CLASS}
 
@@ -190,7 +190,7 @@ CLASS (Classic Linear Logic with Affine Shared State) is an experimental languag
 
 We start by presenting the pure fragment of CLASS, dubbed $\mu$CLL. As the name suggests, $\mu$CLL is related, via a propositions-as-types correspondence \cite{Caires:2016}, to classical linear logic, extended with mix and inductive/coinductive types.
 
-As usual in session-typed based programming languages \todo{(cite stuff)}, in $\mu$CLL processes communicate through sessions $x, y, z, \ldots$. Each session has two endpoints, and each endpoint is associated with a session type, which describes the communication protocol that the two endpoints must follow. We write $x: A$ to denote that the session endpoint $x$ obeys type $A$. These types describe the direction, order and content of the messages exchanged. For example
+As usual in session-typed based programming languages \todo{(cite stuff)}, in $\mu$CLL processes communicate through sessions $x, y, z, \ldots$. Each session has two endpoints (also referred to as channels), and each endpoint is associated with a session type, which describes the communication protocol that the endpoint must follow. We write $x: A$ to denote that the session endpoint $x$ obeys type $A$. These types describe the direction, order and content of the messages exchanged. For example
 
 $$
     x : \dual{\text{Nat}} \otimes \text{Bool} \otimes \mathbf{1}
@@ -290,7 +290,7 @@ $$
 
 where $\Delta$ represents the linear part of the context and $\Gamma$ the unrestricted (exponential) part. The empty context is written as $\emptyset$. We write the disjoint union of two contexts as $\Delta_1, \Delta_2$ (separated by a comma).
 
-\todo{Should I show some typing judgments here? Maybe for cut, par and some other action?}
+\todo{TODO: add cut, par, and some action typing judgements here}
 
 \subsubsection{Syntax of CLASS}
 
@@ -305,7 +305,7 @@ The syntax of CLASS we'll be using on this thesis differs slightly from $\mu$CLL
     |\         & \sendtyt{X}{A}                            &  & |\ \recvtyt{X}{A}
 \end{align*}
 
-\todo{Add shared state types here}
+\todo{TODO: add shared state types to the syntax, and explain that we won't be diving into them in this report}
 
 \begin{table}
     \centering
@@ -369,7 +369,7 @@ Finally, processes in CLASS are defined by the following BNF grammar, where $x$ 
     |\         & \printc{some\_string}{P}                                   &  & |\ \printlnc{some\_string}{P}
 \end{align*}
 
-\todo{Add shared state constructs here}
+\todo{TODO: add shared state constructs to the syntax, and explain that we won't be diving into them in this report}
 
 These have a direct correspondence to the process composition constructs in $\mu$CLL and the actions shown in Table \ref{tab:muCLLActions}. Note that in CLASS the sum/choice type is expanded to allow for an arbitrary number of choices, as opposed to $\mu$CLL, where the sum type is binary. This simplifies the syntax of the language, and all arbitrary sized sums can be trivially encoded as binary sums. Additionally, we have the process definition call construct, similar to a function call in an imperative language, which allows for reducing code duplication, and the print constructs.
 
