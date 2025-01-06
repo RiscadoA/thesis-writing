@@ -1,40 +1,5 @@
 \section{Evaluation}
 
-\todo{What should I write here?}
+The proposed solution will be evaluated by comparing the performance of the compiled code with the original CLASS interpreter and with the SAM interpreter, on multiple examples of the CLASS language. The impact on the performance gained by any implemented optimizations will also be measured.
 
-% \textbf{Important:} scientific work should be reproducible! 
-% When applicable, you are strongly encouraged to create a replication package that follows the open science policies as adopted by SIGSOFT (see \url{https://github.com/acmsigsoft/open-science-policies}).
-
-% \medskip
-
-% \lipsum[2-3]
-
-% Figure \ref{fig:CodeJava} shows a Java code snippet example.
-
-% \begin{figure}
-%     \centering
-%     \begin{lstlisting}[language=Java]
-%         private void adjustRowHeights(Jtable table) {
-%             for(int row = num; row < table.getRowCount(); row++) {
-%                 int rowHeight = table.getRowHeight();
-%                 for(int column = num; column < table.getColumnCount(); column++) {
-%                     component comp = table.prepareenderer(table.getCellenderer(row, column), row, column);
-%                     rowHeight = math.max(rowHeight, comp.getPreferredSize().height);
-%                 }
-%                 table.setRowHeight(row, rowHeight);
-%             }
-%         }
-%     \end{lstlisting}
-%     \caption{Java code snippet.}
-%     \label{fig:CodeJava}
-% \end{figure}
-
-
-% Figure \ref{fig:CodePython} shows an example of a Python code snippet imported from a file.
-
-% \begin{figure}
-%     \centering
-%     \lstinputlisting[language=Python]{Tables_and_code/code.py}
-%     \caption{Python code snippet.}
-%     \label{fig:CodePython}
-% \end{figure}
+Additionally, using the CLASS and C interop features introduced by this project, it will be possible to write CLASS programs that receive data and output data from and into the standard input and output pipes. This will allow measuring the performance of CLASS programs which perform computation on input, such as computing the Fibonacci sequence, the factorial of a number, or sorting a list. The runtime and memory usage of these programs will then be compared with equivalent programs written in C, Haskell (GHC), and possibly other languages.
