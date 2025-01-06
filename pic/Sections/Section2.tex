@@ -585,7 +585,7 @@ The concatenation is done by matching on the first list $x$. If it is $\labelp{n
 \subsection{Linear Session Abstract Machine}
 
 In this section, an overview of Linear Session Abstract Machine (Linear SAM) is given. The Linear SAM, introduced by Luís Caires and Bernardo Toninho in 2024, is a virtual machine for executing session processes typed by (classical) linear logic \cite{Caires:2024}. It provides an ``efficient deterministic execution model for the implicitly sequential
-session-typed program idioms'', and a proof-of-concept implementation of it was integrated as an alternative backend for CLASS \cite{Rocha:2022}.
+session-typed program idioms'', and a proof-of-concept implementation \cite{Caires:2024:artifact} of it was integrated as an alternative backend for CLASS \cite{Rocha:2022,Rocha:2021:artifact}.
 
 Its most important contribution to this thesis is its specification of formal operational semantics which allows us to sequentially execute CLASS programs, where communication between processes is buffered, in a deterministic manner, while respecting the session types.
 
