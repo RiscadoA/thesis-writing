@@ -251,6 +251,25 @@
   keywords   = {Behavioural types}
 }
 
+@article{Bernardy:2017,
+  author     = {Bernardy, Jean-Philippe and Boespflug, Mathieu and Newton, Ryan R. and Peyton Jones, Simon and Spiwack, Arnaud},
+  title      = {Linear Haskell: practical linearity in a higher-order polymorphic language},
+  year       = {2017},
+  issue_date = {January 2018},
+  publisher  = {Association for Computing Machinery},
+  address    = {New York, NY, USA},
+  volume     = {2},
+  number     = {POPL},
+  url        = {https://doi.org/10.1145/3158093},
+  doi        = {10.1145/3158093},
+  abstract   = {Linear type systems have a long and storied history, but not a clear path forward to integrate with existing languages such as OCaml or Haskell. In this paper, we study a linear type system designed with two crucial properties in mind: backwards-compatibility and code reuse across linear and non-linear users of a library. Only then can the benefits of linear types permeate conventional functional programming. Rather than bifurcate types into linear and non-linear counterparts, we instead attach linearity to function arrows. Linear functions can receive inputs from linearly-bound values, but can also operate over unrestricted, regular values. To demonstrate the efficacy of our linear type system — both how easy it can be integrated in an existing language implementation and how streamlined it makes it to write programs with linear types — we implemented our type system in ghc, the leading Haskell compiler, and demonstrate two kinds of applications of linear types: mutable data with pure interfaces; and enforcing protocols in I/O-performing functions.},
+  journal    = {Proc. ACM Program. Lang.},
+  month      = dec,
+  articleno  = {5},
+  numpages   = {29},
+  keywords   = {typestate, polymorphism, linear types, linear logic, laziness, Haskell, GHC}
+}
+
 @inproceedings{Scalas:2019,
   author    = {Scalas, Alceste and Yoshida, Nobuko and Benussi, Elias},
   title     = {Effpi: verified message-passing programs in Dotty},
@@ -267,6 +286,24 @@
   keywords  = {temporal logic, processes, model checking, dependent types, behavioural types, actors, Scala, Dotty},
   location  = {London, United Kingdom},
   series    = {Scala '19}
+}
+
+@inproceedings{Kokke:2021,
+  author    = {Kokke, Wen and Dardha, Ornela},
+  title     = {Deadlock-free session types in linear Haskell},
+  year      = {2021},
+  isbn      = {9781450386159},
+  publisher = {Association for Computing Machinery},
+  address   = {New York, NY, USA},
+  url       = {https://doi.org/10.1145/3471874.3472979},
+  doi       = {10.1145/3471874.3472979},
+  abstract  = {Priority Sesh is a library for session-typed communication in Linear Haskell which offers strong compile-time correctness guarantees. Priority Sesh offers two deadlock-free APIs for session-typed communication. The first guarantees deadlock freedom by restricting the process structure to trees and forests. It is simple and composeable, but rules out cyclic structures. The second guarantees deadlock freedom via priorities, which allows the programmer to safely use cyclic structures as well.  Our library relies on Linear Haskell to guarantee linearity, which leads to easy-to-write session types and more idiomatic code, and lets us avoid the complex encodings of linearity in the Haskell type system that made previous libraries difficult to use.},
+  booktitle = {Proceedings of the 14th ACM SIGPLAN International Symposium on Haskell},
+  pages     = {1–13},
+  numpages  = {13},
+  keywords  = {session types, linear haskell, deadlock freedom},
+  location  = {Virtual, Republic of Korea},
+  series    = {Haskell 2021}
 }
 
 @article{Rocha:2021,
@@ -289,14 +326,14 @@
 }
 
 @software{Rocha:2021:artifact,
-  author       = {Pedro Rocha and
-                  Luís Caires},
-  title        = {Propositions-as-Types and Shared State (Artifact)},
-  month        = jun,
-  year         = 2021,
-  publisher    = {Zenodo},
-  doi          = {10.5281/zenodo.5037493},
-  url          = {https://doi.org/10.5281/zenodo.5037493},
+  author    = {Pedro Rocha and
+               Luís Caires},
+  title     = {Propositions-as-Types and Shared State (Artifact)},
+  month     = jun,
+  year      = 2021,
+  publisher = {Zenodo},
+  doi       = {10.5281/zenodo.5037493},
+  url       = {https://doi.org/10.5281/zenodo.5037493}
 }
 
 @phdthesis{Rocha:2022,
@@ -326,12 +363,12 @@
 }
 
 @software{Caires:2024:artifact,
-  author       = {Caires, Luís and
-                  Toninho, Bernardo},
-  title        = {The Session Abstract Machine (Submitted Artifact)},
-  month        = jan,
-  year         = 2024,
-  publisher    = {Zenodo},
-  doi          = {10.5281/zenodo.10459511},
-  url          = {https://doi.org/10.5281/zenodo.10459511},
+  author    = {Caires, Luís and
+               Toninho, Bernardo},
+  title     = {The Session Abstract Machine (Submitted Artifact)},
+  month     = jan,
+  year      = 2024,
+  publisher = {Zenodo},
+  doi       = {10.5281/zenodo.10459511},
+  url       = {https://doi.org/10.5281/zenodo.10459511}
 }

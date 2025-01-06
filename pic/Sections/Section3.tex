@@ -1,7 +1,23 @@
 \section{Related Work}
 
-\todo{Mention Linear Haskell here, it is also compiled and is really efficient. Might be cool to learn more about it to compare with this work. From what I know, they aren't able to fully exploit the linearity of the types for compiler optimizations, due to the core compiler being non-linear.}
-
-\todo{Mention Rust too, for its strong safety guarantees, although achieved through affine types and not full linear types.}
+In this section, we present some of the most relevant works in the area of linear types, session types, and compilation of session-typed languages.
 
 \todo{Take a look at the LSAM's paper related work section}
+
+\todo{Take a look at the CLASS thesis related work section}
+
+\todo{Maybe mention other works that compile functional languages to low level languages}.
+
+\subsection{Linear Haskell}
+
+Linear Haskell \cite{Bernardy:2017} is an extension of Haskell that introduces linear types to the language in a backwards-compatible way, allowing the programmer to use linear types in their program without changing the existing code. It does so by introducing a new kind of function arrow, that is, a new type of function, called a linear function, which must consume its argument exactly once.
+
+Session types have been implemented in Linear Haskell by Kokke et al. \cite{Kokke:2021} in the form of a small library called \textit{Priority Sesh}. This library allows the programmer to easily define session types and integrate them into their programs. The library also gives the possibility of the user annotating session types with priorities, which can then be used to prove that the program is deadlock-free.
+
+One big disadvantage of the Linear Haskell approach is that it is not able to fully exploit the linearity of the types for compiler optimizations, due to the core compiler being non-linear. In contrast, our approach should in theory be able to do so, as CLASS is a session-typed language from the ground up.
+
+\subsection{Rust}
+
+\todo{Mention Rust session types }
+
+\subsection{Move}
