@@ -62,6 +62,8 @@ The Linear Session Abstract Machine (SAM) \cite{Caires:2024} is an abstract mach
 
 This project aims to provide a compilation scheme which translates the session-typed language CLASS into a low-level imperative language, such as C, while maintaining all of safety and liveness guarantees of CLASS. This approach will allow the execution of CLASS programs possibly in orders of magnitude more efficient manner than the SAM interpreter, as the compiler will have extensive knowledge of the compiled programs.
 
+The base CLASS language will also be extended with interoperation features with C, allowing programs to interact with the C standard library and other C programs. This will allow for the creation of more complex programs, which will be helpful to measure the real-world performance of the compiled programs.
+
 With this thesis, we also aim to use the properties guaranteed by the source language to optimize the target code in a way that is not possible for commonly used programming languages. We will compare the performance of the compiled programs with the original CLASS interpreter, the SAM interpreter, and with equivalent programs written in other languages, such as Rust and C.
 
 Finally, we will also explore the possibility of compiling CLASS to LLVM IR, which is a low-level intermediate representation used by the LLVM compiler infrastructure. This will allow us to take advantage of the more advanced optimizations provided by the LLVM compiler.
