@@ -18,6 +18,10 @@ One big disadvantage of the Linear Haskell approach is that it is not able to fu
 
 \subsection{Rust}
 
-\todo{Mention Rust session types }
+Rust is a systems programming language known for its strong type system. Although it has no linear types, it supports affine types, through its ownership system, which forbids variables from being used after they have been moved. References allow the programmer to share data between different parts of the program, but they must follow the strict borrowing rules of the language - there is no limit on the number of immutable references, but there can only be one mutable reference to a given piece of data at a time, and only if there are no immutable references to it.
+
+These rules are enforced at compile time, and the Rust compiler is able to catch many common programming errors, such as use-after-free, data races, and null pointer dereferences, which makes it a very safe language. However, Rust lacks the expressiveness of linear types, which could be used to enforce more complex invariants in the program, such as the order in which functions must be called, or the number of times a function must exactly be called. It also has no built-in support for session types, and therefore, no built-in support for enforcing communication protocols.
+
+Nonetheless, non-linear, i.e., affine session types have been implemented in Rust in the form of libraries by several authors, such as by Jespersen et al. \cite{Jespersen:2015} and Lagaillardie et al. \cite{Lagaillardie:2022}. 
 
 \subsection{Move}
