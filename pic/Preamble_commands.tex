@@ -261,6 +261,12 @@
 \newcommand{\whynott}[1]{\classt{?}#1}
 \newcommand{\sendtyt}[2]{\classt{sendty}\,#1;#2}
 \newcommand{\recvtyt}[2]{\classt{recvty}\,#1;#2}
+\newcommand{\statet}[1]{\classt{state}\,#1}
+\newcommand{\statelt}[1]{\classt{statel}\,#1}
+\newcommand{\usaget}[1]{\classt{usage}\,#1}
+\newcommand{\usagelt}[1]{\classt{usagel}\,#1}
+\newcommand{\affinet}[1]{\classt{affine}\,#1}
+\newcommand{\coaffinet}[1]{\classt{coaffine}\,#1}
 \newcommand{\dualt}[1]{\classt{$\sim$}#1}
 
 % Process names
@@ -283,6 +289,14 @@
 \newcommand{\unfoldmup}{\classp{unfold$_\mu$}}
 \newcommand{\unfoldnup}{\classp{unfold$_\nu$}}
 \newcommand{\corecp}{\classp{corec}}
+\newcommand{\sharep}{\classp{share}}
+\newcommand{\affinep}{\classp{affine}}
+\newcommand{\discardp}{\classp{discard}}
+\newcommand{\usep}{\classp{use}}
+\newcommand{\cellp}{\classp{cell}}
+\newcommand{\releasep}{\classp{release}}
+\newcommand{\takep}{\classp{take}}
+\newcommand{\putp}{\classp{put}}
 
 % CLASS
 \newcommand{\fwdc}[2]{\fwdp\,#1\,#2}
@@ -316,6 +330,14 @@
 \newcommand{\proccallgc}[3]{\texttt{#1}\langle#2\rangle(#3)}
 \newcommand{\printc}[1]{\texttt{print("#1")};}
 \newcommand{\printlnc}[1]{\texttt{println("#1")};}
+\newcommand{\sharec}[3]{\sharep\,#1\,\{#2\,\classp{||}\,#3\}}
+\newcommand{\affinec}[1]{\affinep\,#1;}
+\newcommand{\discardc}[1]{\discardp\,#1}
+\newcommand{\usec}[1]{\usep\,#1;}
+\newcommand{\cellc}[3]{\cellp\,#1(#2.\,#3)}
+\newcommand{\releasec}[1]{\releasep\,#1}
+\newcommand{\takec}[2]{\takep\,#1(#2);}
+\newcommand{\putc}[3]{\putp\,#1(#2.\,#3);}
 
 % Session modes
 \newcommand{\writemode}{\texttt{write}}

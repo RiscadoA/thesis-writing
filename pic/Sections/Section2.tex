@@ -166,8 +166,8 @@ In Figure \ref{fig:PiCalculusExample} we present a simple $\pi$-calculus example
 \begin{figure}[H]
     \centering
     \begin{align*}
-        (\nu x)\,(\,& \overline{x}\langle\texttt{"Hello World!"}\rangle.0 \\
-        |\         & x(y).\texttt{print}(y).0\,)
+        (\nu x)\,(\, & \overline{x}\langle\texttt{"Hello World!"}\rangle.0 \\
+        |\           & x(y).\texttt{print}(y).0\,)
     \end{align*}
     \caption{Simple $\pi$-calculus example}
     \label{fig:PiCalculusExample}
@@ -186,13 +186,13 @@ The multiplicative connectives of linear logic can be used to represent the send
 
 \subsection{CLASS}
 
-CLASS (Classic Linear Logic with Affine Shared State) is an experimental language for session-based programs \cite{Rocha:2022, Rocha:2021}. In CLASS, well-typed programs are guaranteed to never deadlock on communication or reference cell acquisition, and to not leak any memory. Additionally, programs always terminate, while still allowing for higher-order polymorphic functional code and even recursion.
+CLASS (Classic Linear Logic with Affine Shared State) is an experimental language for session-based programs \cite{Rocha:2022, Rocha:2021}. It expands on the correspondence between session types and linear logic, adding affine types, reference cells and shared state. In CLASS, well-typed programs are guaranteed to never deadlock on communication or reference cell acquisition, and to not leak any memory. Additionally, programs always terminate, while still allowing for higher-order polymorphic functional code and even recursion.
 
 \subsubsection{\texorpdfstring{$\mu$}{mu}CLL}
 
 We start by presenting the pure fragment of CLASS, dubbed $\mu$CLL. As the name suggests, $\mu$CLL is related, via a propositions-as-types correspondence \cite{Caires:2016}, to classical linear logic, extended with mix and inductive/coinductive types.
 
-As usual in session-typed based programming languages \todo{(cite stuff)}, in $\mu$CLL processes communicate through sessions $x, y, z, \ldots$. Each session has two endpoints (also referred to as channels), and each endpoint is associated with a session type, which describes the communication protocol that the endpoint must follow. We write $x: A$ to denote that the session endpoint $x$ obeys type $A$. These types describe the direction, order and content of the messages exchanged. For example
+As usual in session-typed based programming languages, in $\mu$CLL processes communicate through sessions $x, y, z, \ldots$. Each session has two endpoints (also referred to as channels), and each endpoint is associated with a session type, which describes the communication protocol that the endpoint must follow. We write $x: A$ to denote that the session endpoint $x$ obeys type $A$. These types describe the direction, order and content of the messages exchanged. For example
 
 $$
     x : \dual{\text{Nat}} \otimes \text{Bool} \otimes \mathbf{1}
@@ -276,7 +276,7 @@ The types of $\mu$CLL are defined by the following BNF grammar:
     |\         & \mu X.A \text{ (mu)}         &  & |\ \nu X.A \text{ (nu)}
 \end{align*}
 
-Types are formed from type variables, units ($\mathbf{1}$ and $\bot$), multiplicatives ($\otimes$ and $\parr$), additives ($\with$ and $\oplus$), exponentials ($\oc$ and $\wn$), existential and universal second-order type quantifiers ($\exists$ and $\forall$), and inductive types ($\mu$ and $\nu$). Types $\exists X.A$, $\forall X.A$, $\mu X.A$ and $\nu X.A$ all bind type variables $X$ in their bodies $A$. Additionally, types are equipped with a duality operator $\dual{A}$ corresponding to linear logic negation and which captures the symmetry behavior in interaction. The duality operator is defined as follows:
+Types are formed from type variables ($X$, $Y$, ...), units ($\mathbf{1}$ and $\bot$), multiplicatives ($\otimes$ and $\parr$), additives ($\with$ and $\oplus$), exponentials ($\oc$ and $\wn$), existential and universal second-order type quantifiers ($\exists$ and $\forall$), and inductive types ($\mu$ and $\nu$). Types $\exists X.A$, $\forall X.A$, $\mu X.A$ and $\nu X.A$ all bind type variables $X$ in their bodies $A$. Additionally, types are equipped with a duality operator $\dual{A}$ corresponding to linear logic negation and which captures the symmetry behavior in interaction. The duality operator is defined as follows:
 
 \begin{align*}
     \dual{\mathbf{1}} \equiv \bot    &  & \dual{A \otimes B} \equiv \dual{A} \parr \dual{B} &  & \dual{A \oplus B} \equiv \dual{A} \with \dual{B} \\
@@ -292,11 +292,38 @@ $$
 
 where $\Delta$ represents the linear part of the context and $\Gamma$ the unrestricted (exponential) part. The empty context is written as $\emptyset$. We write the disjoint union of two contexts as $\Delta_1, \Delta_2$ (separated by a comma).
 
-\todo{TODO: add cut, par, and some action typing judgements here}
+Below, we present some typing rules for $\mu$CLL. The inaction process, $\emptyp$, for example, types with an empty linear context, and any unrestricted context. The parallel composition of two processes $P$ and $Q$, $\parc{P}{Q}$, types with the union of the disjoint linear contexts of $P$ and $Q$, and any unrestricted context. The cut composition of two processes $P$ and $Q$, $\cutc{P}{x: A}{Q}$, types with the disjoint union of the linear contexts of $P$ and $Q$ with the session $x$ having type $A$ on the linear context of $P$ and the dual of $A$ on the linear context of $Q$, and any unrestricted context. The full set of typing rules for $\mu$CLL can be found in \cite{Rocha:2022}.
+
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \begin{prooftree}
+            \AxiomC{}
+            \RightLabel{($\text{Inaction}$)}
+            \UnaryInfC{$\emptyp \vdash \emptyset; \Gamma$}
+        \end{prooftree}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.45\textwidth}
+        \begin{prooftree}
+            \AxiomC{$P \vdash \Delta_1; \Gamma$}
+            \AxiomC{$Q \vdash \Delta_2; \Gamma$}
+            \RightLabel{($\text{Par}$)}
+            \BinaryInfC{$\parc{P}{Q} \vdash \Delta_1, \Delta_2; \Gamma$}
+        \end{prooftree}
+    \end{minipage}
+    \\
+    \begin{prooftree}
+        \AxiomC{$P \vdash \Delta_1, x: A; \Gamma$}
+        \AxiomC{$Q \vdash \Delta_2, x: \dual{A}; \Gamma$}
+        \RightLabel{($\text{Cut}$)}
+        \BinaryInfC{$\cutc{P}{x: A}{Q} \vdash \Delta_1, \Delta_2; \Gamma$}
+    \end{prooftree}
+\end{figure}
 
 \subsubsection{Syntax of CLASS}
 
-The syntax of CLASS we'll be using on this thesis differs slightly from $\mu$CLL. The types of CLASS follow the correspondence to $\mu$CLL presented in Table \ref{tab:CLASSTypes}, and are defined by the following BNF grammar:
+The syntax of CLASS we'll be using on this thesis differs slightly from $\mu$CLL. Additionally, while in $\mu$CLL the typing contexts are separated into linear and unrestricted parts, in CLASS we have one extra division: the affine part. Process constructs and types for affine sessions, reference cells and non-determinism are also added. The types of CLASS follow the correspondence to $\mu$CLL presented in Table \ref{tab:CLASSTypes}, and are defined by the following BNF grammar:
 
 \begin{align*}
     A, B ::=\  & X \text{ (type variable)}                 &  & |\ \sim X \text{ (dual type variable)}        \\
@@ -304,10 +331,11 @@ The syntax of CLASS we'll be using on this thesis differs slightly from $\mu$CLL
     |\         & \offert{\labelt{inl}{A}\ \labelt{inr}{B}} &  & |\ \choicet{\labelt{inl}{A}\ \labelt{inr}{B}} \\
     |\         & \sendt{A}{B}                              &  & |\ \recvt{A}{B}                               \\
     |\         & \bangt{A}                                 &  & |\ \whynott{A}                                \\
-    |\         & \sendtyt{X}{A}                            &  & |\ \recvtyt{X}{A}
+    |\         & \sendtyt{X}{A}                            &  & |\ \recvtyt{X}{A}                             \\
+    |\         & \affinet{A}                               &  & |\ \coaffinet{A}                              \\
+    |\         & \statet{A}                                &  & |\ \usaget{A}                                 \\
+    |\         & \statelt{A}                               &  & |\ \usagelt{A}                                \\
 \end{align*}
-
-\todo{TODO: add shared state types to the syntax, and explain that we won't be diving into them in this report}
 
 \begin{table}
     \centering
@@ -333,7 +361,7 @@ The syntax of CLASS we'll be using on this thesis differs slightly from $\mu$CLL
     \end{tabular}
 \end{table}
 
-Note that recursive types are defined indirectly, through the \texttt{rec} keyword in definitions, as will be shown below. A CLASS program is composed of a collection of type definitions and process definitions, with the following BNF grammar:
+The $\classt{affine}$, $\classt{coaffine}$, $\classt{state}$, $\classt{usage}$, $\classt{statel}$ and $\classt{usagel}$ types are not present in $\mu$CLL and are used to define affine sessions and reference cells, which we won't be diving into in this report. Note that recursive types are defined indirectly, through the \texttt{rec} keyword in definitions, as will be shown below. A CLASS program is composed of a collection of type definitions and process definitions, with the following BNF grammar:
 
 \begin{align*}
     \text{Program} ::=\  & \text{ProcDef}\ \text{Program} &  & |\ \text{ProcDef} \\
@@ -368,12 +396,14 @@ Finally, processes in CLASS are defined by the following BNF grammar, where $x$ 
     |\         & \sendtyc{x}{B}{P}                                          &  & |\ \recvtyc{x}{X}{P}                                           \\
     |\         & \unfoldmuc{x}{P}                                           &  & |\ \unfoldnuc{x}{P}                                            \\
     |\         & \proccallc{proc\_id}{x_1,\,\dots\,,x_n}                    &  & |\ \proccallgc{proc\_id}{X_1,\,\dots,\,X_n}{x_1,\,\dots,\,x_m} \\
-    |\         & \printc{some\_string}{P}                                   &  & |\ \printlnc{some\_string}{P}
+    |\         & \printc{some\_string}{P}                                   &  & |\ \printlnc{some\_string}{P}                                  \\
+    |\         & \affinec{x}P                                               &  & |\ \discardc{x}                                                \\
+    |\         & \usec{x}P                                                  &  & |\ \cellc{x}{y}{P}                                             \\
+    |\         & \releasec{x}                                               &  & |\ \takec{x}{y}{P}                                             \\
+    |\         & \putc{x}{y}{P}Q
 \end{align*}
 
-\todo{TODO: add shared state constructs to the syntax, and explain that we won't be diving into them in this report}
-
-These have a direct correspondence to the process composition constructs in $\mu$CLL and the actions shown in Table \ref{tab:muCLLActions}. Note that in CLASS the sum/choice type is expanded to allow for an arbitrary number of choices, as opposed to $\mu$CLL, where the sum type is binary. This simplifies the syntax of the language, and all arbitrary sized sums can be trivially encoded as binary sums. Additionally, we have the process definition call construct, similar to a function call in an imperative language, which allows for reducing code duplication, and the print constructs.
+These have a direct correspondence to the process composition constructs in $\mu$CLL and the actions shown in Table \ref{tab:muCLLActions}, with the exception of the process definition calling, print, affine and reference cell constructs. Note that in CLASS the sum/choice type is expanded to allow for an arbitrary number of choices, as opposed to $\mu$CLL, where the sum type is binary. This simplifies the syntax of the language, and all arbitrary sized sums can be trivially encoded as binary sums. Additionally, we have the process definition call construct, similar to a function call in an imperative language, which allows for reducing code duplication, and the print constructs.
 
 \subsubsection{Example Programs}
 
@@ -755,7 +785,7 @@ Rust is a systems programming language known for its strong type system. Althoug
 
 These rules are enforced at compile time, and the Rust compiler is able to catch many common programming errors, such as use-after-free, data races, and null pointer dereferences, which makes it a very safe language. However, Rust lacks the expressiveness of linear types, which could be used to enforce more complex invariants in the program, such as the order in which functions must be called, or the number of times a function must exactly be called. It also has no built-in support for session types, and therefore, no built-in support for enforcing communication protocols.
 
-Nonetheless, non-linear, i.e., affine session types have been implemented in Rust in the form of libraries by several authors, such as by Jespersen et al. \cite{Jespersen:2015} and Lagaillardie et al. \cite{Lagaillardie:2022}. 
+Nonetheless, non-linear, i.e., affine session types have been implemented in Rust in the form of libraries by several authors, such as by Jespersen et al. \cite{Jespersen:2015} and Lagaillardie et al. \cite{Lagaillardie:2022}.
 
 \subsubsection{Move}
 
