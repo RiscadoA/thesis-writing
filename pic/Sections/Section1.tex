@@ -15,55 +15,10 @@ Session types \cite{Honda:1993,Honda:1998} have been used to enforce correctness
 
 The Linear Session Abstract Machine (SAM) \cite{Caires:2024} is an abstract machine that allows for the sequential execution of session-typed languages, such as CLASS, through the use of buffered communication channels. Caires et al. expanded the existing CLASS interpreter with this new scheme \cite{Caires:2024:artifact}. This permitted a great increase in performance, as the overhead of spawning threads is very high in modern systems, and thus it is not feasible to spawn threads for every parallel process in a session-typed program, as most threads end up executing few instructions and spend most time waiting for communication. However, the SAM still does not make use of the properties of the source language to generate efficient machine code, as it is a high-level abstract machine.
 
-% For advice on how to write and structure a paper, see the following link (some of the content in this template is taken from this link):
-
-% \url{https://cs.stanford.edu/people/widom/paper-writing.html?s=03#intro}
-
-% \medskip
-
-% Read and bookmark the page above. You are recommended to follow the ``Stanford InfoLab's patented five-point structure for Introductions''. Unless there's a good argument against it, the Introduction should consist of five paragraphs answering the following five questions:
-
-% \begin{enumerate}
-% \item What is the problem?
-% \item Why is it interesting and important?
-% \item Why is it hard? (E.g., why do naive approaches fail?)
-% \item Why hasn't it been solved before? (Or, what's wrong with previous proposed solutions? How does mine differ?)
-% \item What are the key components of my approach and results? Also include any specific limitations.
-% \end{enumerate}
-
-% \paragraph{\textbf{A few notes on the use of \LaTeX.}} 
-% First, double quotes are done with \verb|``| and \verb|''|. For example, \verb|``double quotes''| yields ``double quotes''. Note that if you write \verb|"double quotes"|, you obtain "double quotes" (which doesn't look as nice).
-
-% Citations are done with the \verb@\cite@ command \cite{Goodfellow:2014}. 
-% Note that it is always preferable to be possible to read your text without the references. For example, sentences like the following should be avoided:
-
-% \begin{quote}
-% \sl
-% Generative adversarial networks were first introduced in \cite{Goodfellow:2014}.
-% \end{quote}
-% Instead, one can write:
-% \begin{quote}
-% \sl
-% Goodfellow et al. introduced and described Generative adversarial networks~\cite{Goodfellow:2014}.
-% \end{quote}
-
- 
-% Bibliographic entries are placed in the file \textsf{Bibliography.bib}.
-% This is another citation \cite{McDonagh:2011dp} and this is another one \cite{Feller:2011ys}.
-% \textbf{Important:} in most cases, you do not need to create the bibliographic entry manually; instead, you can use a service like Google Scholar\footnote{Extracting bibtex entries from Google Scholar: \url{https://libguides.usask.ca/c.php?g=218034&p=1445751}}, which is recommended for you to find related work.
-
-% For advice on creating professional and clean tables with \LaTeX, see:
-
-% \url{https://texblog.org/2017/02/06/proper-tables-with-latex/}
-
-% Table~\ref{tab:example} is an example.
-
 \subsection{Work Objectives}
 
-This project aims to provide a compilation scheme which translates the session-typed language CLASS into a low-level imperative language, such as C, while maintaining all of safety and liveness guarantees of CLASS. This approach will allow the execution of CLASS programs possibly in orders of magnitude more efficient manner than the SAM interpreter, as the compiler will have extensive knowledge of the compiled programs.
+This project aims to provide a compilation scheme which translates the session-typed language CLASS into a low-level imperative language, such as C, while maintaining all of safety and liveness guarantees of CLASS. This approach will allow the execution of CLASS programs possibly in orders of magnitude more efficient manner than the SAM interpreter, as the compiler will have extensive knowledge of the compiled programs. The SAM interpreter, on which the compiler is based, currently has no support for the affine sessions, reference cells and shared state features of CLASS. Instead, it covers only the pure fragment of the language. In this work, we aim to support all of the features of CLASS in the compiled programs, including the aforementioned ones.
 
-The base CLASS language will also be extended with interoperation features with C, allowing programs to interact with the C standard library and other C programs. This will allow for the creation of more complex programs, which will be helpful to measure the real-world performance of the compiled programs.
+The base CLASS language will also be extended with interoperation features with C, allowing programs to interact with the C standard library and other C programs. This will allow for the creation of more complex programs, which will be helpful to measure the real-world performance of the compiled programs. With this thesis, we also aim to use the properties guaranteed by the source language to optimize the target code in a way that is not possible for commonly used programming languages. We will compare the performance of the compiled programs with the original CLASS interpreter, the SAM interpreter, and with equivalent programs written in other languages, such as Rust and C.
 
-With this thesis, we also aim to use the properties guaranteed by the source language to optimize the target code in a way that is not possible for commonly used programming languages. We will compare the performance of the compiled programs with the original CLASS interpreter, the SAM interpreter, and with equivalent programs written in other languages, such as Rust and C.
-
-Finally, we will also explore the possibility of compiling CLASS to LLVM IR, which is a low-level intermediate representation used by the LLVM compiler infrastructure. This will allow us to take advantage of the more advanced optimizations provided by the LLVM compiler.
+Finally, it is worth mentioning that we're planning on publishing a paper based on the results of this project, which will be submitted to a conference or journal in the area of programming languages or compilers.
