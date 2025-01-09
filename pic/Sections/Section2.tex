@@ -763,14 +763,7 @@ We show its execution in Figure \ref{fig:SAMExampleExecutionQ}. We first apply t
 
 \subsection{Alternative Applications}
 
-In this section, we present some of the most relevant works which apply linear logic and/or session types through different approaches.
-In this section, we present some of the most relevant works which apply linear logic and/or session types through different approaches.
-
-\todo{Take a look at the LSAM's paper related work section}
-
-\todo{Take a look at the CLASS thesis related work section}
-
-\todo{Maybe mention other works that compile functional languages to low level languages}.
+In this section, we present some works which apply linear logic and/or session types through different approaches. These works are not directly related to CLASS or to the Linear SAM, nor do we base this work on them, but they are interesting to mention as they show alternative ways of solving the same problems we are addressing.
 
 \subsubsection{Linear Haskell}
 
@@ -787,7 +780,3 @@ Rust is a systems programming language known for its strong type system. Althoug
 These rules are enforced at compile time, and the Rust compiler is able to catch many common programming errors, such as use-after-free, data races, and null pointer dereferences, which makes it a very safe language. However, Rust lacks the expressiveness of linear types, which could be used to enforce more complex invariants in the program, such as the order in which functions must be called, or the number of times a function must exactly be called. It also has no built-in support for session types, and therefore, no built-in support for enforcing communication protocols.
 
 Nonetheless, non-linear, i.e., affine session types have been implemented in Rust in the form of libraries by several authors, such as by Jespersen et al. \cite{Jespersen:2015} and Lagaillardie et al. \cite{Lagaillardie:2022}.
-
-\subsubsection{Move}
-
-\todo{write}
