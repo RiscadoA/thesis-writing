@@ -47,11 +47,11 @@
 }
 
 @inproceedings{Wadler:1990,
-  title={Linear Types can Change the World!},
-  author={Philip Wadler},
-  booktitle={Programming Concepts and Methods},
-  year={1990},
-  url={https://api.semanticscholar.org/CorpusID:58535510}
+  title     = {Linear Types can Change the World!},
+  author    = {Philip Wadler},
+  booktitle = {Programming Concepts and Methods},
+  year      = {1990},
+  url       = {https://api.semanticscholar.org/CorpusID:58535510}
 }
 
 @article{Milner:1992:1,
@@ -122,6 +122,24 @@
   pages     = {122--138},
   abstract  = {We introduce basic language constructs and a type discipline as a foundation of structured communication-based concurrent programming. The constructs, which are easily translatable into the summation-less asynchronous $\pi$-calculus, allow programmers to organise programs as a combination of multiple flows of (possibly unbounded) reciprocal interactions in a simple and elegant way, subsuming the preceding communication primitives such as method invocation and rendez-vous. The resulting syntactic structure is exploited by a type discipline {\`a} la ML, which offers a high-level type abstraction of interactive behaviours of programs as well as guaranteeing the compatibility of interaction patterns between processes in a well-typed program. After presenting the formal semantics, the use of language constructs is illustrated through examples, and the basic syntactic results of the type discipline are established. Implementation concerns are also addressed.},
   isbn      = {978-3-540-69722-0}
+}
+
+@article{Hofmann:2000,
+  author     = {Hofmann, Martin},
+  title      = {A type system for bounded space and functional in-place update},
+  year       = {2000},
+  issue_date = {Winter 2000},
+  publisher  = {Publishing Association Nordic Journal of Computing},
+  address    = {FIN},
+  volume     = {7},
+  number     = {4},
+  issn       = {1236-6064},
+  abstract   = {We show how linear typing can be used to obtain functional programs which modify heap-allocated data structures in place.We present this both as a "design pattern" for writing C-code in a functional style and as a compilation process from linearly typed first-order functional programs into malloc ()-free C code.The main technical result is the correctness of this compilation.The crucial innovation over previous linear typing schemes consists of the introduction of a resource type ♦ which controls the number of constructor symbols such as cons in recursive definitions and ensures linear space while restricting expressive power surprisingly little.While the space efficiency brought about by the new typing scheme and the compilation into C can also be realised by with state-of-the-art optimising compilers for functional languages such as OCAML [16], the present method provides guaranteed bounds on heap space which will be of use for applications such as languages for embedded systems or automatic certification of resource bounds.We show that the functions expressible in the system are precisely those computable on a linearly space-bounded Turing machine with an unbounded stack. By a result of Cook this equals the complexity class 'exponential time'. A tail recursive fragment of the language captures the complexity class 'linear space'.We discuss various extensions, in particular an extension with FIFO queues admitting constant time catenation and enqueuing, and an extension of the type system to fully-fledged intuitionistic linear logic.},
+  journal    = {Nordic J. of Computing},
+  month      = dec,
+  pages      = {258–289},
+  numpages   = {32},
+  keywords   = {C, compilers, computational complexity, functional programming, garbage collection, memory organization}
 }
 
 @article{Baeten:2005,
@@ -354,13 +372,13 @@
 }
 
 @misc{Lagaillardie:2022,
-      title={Stay Safe under Panic: Affine Rust Programming with Multiparty Session Types}, 
-      author={Nicolas Lagaillardie and Rumyana Neykova and Nobuko Yoshida},
-      year={2022},
-      eprint={2204.13464},
-      archivePrefix={arXiv},
-      primaryClass={cs.PL},
-      url={https://arxiv.org/abs/2204.13464}, 
+  title         = {Stay Safe under Panic: Affine Rust Programming with Multiparty Session Types},
+  author        = {Nicolas Lagaillardie and Rumyana Neykova and Nobuko Yoshida},
+  year          = {2022},
+  eprint        = {2204.13464},
+  archiveprefix = {arXiv},
+  primaryclass  = {cs.PL},
+  url           = {https://arxiv.org/abs/2204.13464}
 }
 
 @inproceedings{Caires:2024,
