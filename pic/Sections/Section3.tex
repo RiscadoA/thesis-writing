@@ -176,11 +176,9 @@ Notice that we use the computed goto extension provided by GCC, which allows us 
 cont:
 \end{lstlisting}
 
-\subsubsection{Pushing and popping close tokens}
+\subsubsection{Push and pop instructions}
 
 The \texttt{pushClose} and \texttt{popClose} instructions both receive the index \texttt{record} of the session record in the current environment. Both instructions compile to nothing, as close tokens are zero-sized, and thus, nothing needs to be written or read from the session buffer. They're included only for debugging purposes.
-
-\subsubsection{Pushing and popping tags}
 
 The \texttt{pushTag} instruction receives the index \texttt{record} of the session record in the current environment, and a tag \texttt{tag} to be pushed to the session buffer. The generated C code for this instruction is shown below.
 
@@ -200,8 +198,6 @@ The \texttt{popTag} instruction receives the index \texttt{record} of the sessio
     }
 \end{lstlisting}
 
-\subsubsection{Pushing and popping sessions}
-
 The \texttt{pushSession} instruction receives the indices \texttt{record} and \texttt{argRecord} of the session records in the current environment, and pushes a pointer to the session record \texttt{argRecord} to the buffer of the session record \texttt{record}. The generated C code for this instruction is shown below.
 
 \begin{lstlisting}[language=C]
@@ -216,9 +212,7 @@ The \texttt{popSession} instruction receives the indices \texttt{record} and \te
     env->records[argRecord] = POP(record, struct record*);
 \end{lstlisting}
 
-% \subsubsection{Pushing and popping exponentials}
-
-% \todo{Write this}z
+% \todo{Write Pushing and popping exponentials}z
 
 \subsubsection{Forwarding}
 
@@ -370,7 +364,7 @@ Whenever an action $\mathcal{A}$ with subject $s$ of type $\tau$ is compiled, if
 
 This closely resembles the behavior of the SAM, specifically, its write-to-read adjustment. By jumping to the other end point of the session, which will be writing, we ensure that whenever a read operation is performed, its writing counterpart must have already executed, and thus, written the data to the session buffer.
 
-\subsubsection{Cut}
+\subsubsection{Cut, Parallel and Empty}
 
 We start by defining the compilation of a $\cutp$ process, which can be seen below. We assume, without loss of generality, that $A$ is a positive type, and thus, that $P$ will be writing to $x$ before $Q$ executes - if $A$ were negative, we could simply swap $P$ and $Q$. The process initializes a session record in the environment with a new label \texttt{rhs} as continuation, and then recursively compiles $P$. Finally, it compiles $Q$ in front of the label \texttt{rhs}.
 
@@ -380,8 +374,6 @@ We start by defining the compilation of a $\cutp$ process, which can be seen bel
     \labelir{rhs}
     \recurse{Q}{\varepsilon}
 \end{compilation}
-
-\subsubsection{Parallel and Empty}
 
 The compilation of a $\parp$ process is shown below. The process starts by generating code to insert a new task for executing $Q$ into the task linked list. Then, it compiles $P$, which will be executed immediately.
 
