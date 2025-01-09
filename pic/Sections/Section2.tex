@@ -5,7 +5,7 @@ In this section, the theoretical foundations of linear logic, process calculi an
 
 \subsection{Linear Logic}
 
-Introduced by Girard \cite{Girard:1987} in the 80's, linear logic is a logic where propositions are consumed exactly once, as opposed to classical logic where propositions can be used any number of times. This property makes linear a logic ideal for modeling resources on real-world systems, opening pathways for multiple optimizations, such as in-place updates in functional languages \cite{Hofmann:2000}. More importantly for this work, the propositions-as-types correspondence of linear logic has proven useful for modeling concurrent systems \cite{Caires:2010}.
+Introduced by Girard \cite{Girard:1987} in the 80s, linear logic is a logic where propositions are consumed exactly once, as opposed to classical logic where propositions can be used any number of times. This property makes linear a logic ideal for modeling resources on real-world systems, opening pathways for multiple optimizations, such as in-place updates in functional languages \cite{Hofmann:2000}. More importantly for this work, the propositions-as-types correspondence of linear logic has proven useful for modeling concurrent systems \cite{Caires:2010}.
 
 Connectives of classic linear logic are divided into three groups: multiplicative, additive and exponential. Multiplicative connectives are $\otimes$ (tensor), $\parr$ (par), $1$ and $\bot$. Additive connectives are $\with$ (with), $\oplus$ (plus), $\top$ and $0$. Exponential connectives are $\oc$ (of course) and $\wn$ (why not).
 
@@ -157,7 +157,7 @@ Since its inception, linear logic has been seen as a good candidate for modeling
 
 Process calculi are formal languages for modeling concurrent systems, where processes interact by sending and receiving messages. One of the most well-known process calculus is CCS (Calculus of Communicating Systems) \cite{Milner:1980}, which introduced the notion of parallel composition, restriction and communication.
 
-In the 90's, Milner et al \cite{Milner:1992:1,Milner:1992:2} introduced $\pi$-calculus, a process calculus that allows for mobility of processes - channels, through which processes communicate, can themselves be sent and received. It unifies data with communication channels, treating them as first-class citizens. This allows for more complex communication patterns, where the topology of the network can change dynamically. $\pi$-calculus can be used to encode various computation paradigms, such as $\lambda$-calculus and Turing machines, and thus, is a universal model of computation.
+In the 90s, Milner et al \cite{Milner:1992:1,Milner:1992:2} introduced $\pi$-calculus, a process calculus that allows for mobility of processes - channels, through which processes communicate, can themselves be sent and received. It unifies data with communication channels, treating them as first-class citizens. This allows for more complex communication patterns, where the topology of the network can change dynamically. $\pi$-calculus can be used to encode various computation paradigms, such as $\lambda$-calculus and Turing machines, and thus, is a universal model of computation.
 
 Processes can be seen as a generalization of functions, where the input and output can be sent over a channel - a function call can be seen as sending the input over a channel, and then receiving the output over the same channel. Additionally, coroutine constructs and generator expressions common in modern languages such as Python can also be easily modeled as a process calculus, where calls to \textit{yield} statements can be seen as sending values over a channel. Channels in $\pi$-calculus can also be replicated, which makes it possible to model services that can be accessed by multiple clients, such as web servers.
 
@@ -771,7 +771,7 @@ Linear Haskell \cite{Bernardy:2017} is an extension of Haskell that introduces l
 
 Session types have been implemented in Linear Haskell by Kokke et al. \cite{Kokke:2021} in the form of a small library called \textit{Priority Sesh}. This library allows the programmer to easily define session types and integrate them into their programs. The library also gives the possibility of the user annotating session types with priorities, which can then be used to prove that the program is deadlock-free.
 
-One big disadvantage of the Linear Haskell approach is that it is not able to fully exploit the linearity of the types for compiler optimisations, due to the core compiler being non-linear. In contrast, our approach should in theory be able to do so, as CLASS is a session-typed language from the ground up.
+One big disadvantage of the Linear Haskell approach is that it is not able to fully exploit the linearity of the types for compiler optimizations, due to the core compiler being non-linear. In contrast, our approach should in theory be able to do so, as CLASS is a session-typed language from the ground up.
 
 \subsubsection{Rust}
 
