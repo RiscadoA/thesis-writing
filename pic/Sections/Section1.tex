@@ -1,13 +1,13 @@
 
 \section{Introduction}
 
-% - Talk about how strongly typed languages allow for more guarantees about the code, such as memory safety. Additionally, through the types, compilers are able to know more about the code, opening new possibilities for optimizations.
+% - Talk about how strongly typed languages allow for more guarantees about the code, such as memory safety. Additionally, through the types, compilers are able to know more about the code, opening new possibilities for optimisations.
 % - Mention Rust, and how it still doesn't guarantee concurrency to be deadlock free. Also mention that Rust only has affine types, and that due to that, we can't enforce a resource to be consumed from its type.
 % - Mention how session types are a way to enforce communication protocols, and how they are coupled with linear logic in order to guarantee deadlock freedom and other safety properties. Mention CLASS as an example of this.
 % - Talk about how the SAM allows executing session-typed languages, namely CLASS, in a sequential manner, with buffer communication, avoiding spawning threads for all parallel processes.
-% - Explain that this work aims to provide a compilation scheme for CLASS, based on the SAM, to C, and also explore optimizations that become possible due to the properties of the source language.
+% - Explain that this work aims to provide a compilation scheme for CLASS, based on the SAM, to C, and also explore optimisations that become possible due to the properties of the source language.
 
-Strongly typed languages allow programmers to guarantee multiple properties about their code, such as memory safety and deadlock freedom. Additionally, the type system can be used to provide more information about the behavior of the code to the compiler, opening up new optimization paths. One example of this is the Rust programming language, which, through an affine type system, is able to guarantee memory safety by enforcing the ownership of resources, preventing data races and dangling pointers. However, Rust still does not guarantee that concurrent programs are deadlock free, as it does not have a type system that enforces communication protocols.
+Strongly typed languages allow programmers to guarantee multiple properties about their code, such as memory safety and deadlock freedom. Additionally, the type system can be used to provide more information about the behavior of the code to the compiler, opening up new optimisation paths. One example of this is the Rust programming language, which, through an affine type system, is able to guarantee memory safety by enforcing the ownership of resources, preventing data races and dangling pointers. However, Rust still does not guarantee that concurrent programs are deadlock free, as it does not have a type system that enforces communication protocols.
 
 \todo{Maybe also mention here that type-safe languages are becoming more and more popular and valuable, e.g., US government encouraging writing new software in Rust instead of C/C++ due to memory vulnerabilities}.
 
