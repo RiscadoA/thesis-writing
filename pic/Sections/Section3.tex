@@ -1,11 +1,13 @@
 
 \section{CLASS Compiler}
 
-The solution proposed by this project to the problem of compiling CLASS programs to native code is a compilation scheme heavily based on the SAM interpreter. For simplicity, we first compile CLASS programs to an intermediate representation (IR), which abstracts some details of the target language, which in this case is C. The IR is then translated to C code, which is finally compiled to native code using the GNU Compiler Collection (GCC).
+The solution proposed by this project to the problem of compiling CLASS programs to native code is a compilation scheme heavily based on the SAM interpreter. Execution is done sequentially and deterministically, with the compiler generating code that closely resembles the execution of the SAM. Communication between processes is done in a buffered manner through session records, which store the data exchanged between two end points of a session. Whenever a process finishes writing to a session, a jump is made to the other end point, which will read the data, and continue execution.
+
+For simplicity, we first compile CLASS programs to an intermediate representation (IR), which abstracts some details of the target language, which in this case is C. The IR is then translated to C code, which is finally compiled to native code using the GNU Compiler Collection (GCC).
 
 This section is divided into three subsections. In the first subsection, we explain some of the IR constructs we defined, and how they are translated to C code. In the second subsection, we describe the compilation process of selected CLASS constructs to the IR. Finally, in the third subsection, we list some of the problems that we still haven't solved, both those that will be tackled in the rest of the project, and those that will be left as future work.
 
-To keep this report short, details such as the handling of polymorphic types, recursion and exponentials are omitted. These will be addressed in the final work.
+To keep this report short, details such as the handling of CLASS 's polymorphic types, recursion and exponentials are omitted. These will be addressed in the final work.
 
 \subsection{IR to C}
 
@@ -62,7 +64,7 @@ struct task {
 
 \subsubsection{Registers}
 
-Translated IR instructions operate on the registers below. The \texttt{env} register points to the current environment, on which operations are performed. The \texttt{task} registers point to the next task to be executed. The rest of the registers are used to store temporary values.
+Translated IR instructions operate on the registers shown below. The \texttt{env} register points to the current environment, on which operations are performed. The \texttt{task} registers point to the next task to be executed. The rest of the registers are used to store temporary values.
 
 \begin{lstlisting}[language=C]
 struct environment *env, *tmp_env;
@@ -71,7 +73,7 @@ struct record *tmp_record;
 void *tmp_cont;
 \end{lstlisting}
 
-\subsubsection{Main function}
+\subsubsection{Main function and labels}
 
 The main function of the generated C program is shown below. It initializes the environment, allocates space for the session records, and then jumps to the entry process. For each process definition, a label of the form \texttt{proc\_X} is generated, where \texttt{X} is the name of the process. The code each for process definition is generated from its IR instructions, immediately after the label.
 
@@ -93,9 +95,7 @@ end:
 }
 \end{lstlisting}
 
-\subsubsection{Labels}
-
-All labels in the IR are translated directly to C labels, with extra care taken to ensure that each label is unique.
+Additionally, any labels in the IR are directly translated to C labels, with extra care taken to ensure that each label is unique.
 
 \subsubsection{Session buffer manipulation}
 
