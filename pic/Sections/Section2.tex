@@ -182,7 +182,7 @@ Operations on session types include sending and receiving, branching and selecti
 
 More recently, a direct correspondence between session types and linear logic has established \cite{Caires:2010}, where session types can be interpreted as linear propositions, and vice-versa. The connectives of linear logic are enough to describe the communication patterns of finite sessions.
 
-The multiplicative connectives of linear logic can be used to represent the sending and receiving of channels. For example, a session type $A \otimes B$ describes a channel that first sends a channel name of type $A$, and then behaves as a channel of type $B$. The dual of $A \otimes B$ is $\dual{A} \parr \dual{B}$, which describes a channel that first receives a channel name of type $\dual{A}$, and then behaves as a channel of type $\dual{B}$, matching the behavior that the other endpoint of the channel must follow. The additive connectives can be interpreted as offering and choice. A session type $A \with B$ describes a channel that offers a choice between the channel following type $A$ or type $B$. The dual of $A \with B$ is $\dual{A} \oplus \dual{B}$, which describes a channel that chooses between the channel following type $\dual{A}$ or type $\dual{B}$. Finally, the exponential connective $\oc A$ of linear logic can be interpreted as a session type whose channels may be shared and which serve channels of type $A$.
+The multiplicative connectives of linear logic can be used to represent the sending and receiving of channels. For example, a session type $A \otimes B$ describes a channel that first sends a channel name of type $A$, and then behaves as a channel of type $B$. The dual of $A \otimes B$ is $\dual{A} \parr \dual{B}$, which describes a channel that first receives a channel name of type $\dual{A}$, and then behaves as a channel of type $\dual{B}$, matching the behavior that the other end point of the channel must follow. The additive connectives can be interpreted as offering and choice. A session type $A \with B$ describes a channel that offers a choice between the channel following type $A$ or type $B$. The dual of $A \with B$ is $\dual{A} \oplus \dual{B}$, which describes a channel that chooses between the channel following type $\dual{A}$ or type $\dual{B}$. Finally, the exponential connective $\oc A$ of linear logic can be interpreted as a session type whose channels may be shared and which serve channels of type $A$.
 
 \subsection{CLASS}
 
@@ -192,21 +192,21 @@ CLASS (Classic Linear Logic with Affine Shared State) is an experimental languag
 
 We start by presenting the pure fragment of CLASS, dubbed $\mu$CLL. As the name suggests, $\mu$CLL is related, via a propositions-as-types correspondence \cite{Caires:2016}, to classical linear logic, extended with mix and inductive/coinductive types.
 
-As usual in session-typed based programming languages, in $\mu$CLL processes communicate through sessions $x, y, z, \ldots$. Each session has two endpoints (also referred to as channels), and each endpoint is associated with a session type, which describes the communication protocol that the endpoint must follow. We write $x: A$ to denote that the session endpoint $x$ obeys type $A$. These types describe the direction, order and content of the messages exchanged. For example
+As usual in session-typed based programming languages, in $\mu$CLL processes communicate through sessions $x, y, z, \ldots$. Each session has two end points (also referred to as channels), and each end point is associated with a session type, which describes the communication protocol that the end point must follow. We write $x: A$ to denote that the session end point $x$ obeys type $A$. These types describe the direction, order and content of the messages exchanged. For example
 
 $$
     x : \dual{\text{Nat}} \otimes \text{Bool} \otimes \mathbf{1}
 $$
 
-describes a session $x$ that must first receive a natural number, then send a boolean, and finally close, after which no more messages can be exchanged. The dual connective $\dual{A}$ is used to represent the dual of a type $A$, and is used to describe the type of the other endpoint of the session. The dual of the type before, for example, is
+describes a session $x$ that must first receive a natural number, then send a boolean, and finally close, after which no more messages can be exchanged. The dual connective $\dual{A}$ is used to represent the dual of a type $A$, and is used to describe the type of the other end point of the session. The dual of the type before, for example, is
 
 $$
     x : \text{Nat} \parr \dual{\text{Bool}} \parr \bot
 $$
 
-which describes a session $x$ that must first send a natural number, then receive a boolean, and finally wait for the other endpoint to close.
+which describes a session $x$ that must first send a natural number, then receive a boolean, and finally wait for the other end point to close.
 
-Additionally, session types can be seen as dynamic entities which evolve as the communication progresses. For example, after sending a natural number, the session type of the endpoint $x$ in the previous example would become
+Additionally, session types can be seen as dynamic entities which evolve as the communication progresses. For example, after sending a natural number, the session type of the end point $x$ in the previous example would become
 
 $$
     x : \dual{\text{Bool}} \parr \bot
@@ -218,7 +218,7 @@ $$
     \cutc{P}{x: A}{Q}
 $$
 
-which composes two processes $P$ and $Q$ that run concurrently and communicate through a session $x$, where the endpoint $x$ in $Q$ obeys type $A$, and the endpoint $x$ in $P$ obeys type $\dual{A}$. This composition corresponds to the cut rule of linear logic, i.e., no session other than $x$ appears simultaneously in both $P$ and $Q$. It thus restricts interactions between $P$ and $Q$ to the session $x$, which is essential to achieve desirable metatheoretical properties such as deadlock freedom.
+which composes two processes $P$ and $Q$ that run concurrently and communicate through a session $x$, where the end point $x$ in $Q$ obeys type $A$, and the end point $x$ in $P$ obeys type $\dual{A}$. This composition corresponds to the cut rule of linear logic, i.e., no session other than $x$ appears simultaneously in both $P$ and $Q$. It thus restricts interactions between $P$ and $Q$ to the session $x$, which is essential to achieve desirable metatheoretical properties such as deadlock freedom.
 
 One other way of composing processes is through the $\parp$ construct, which allows for parallel composition of processes. The process
 
@@ -232,7 +232,7 @@ $$
     \fwdc{x}{y}
 $$
 
-redirects messages sent to $x$ to $y$, and vice-versa, where $x$ and $y$ are session endpoints with dual types.
+redirects messages sent to $x$ to $y$, and vice-versa, where $x$ and $y$ are session end points with dual types.
 
 Table \ref{tab:muCLLActions} presents the actions that can be performed on session types in $\mu$CLL.
 
@@ -384,7 +384,7 @@ A process definition associates a name $\texttt{proc\_id}$ to a process $P$, whi
     |\                   & \recprocdefgc{proc\_id}{X_1,\ \dots,\ X_n}{x_1: A_1,\ \dots,\ x_n: A_n}{P}
 \end{align*}
 
-Finally, processes in CLASS are defined by the following BNF grammar, where $x$ and $y$ are session endpoints:
+Finally, processes in CLASS are defined by the following BNF grammar, where $x$ and $y$ are session end points:
 
 \begin{align*}
     P, Q ::=\  & \cutc{P}{x: A}{Q}                                          &  & |\ \parc{P}{Q}                                                 \\
@@ -664,7 +664,7 @@ The $\waitp$ rule, shown in Figure \ref{fig:SAMWaitRule}, pops the close token $
     \label{fig:SAMWaitRule}
 \end{figure}
 
-The choice rule, shown in Figure \ref{fig:SAMChoiceRule}, given an action $\choosec{c}{x}P$, pushes the label $\labelp{c}$ into the session queue and changes the process to $P$. Note that in this rule, we perform a write-to-read adjustment, denoted by $(P,H[x:A\langle q,Q\rangle y:B])^{wr}$. This operation swaps $P$ with $Q$, if and only if $A$ is a negative type. This operation ensures that the next action will be executed by the positive endpoint of the session. In this specific rule, we perform the write-to-read adjustment because the choice action is a positive action, which means we're pushing values for the other endpoint to pop later on. If the continuation process $P$ on this endpoint will next perform a read action on $x$, i.e., $A$ is negative, then, for that action to be executed, the other endpoint must first perform the corresponding write action.
+The choice rule, shown in Figure \ref{fig:SAMChoiceRule}, given an action $\choosec{c}{x}P$, pushes the label $\labelp{c}$ into the session queue and changes the process to $P$. Note that in this rule, we perform a write-to-read adjustment, denoted by $(P,H[x:A\langle q,Q\rangle y:B])^{wr}$. This operation swaps $P$ with $Q$, if and only if $A$ is a negative type. This operation ensures that the next action will be executed by the positive end point of the session. In this specific rule, we perform the write-to-read adjustment because the choice action is a positive action, which means we're pushing values for the other end point to pop later on. If the continuation process $P$ on this end point will next perform a read action on $x$, i.e., $A$ is negative, then, for that action to be executed, the other end point must first perform the corresponding write action.
 
 \begin{figure}[H]
     \centering
@@ -677,7 +677,7 @@ The choice rule, shown in Figure \ref{fig:SAMChoiceRule}, given an action $\choo
     \label{fig:SAMChoiceRule}
 \end{figure}
 
-The offer rule, shown in Figure \ref{fig:SAMOfferRule}, performs the dual operation of the choice rule - it pops a label from the session queue, and transitions to the continuation of the $\casep$ action corresponding to the label. The rule performs a read-to-write adjustment, denoted by $[x:A\langle q, Q\rangle y:B]^{rw}$. This adjustment swaps the two endpoints of the session record, $x:A$ and $y:B$, if and only if $q$ is empty. Since processes are well-typed, then, if $q$ is empty, $P$ should have no more reads to perform. This adjustment then allows $P$ to start writing to the session.
+The offer rule, shown in Figure \ref{fig:SAMOfferRule}, performs the dual operation of the choice rule - it pops a label from the session queue, and transitions to the continuation of the $\casep$ action corresponding to the label. The rule performs a read-to-write adjustment, denoted by $[x:A\langle q, Q\rangle y:B]^{rw}$. This adjustment swaps the two end points of the session record, $x:A$ and $y:B$, if and only if $q$ is empty. Since processes are well-typed, then, if $q$ is empty, $P$ should have no more reads to perform. This adjustment then allows $P$ to start writing to the session.
 
 \begin{figure}[H]
     \centering
@@ -690,7 +690,7 @@ The offer rule, shown in Figure \ref{fig:SAMOfferRule}, performs the dual operat
     \label{fig:SAMOfferRule}
 \end{figure}
 
-Finally, we show the $\fwdp$ rule in Figure \ref{fig:SAMForwardRule}, where we assume that, without loss of generality, $B^+$ is a positive type. The rule merges two session records, $(z:A\langle q_1, Q\rangle x:\dual{B^+})$ and $(y:B^+\langle q_2, Q\rangle w:C)$, into a single session record with continuation $P$ and queue $q_2@q_1$. If $B^+$ is a negative type, we swap $x$ and $y$ which gives us the equivalent process $\fwdc{y}{x}$.  Since $x$ is the read endpoint of the session and $y$ is the write endpoint, then $Q$ must have written through $z$ the contents of $q_1$. and the current process will have written through $y$ the contents of $q_2$. Thus, $P$ is waiting to read the contents of $q_2@q_1$.
+Finally, we show the $\fwdp$ rule in Figure \ref{fig:SAMForwardRule}, where we assume that, without loss of generality, $B^+$ is a positive type. The rule merges two session records, $(z:A\langle q_1, Q\rangle x:\dual{B^+})$ and $(y:B^+\langle q_2, Q\rangle w:C)$, into a single session record with continuation $P$ and queue $q_2@q_1$. If $B^+$ is a negative type, we swap $x$ and $y$ which gives us the equivalent process $\fwdc{y}{x}$.  Since $x$ is the read end point of the session and $y$ is the write end point, then $Q$ must have written through $z$ the contents of $q_1$. and the current process will have written through $y$ the contents of $q_2$. Thus, $P$ is waiting to read the contents of $q_2@q_1$.
 
 \begin{figure}[H]
     \centering
@@ -743,7 +743,7 @@ $$
     }
 $$
 
-We show its execution in Figure \ref{fig:SAMExampleExecutionQ}. We first apply the $\cutp$ rule, which inserts a new session record in the heap. Then, we apply the choice rule, which pushes the label $\labelp{inl}$ into the queue of the session record, after which, we do a write-to-read adjustment, and transition to the continuation $\casep$. Then, we apply the $\casep$ reduction rule, which pops the label $\labelp{inl}$ from the queue, and transitions to the continuation matching the label. After that, this time we do a read-to-write adjustment, which means we swap the session endpoints. With the endpoints swapped, we can finally apply the $\closep$ and $\waitp$ rules as in the previous example and reach the final state $(\emptyc, \emptyset)$.
+We show its execution in Figure \ref{fig:SAMExampleExecutionQ}. We first apply the $\cutp$ rule, which inserts a new session record in the heap. Then, we apply the choice rule, which pushes the label $\labelp{inl}$ into the queue of the session record, after which, we do a write-to-read adjustment, and transition to the continuation $\casep$. Then, we apply the $\casep$ reduction rule, which pops the label $\labelp{inl}$ from the queue, and transitions to the continuation matching the label. After that, this time we do a read-to-write adjustment, which means we swap the session end points. With the end points swapped, we can finally apply the $\closep$ and $\waitp$ rules as in the previous example and reach the final state $(\emptyc, \emptyset)$.
 
 \begin{figure}[H]
     \begin{align*}
@@ -763,6 +763,7 @@ We show its execution in Figure \ref{fig:SAMExampleExecutionQ}. We first apply t
 
 \subsection{Alternative Applications}
 
+In this section, we present some of the most relevant works which apply linear logic and/or session types through different approaches.
 In this section, we present some of the most relevant works which apply linear logic and/or session types through different approaches.
 
 \todo{Take a look at the LSAM's paper related work section}
