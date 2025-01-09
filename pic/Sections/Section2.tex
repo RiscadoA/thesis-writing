@@ -141,7 +141,7 @@ Finally, the exponential connectives allow weakening and contracting of contexts
     \label{fig:LinearLogicExponentialRules}
 \end{figure}
 
-Classical linear logic can be interpreted computationally \cite{Abramsky:1993} as a language for modeling concurrent systems. The cut rule can be interpreted as the composition of two processes, the initial rule as the creation of processes, and the additive and multiplicative rules as communication between processes. We can also extend classical linear logic with a mix rule (Figure \ref{fig:LinearLogicMixRule}), which allows us to model parallel composition of processes.
+Since its inception, linear logic has been seen as a good candidate for modeling the foundations of concurrent stateful systems \cite{Wadler:1990}. In fact, through the works of Abramsky \cite{Abramsky:1993}, it has been found that classical linear logic can be interpreted computationally. The cut rule can be interpreted as the composition of two processes, the initial rule as the creation of processes, and the additive and multiplicative rules as communication between processes. We can also extend classical linear logic with a mix rule (Figure \ref{fig:LinearLogicMixRule}), which allows us to model parallel composition of processes.
 
 \begin{figure}[H]
     \begin{prooftree}
@@ -782,7 +782,7 @@ One big disadvantage of the Linear Haskell approach is that it is not able to fu
 
 \subsubsection{Rust}
 
-Rust is a systems programming language known for its strong type system. Although it has no linear types, it supports affine types, through its ownership system, which forbids variables from being used after they have been moved. References allow the programmer to share data between different parts of the program, but they must follow the strict borrowing rules of the language - there is no limit on the number of immutable references, but there can only be one mutable reference to a given piece of data at a time, and only if there are no immutable references to it.
+Rust is a systems programming language known for its strong type system. Although it has no linear types, it supports affine types through its ownership system, which forbids variables from being used after they have been moved. References allow the programmer to share data between different parts of the program, but they must follow the strict borrowing rules of the language - there is no limit on the number of immutable references, but there can only be one mutable reference to a given piece of data at a time, and only if there are no immutable references to it.
 
 These rules are enforced at compile time, and the Rust compiler is able to catch many common programming errors, such as use-after-free, data races, and null pointer dereferences, which makes it a very safe language. However, Rust lacks the expressiveness of linear types, which could be used to enforce more complex invariants in the program, such as the order in which functions must be called, or the number of times a function must exactly be called. It also has no built-in support for session types, and therefore, no built-in support for enforcing communication protocols.
 
