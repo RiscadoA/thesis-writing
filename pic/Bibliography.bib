@@ -110,10 +110,10 @@
 }
 
 @book{Barber:1996,
-  title={Dual intuitionistic linear logic},
-  author={Barber, Andrew and Plotkin, Gordon},
-  year={1996},
-  publisher={University of Edinburgh, Department of Computer Science, Laboratory for~…}
+  title     = {Dual intuitionistic linear logic},
+  author    = {Barber, Andrew and Plotkin, Gordon},
+  year      = {1996},
+  publisher = {University of Edinburgh, Department of Computer Science, Laboratory for~…}
 }
 
 @inproceedings{Honda:1998,
@@ -129,6 +129,21 @@
   pages     = {122--138},
   abstract  = {We introduce basic language constructs and a type discipline as a foundation of structured communication-based concurrent programming. The constructs, which are easily translatable into the summation-less asynchronous $\pi$-calculus, allow programmers to organise programs as a combination of multiple flows of (possibly unbounded) reciprocal interactions in a simple and elegant way, subsuming the preceding communication primitives such as method invocation and rendez-vous. The resulting syntactic structure is exploited by a type discipline {\`a} la ML, which offers a high-level type abstraction of interactive behaviours of programs as well as guaranteeing the compatibility of interaction patterns between processes in a well-typed program. After presenting the formal semantics, the use of language constructs is illustrated through examples, and the basic syntactic results of the type discipline are established. Implementation concerns are also addressed.},
   isbn      = {978-3-540-69722-0}
+}
+
+@article{Turner:1999,
+  title    = {Operational interpretations of linear logic},
+  journal  = {Theoretical Computer Science},
+  volume   = {227},
+  number   = {1},
+  pages    = {231-248},
+  year     = {1999},
+  issn     = {0304-3975},
+  doi      = {https://doi.org/10.1016/S0304-3975(99)00054-7},
+  url      = {https://www.sciencedirect.com/science/article/pii/S0304397599000547},
+  author   = {David N. Turner and Philip Wadler},
+  keywords = {Linear logic, Operational semantics, Call-by-value lambda calculus, Memory management},
+  abstract = {Two different operational interpretations of intuitionistic linear logic have been proposed in the literature. The simplest interpretation recomputes non-linear values every time they are required. It has good memory-management properties, but is often dismissed as being too inefficient. Alternatively, one can memoize the results of evaluating non-linear values. This avoids any recomputation, but has weaker memory-management properties. Using a novel combination of type-theoretic and operational techniques we give a concise formal comparison of the two interpretations. Moreover, we show that there is a subset of linear logic where the two operational interpretations coincide. In this subset, which is sufficiently expressive to encode call-by-value lambda-calculus, we can have the best of both worlds: a simple and efficient implementation, and good memory-management properties.}
 }
 
 @article{Hofmann:2000,
@@ -219,21 +234,21 @@
 }
 
 @inproceedings{Matsakis:2014,
-author = {Matsakis, Nicholas D. and Klock, Felix S.},
-title = {The rust language},
-year = {2014},
-isbn = {9781450332170},
-publisher = {Association for Computing Machinery},
-address = {New York, NY, USA},
-url = {https://doi.org/10.1145/2663171.2663188},
-doi = {10.1145/2663171.2663188},
-abstract = {Rust is a new programming language for developing reliable and efficient systems. It is designed to support concurrency and parallelism in building applications and libraries that take full advantage of modern hardware. Rust's static type system is safe1 and expressive and provides strong guarantees about isolation, concurrency, and memory safety.Rust also offers a clear performance model, making it easier to predict and reason about program efficiency. One important way it accomplishes this is by allowing fine-grained control over memory representations, with direct support for stack allocation and contiguous record storage. The language balances such controls with the absolute requirement for safety: Rust's type system and runtime guarantee the absence of data races, buffer overflows, stack overflows, and accesses to uninitialized or deallocated memory.},
-booktitle = {Proceedings of the 2014 ACM SIGAda Annual Conference on High Integrity Language Technology},
-pages = {103–104},
-numpages = {2},
-keywords = {affine type systems, memory management, rust, systems programming},
-location = {Portland, Oregon, USA},
-series = {HILT '14}
+  author    = {Matsakis, Nicholas D. and Klock, Felix S.},
+  title     = {The rust language},
+  year      = {2014},
+  isbn      = {9781450332170},
+  publisher = {Association for Computing Machinery},
+  address   = {New York, NY, USA},
+  url       = {https://doi.org/10.1145/2663171.2663188},
+  doi       = {10.1145/2663171.2663188},
+  abstract  = {Rust is a new programming language for developing reliable and efficient systems. It is designed to support concurrency and parallelism in building applications and libraries that take full advantage of modern hardware. Rust's static type system is safe1 and expressive and provides strong guarantees about isolation, concurrency, and memory safety.Rust also offers a clear performance model, making it easier to predict and reason about program efficiency. One important way it accomplishes this is by allowing fine-grained control over memory representations, with direct support for stack allocation and contiguous record storage. The language balances such controls with the absolute requirement for safety: Rust's type system and runtime guarantee the absence of data races, buffer overflows, stack overflows, and accesses to uninitialized or deallocated memory.},
+  booktitle = {Proceedings of the 2014 ACM SIGAda Annual Conference on High Integrity Language Technology},
+  pages     = {103–104},
+  numpages  = {2},
+  keywords  = {affine type systems, memory management, rust, systems programming},
+  location  = {Portland, Oregon, USA},
+  series    = {HILT '14}
 }
 
 @inproceedings{Yoshida:2014,
