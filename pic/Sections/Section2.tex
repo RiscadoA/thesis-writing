@@ -12,32 +12,39 @@ Connectives of classic linear logic are divided into three groups: multiplicativ
 Here we present a definition of linear logic as a sequent calculus \cite{Abramsky:1993}, where a sequent is a list of propositions separated by a comma, and a turnstile $\vdash$ separates the antecedent from the succedent. In linear logic, each connective has a dual connective (or involution), represented by $\dual{A}$, which is defined in Figure \ref{fig:LinearLogicDual}. As such, there's no need for propositions to be placed before the turnstile, as they can be replaced by their involution on the succedent.
 
 \begin{figure}[H]
-    \begin{align*}
-        \dual{A \otimes B} & \equiv \dual{A} \parr \dual{B}   \\
-        \dual{A \parr B}   & \equiv \dual{A} \otimes \dual{B} \\
-        \dual{A \with B}   & \equiv \dual{A} \oplus \dual{B}  \\
-        \dual{A \oplus B}  & \equiv \dual{A} \with \dual{B}   \\
-        \dual{1}           & \equiv \bot                      \\
-        \dual{\bot}        & \equiv 1                         \\
-        \dual{\oc A}       & \equiv \wn \dual{A}              \\
-        \dual{\wn A}       & \equiv \oc \dual{A}
-    \end{align*}
+    \begin{minipage}{0.225\textwidth}
+        \begin{align*}
+            \dual{A \otimes B} & \equiv \dual{A} \parr \dual{B}   \\
+            \dual{A \parr B}   & \equiv \dual{A} \otimes \dual{B}
+        \end{align*}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.225\textwidth}
+        \begin{align*}
+            \dual{A \with B}  & \equiv \dual{A} \oplus \dual{B} \\
+            \dual{A \oplus B} & \equiv \dual{A} \with \dual{B}
+        \end{align*}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.225\textwidth}
+        \begin{align*}
+            \dual{1}    & \equiv \bot \\
+            \dual{\bot} & \equiv 1
+        \end{align*}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.225\textwidth}
+        \begin{align*}
+            \dual{\oc A} & \equiv \wn \dual{A} \\
+            \dual{\wn A} & \equiv \oc \dual{A}
+        \end{align*}
+    \end{minipage}
+
     \caption{Dual Connectives in Classical Linear Logic}
     \label{fig:LinearLogicDual}
 \end{figure}
 
-Proofs of sequents can be constructed through inference rules. The only structural rule that we define is the exchange rule (Figure \ref{fig:LinearLogicExchangeRule}), as the order of propositions isn't important in linear logic. The weakening and contraction rules are not present, as we want to model resources that can't be duplicated or discarded.
-
-\begin{figure}[H]
-    \begin{prooftree}
-        \AxiomC{$\vdash \Gamma, A, B, \Delta$}
-        \UnaryInfC{$\vdash \Gamma, B, A, \Delta$}
-    \end{prooftree}
-    \caption{Linear Logic Exchange Rule}
-    \label{fig:LinearLogicExchangeRule}
-\end{figure}
-
-We also define the initial and cut rules, in Figure \ref{fig:LinearLogicInitialCutRules}. The cut rule allows for the composition of two proofs, and the initial rule allows for the introduction of a proposition and its dual without any premises.
+Proofs of sequents can be constructed through inference rules. In linear logic, weakening and contraction rules are not present, as they would allow for the duplication and discarding of resources. The only structural rule that is defined is the exchange rule, as the order of propositions isn't important in linear logic. We also define the initial and cut rules, in Figure \ref{fig:LinearLogicInitialCutRules}. The cut rule allows for the composition of two proofs, and the initial rule allows for the introduction of a proposition and its dual without any premises.
 
 \begin{figure}[H]
     \begin{minipage}{0.45\textwidth}
@@ -107,7 +114,7 @@ Additive conjunction $\with$ and additive disjunction $\oplus$ are, respectively
     \label{fig:LinearLogicAdditiveRules}
 \end{figure}
 
-Finally, the exponential connectives allow weakening and contracting of contexts in a controlled manner, through the rules in Figure \ref{fig:LinearLogicExponentialRules}.
+Finally, the exponential connectives allow weakening and contracting of propositions in contexts in a controlled manner, through the rules in Figure \ref{fig:LinearLogicExponentialRules}.
 
 \begin{figure}[H]
     \begin{minipage}{0.225\textwidth}
@@ -152,6 +159,8 @@ Since its inception, linear logic has been seen as a good candidate for modeling
     \caption{Linear Logic Mix Rule}
     \label{fig:LinearLogicMixRule}
 \end{figure}
+
+There are many variations of linear logic. One particularly relevant to this project is dual intuitionistic linear logic (DILL) \cite{Barber:1996}, which separates the linear and intuitionistic parts of the contexts, such that a general sequent is of the form $\Gamma; \Delta \vdash A$, where $\Gamma$ is the intuitionistic part, $\Delta$ is the linear part, and $A$ is the succedent. In the intuitionistic part, propositions can be used any number of times, while in the linear part of the context, propositions are consumed exactly once. This distinction allows for a more faithful modeling of servers in concurrent systems.
 
 \subsection{Process Calculus}
 
