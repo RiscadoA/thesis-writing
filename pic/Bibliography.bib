@@ -233,6 +233,44 @@
   isbn      = {978-3-642-15375-4}
 }
 
+@article{Wadler:2012,
+  author     = {Wadler, Philip},
+  title      = {Propositions as sessions},
+  year       = {2012},
+  issue_date = {September 2012},
+  publisher  = {Association for Computing Machinery},
+  address    = {New York, NY, USA},
+  volume     = {47},
+  number     = {9},
+  issn       = {0362-1340},
+  url        = {https://doi.org/10.1145/2398856.2364568},
+  doi        = {10.1145/2398856.2364568},
+  abstract   = {Continuing a line of work by Abramsky (1994), by Bellin and Scott (1994), and by Caires and Pfenning (2010), among others, this paper presents CP, a calculus in which propositions of classical linear logic correspond to session types. Continuing a line of work by Honda (1993), by Honda, Kubo, and Vasconcelos (1998), and by Gay and Vasconcelos (2010), among others, this paper presents GV, a linear functional language with session types, and presents a translation from GV into CP. The translation formalises for the first time a connection between a standard presentation of session types and linear logic, and shows how a modification to the standard presentation yield a language free from deadlock, where deadlock freedom follows from the correspondence to linear logic.},
+  journal    = {SIGPLAN Not.},
+  month      = sep,
+  pages      = {273–286},
+  numpages   = {14},
+  keywords   = {lambda calculus, linear logic, pi calculus}
+}
+
+@inproceedings{Caires:2012,
+  author    = {Caires, Lu\'{\i}s and Pfenning, Frank and Toninho, Bernardo},
+  title     = {Towards concurrent type theory},
+  year      = {2012},
+  isbn      = {9781450311205},
+  publisher = {Association for Computing Machinery},
+  address   = {New York, NY, USA},
+  url       = {https://doi.org/10.1145/2103786.2103788},
+  doi       = {10.1145/2103786.2103788},
+  abstract  = {We review progress in a recent line of research that provides a concurrent computational interpretation of (intuitionistic) linear logic. Propositions are interpreted as session types, sequent proofs as processes in the pi-calculus, cut reductions as process reductions, and vice versa. The strong proof-theoretic foundation of this type system provides immediate opportunities for uniform generalization, specifically, to embed terms from a functional type theory. The resulting system satisfies the properties of type preservation, progress, and termination, as expected from a language derived via a Curry-Howard isomorphism. While very expressive, the language is strictly stratified so that dependent types for functional terms can be enforced during communication, but neither processes nor channels can appear in functional terms. We briefly speculate on how this limitation might be overcome to arrive at a fully dependent concurrent type theory.},
+  booktitle = {Proceedings of the 8th ACM SIGPLAN Workshop on Types in Language Design and Implementation},
+  pages     = {1–12},
+  numpages  = {12},
+  keywords  = {type theory, session types, dependent types, π-calculus},
+  location  = {Philadelphia, Pennsylvania, USA},
+  series    = {TLDI '12}
+}
+
 @inproceedings{Matsakis:2014,
   author    = {Matsakis, Nicholas D. and Klock, Felix S.},
   title     = {The rust language},
@@ -419,6 +457,22 @@
   archiveprefix = {arXiv},
   primaryclass  = {cs.PL},
   url           = {https://arxiv.org/abs/2204.13464}
+}
+
+@inproceedings{Rocha:2023,
+  author    = {Rocha, Pedro and Caires, Lu\'{\i}s},
+  title     = {Safe Session-Based Concurrency with Shared Linear State},
+  year      = {2023},
+  isbn      = {978-3-031-30043-1},
+  publisher = {Springer-Verlag},
+  address   = {Berlin, Heidelberg},
+  url       = {https://doi.org/10.1007/978-3-031-30044-8_16},
+  doi       = {10.1007/978-3-031-30044-8_16},
+  abstract  = {We introduce CLASS, a session-typed, higher-order, core language that supports concurrent computation with shared linear state.},
+  booktitle = {Programming Languages and Systems: 32nd European Symposium on Programming, ESOP 2023, Held as Part of the European Joint Conferences on Theory and Practice of Software, ETAPS 2023, Paris, France, April 22–27, 2023, Proceedings},
+  pages     = {421–450},
+  numpages  = {30},
+  location  = {Paris, France}
 }
 
 @inproceedings{Caires:2024,
