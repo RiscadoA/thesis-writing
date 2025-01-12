@@ -1,0 +1,297 @@
+\documentclass{beamer}
+\usetheme{metropolis}
+
+\usepackage{graphicx} % Required for inserting images
+
+\title{Efficient Compilation for the Linear Language CLASS}
+\subtitle{PIC2 - Master in Computer Science and Engineering}
+\logo{\includegraphics[width=2cm,height=2cm,keepaspectratio]{../ist_logo.png}}
+\institute{Instituto Superior Técnico, Universidade de Lisboa}
+\author{Ricardo Antunes}
+\date{January 2025}
+
+\bibliographystyle{plain}
+\nocite{*}
+
+\begin{document}
+
+\frame{\titlepage}
+
+% \begin{frame}{Historical Stuff}
+
+% \begin{alertblock}{Russel's paradox}
+
+% Does the set of all sets contain itself?
+    
+% \end{alertblock}
+% \pause
+% There is no reasonable answer, and, as we have seen during the course, this led to a crisis with the foundation of mathematics. \pause Two solutions:
+
+% \begin{itemize}
+%     \item ZFC set theory
+%     \item Type theory
+% \end{itemize}
+
+% \pause 
+% But \dots what is the difference?
+
+% \end{frame}
+
+
+
+% \begin{frame}{Set Theory}
+% Formally, set theory can be regarded as a theory inside the framework of first-order logic using the following signature:
+% \[
+% \{ =, \in \}
+% \]
+
+% \pause 
+
+% Thus, we can see \textit{set-theory} as being formed by two "layers":
+% \begin{enumerate}
+%     \item First-order logic with its deductive system (\textit{natural deduction} ecc.) that allows us to derive \textit{judgements} about \textit{logical propositions}.
+%     \item The actual theory, which talks about \textit{sets}, and is composed by a bunch of \textit{axioms} (the one which characterizes ZFC set theory).
+% \end{enumerate}
+
+% \end{frame}
+
+% \begin{frame}{Martin-Löf Type theory}
+
+% \textit{Type theory} instead has a single layer:
+% \begin{itemize}
+%     \item It has only one notion of primitive objects: \textit{types} $\rightarrow$ proofs, etc. are just particular instances of types.
+%     \item It has a \textit{deductive system} that permits to derive \textit{judgements}, that is like "constructing" objects.
+% \end{itemize}
+
+% \end{frame}
+
+% \begin{frame}{Logic Interpretations in Intuitionistic Type Theory}
+
+% And what is the relation with \textit{logic}?
+% \begin{itemize}
+%     \item The \textit{deductive system} of type theory follows the rules of \textit{intuitionistic logic} (removing \textit{excluded middle} rule), as we have seen in the course. 
+%     \item We can regard \textit{Martin-Löf type theory} also as an higher-order logic. As in \textit{second-order} logic we use the quantification over relations to introduce new domains of quantification. Here, we can use $\Pi$, $\Sigma$, $+$, $I$ to introduce new domains of quantification.
+% \end{itemize}
+    
+
+% \end{frame}
+
+% \begin{frame}{Basic type formers}
+
+% The core version of intuitionistic type theory contains all of the type formers needed for typed intuitionistic predicate logic:
+
+% \begin{align*}
+% \bot &= \varnothing\\
+%  \top &= 1\\
+%  A \vee B &= A + B\\
+%  A \wedge B &= A \times B\\
+%  A \supset B &= A \rightarrow B\\
+%  \exists x {:} A.\, B &= \Sigma x {:} A.\, B\\
+%  \forall x {:} A.\, B &= \Pi x {:} A.\, B 
+% \end{align*}
+% \pause
+% Additionally, we have:
+% \begin{itemize}
+%     \item N, type of natural numbers
+%     \item U, type of small types
+% \end{itemize}
+
+% \end{frame}
+
+% \begin{frame}{Judgements}
+
+% Judgements are no longer an affirmation or denial of a proposition, but a general act of knowledge. Judgements may be \textit{categorical}:
+
+% $$
+% \vdash A
+% $$
+
+% \pause
+
+% or \textit{hypothetical}:
+
+% $$
+% \Gamma \vdash A
+% $$
+
+% where $\Gamma = x_1:A_1, ..., x_n:A_n$, meaning that $A$ can depend on variables of earlier types.
+
+% \end{frame}
+
+% \begin{frame}{Judgement Forms}
+
+% There are four basic forms of judgements:
+
+% \begin{itemize}
+%     \item $\Gamma \vdash A$, meaning that $A$ is a well-formed type.
+%     \pause
+%     \item $\Gamma \vdash x : A$, meaning that $x$ has type $A$.
+%     \pause
+%     \item $\Gamma \vdash A = B$, meaning that $A$ and $B$ are equal types.
+%     \pause
+%     \item $\Gamma \vdash x = y : A$, meaning that $x$ and $y$ are equal elements of type $A$.
+% \end{itemize}
+
+% \end{frame}
+
+% \begin{frame}{General Inference Rules}
+
+% The first group of inference rules are general rules of assumption, substitution, context formation and equivalence relations. \pause One rule crucial to computations in types is:
+
+% $$
+% \frac{\Gamma \vdash x {:} A\hspace{2em}\Gamma \vdash A = B} {\Gamma \vdash x {:} B}
+% $$
+
+% \pause
+
+% The remaining rules are specific to the type formers, and are classified into formation, introduction, elimination and equality.
+
+% \end{frame}
+
+% \begin{frame}{$\Pi\text{-type}$ Formation and Introduction}
+
+% $\Pi$-formation:
+
+% $$
+% \frac{\Gamma \vdash A\hspace{2em} \Gamma, x {:} A \vdash B} {\Gamma \vdash \Pi x {:} A. B}
+% $$
+
+% \pause
+
+% $\Pi$-introduction:
+
+% $$
+% \frac{\Gamma, x {:} A \vdash b {:} B} {\Gamma \vdash \lambda x. b {:} \Pi x {:} A. B}
+% $$
+
+% \end{frame}
+
+% \begin{frame}{$\Pi\text{-type}$ Elimination and Equality}
+
+% $\Pi$-elimination:
+
+% $$
+% \frac {\Gamma \vdash f {:} \Pi x {:} A.B\hspace{2em}\Gamma \vdash a {:} A} {\Gamma \vdash f\,a {:} B[x := a]}
+% $$
+
+% \pause
+
+% $\Pi$-equality:
+
+% $$
+% \frac {\Gamma, x {:} A \vdash b {:} B\hspace{2em}\Gamma \vdash a {:} A} {\Gamma \vdash (\lambda x.b)\,a = b[x := a] {:} B[x := a]}
+% $$
+
+% % TODO: maybe add congruence rule?
+
+% \end{frame}
+
+% \begin{frame}{Natural Number Formation and Introduction}
+
+% N-formation:
+% $$
+% \Gamma \vdash N
+% $$
+
+% \pause
+
+% N-introduction:
+% $$
+% \Gamma \vdash 0 {:} N \hspace{2em} \frac{\Gamma \vdash a {:} N} {\Gamma \vdash s(a) {:} N}
+% $$
+
+% \end{frame}
+
+% \begin{frame}{Natural Number Elimination and Equality}
+
+% N-elimination:
+% $$
+% \frac{ \Gamma, x {:} N \vdash P \hspace{0.5em} \Gamma \vdash c {:} N \hspace{0.5em} \Gamma \vdash d {:} P[x := 0] \hspace{0.5em} \Gamma, y {:} N, z {:} P[x := y] \vdash e {:} P[x := s(y)] } { \Gamma \vdash R(c,d,yz.e) {:} P[x := c] }
+% $$
+
+% \pause
+
+% N-equality:
+% \begin{align*}
+% R(0,d,yz.e) &= d {:} P[x := 0]\\
+% R(s(a),d,yz.e) &= e[y := a, z := R(a,d,yz.e)] {:} P[x := s(a)] 
+% \end{align*}
+
+% \end{frame}
+
+% \begin{frame}{Universe of Small Types}
+
+% $U$-formation:
+% $$
+% \Gamma \vdash U
+% $$
+
+% \pause
+
+% $U$-introduction:
+% $$
+% \Gamma \vdash \varnothing {:} U \hspace{3em} \Gamma \vdash 1 {:} U
+% $$
+
+% $$
+% \frac{\Gamma \vdash A {:} U\hspace{2em} \Gamma, x {:} A \vdash B {:} U} {\Gamma \vdash \Pi x {:} A.\, B {:} U}
+% $$
+
+% $$
+% \Gamma \vdash N {:} U
+% $$
+
+% \pause
+
+% $U$-elimination:
+% $$
+% \frac{\Gamma \vdash A {:} U} {\Gamma \vdash A}
+% $$
+
+% \end{frame}
+
+% \begin{frame}{Universe of Small Types}
+
+% \begin{alertblock}{Type of U}
+
+% All small types have a type, $U$, but what is the type of $U$?
+
+% \end{alertblock}
+% \pause
+
+% In Martin-Löf (1975), the universe is extended to a countable hierarchy of universes
+
+% $$
+% U_0 : U_1 : U_2 : \cdots .
+% $$
+
+% This way each type has a type, not only each small type.
+
+% \end{frame}
+
+% \begin{frame}{Conclusion}
+
+% In conclusion, type theory is a powerful framework not only for reasoning about mathematics but also for computation and proof systems. The core theory we've presented here has been extended and modified upon numerous times, such as:
+
+% \begin{itemize}
+%     \item \textit{Extensional Type Theory}, where there's no distinction between propositional equality and judgemental equality.
+% \end{itemize}
+%     \pause
+% There are also attempts to put \textit{type theory} as the foundation of mathematics as:
+% \begin{itemize}
+%     \item \textit{Homotopy Type Theory}, which connects type theory with higher-dimensional geometry and topology, as part of the \textit{univalent foundation program}.
+% \end{itemize}
+
+% \end{frame}
+
+\begin{frame}
+\bibliography{./Bibliography}    
+\end{frame}
+
+\begin{frame}{}
+  \begin{center}
+    \huge Thank you!  
+  \end{center}
+    
+\end{frame}
+\end{document}
