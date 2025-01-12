@@ -670,7 +670,7 @@ The $\waitp$ rule, shown in Figure \ref{fig:SAMWaitRule}, pops the close token $
     \label{fig:SAMWaitRule}
 \end{figure}
 
-The choice rule, shown in Figure \ref{fig:SAMChoiceRule}, given an action $\choosec{c}{x}P$, pushes the label $\labelp{c}$ into the session queue and changes the process to $P$. Note that in this rule, we perform a write-to-read adjustment, denoted by $(P,H[x:A\langle q,Q\rangle y:B])^{wr}$. This operation swaps $P$ with $Q$, if and only if $A$ is a negative type. This operation ensures that the next action will be executed by the positive end point of the session. In this specific rule, we perform the write-to-read adjustment because the choice action is a positive action, which means we're pushing values for the other end point to pop later on. If the continuation process $P$ on this end point will next perform a read action on $x$, i.e., $A$ is negative, then, for that action to be executed, the other end point must first perform the corresponding write action.
+The choice rule, shown in Figure \ref{fig:SAMChoiceRule}, given an action $\choosec{c}{x}P$, pushes the label $\labelp{c}$ into the session queue and changes the process to $P$. Note that in this rule, we perform a write-to-read adjustment, denoted by $(P,H[x:A\langle q,Q\rangle y:B])^{wr}$. This operation swaps $P$ with $Q$, if and only if the continuation type $A$ is a negative type. This operation ensures that the next action will be executed by the positive end point of the session. In this specific rule, we perform the write-to-read adjustment because the choice action is a positive action, which means we're pushing values for the other end point to pop later on. If the continuation process $P$ on this end point will next perform a read action on $x$, i.e., $A$ is negative, then, for that action to be executed, the other end point must first perform the corresponding write action.
 
 \begin{figure}[H]
     \centering
@@ -769,7 +769,15 @@ We show its execution in Figure \ref{fig:SAMExampleExecutionQ}. We first apply t
 
 \subsection{Alternative Applications}
 
-In this section, we present some works which apply linear logic and/or session types through different approaches. These works are not directly related to CLASS or to the Linear SAM, nor do we base this work on them, but they are interesting to mention as they show alternative ways of solving the same problems we are addressing.
+In this section, we present some works \cite{Ahmed:2007, Bernardy:2017,Kokke:2021,Jespersen:2015, Lagaillardie:2022} which apply linear logic and/or session types through different approaches. These works are not directly related to CLASS or to the Linear SAM, nor do we base this work on them, but they are interesting to mention as they show alternative ways of solving the same problems we are addressing.
+
+\subsubsection{\texorpdfstring{L$^3$}{L3}}
+
+L$^3$ is a linear functional language developed by Ahmed et al. \cite{Ahmed:2007}. It is based on linear logic, and its main feature is the ability to perform \textit{strong updates} on memory cells - that is, to change the value and type of a cell, without invalidating existing pointers to it. This is achieved by using linear types to track \textit{capabilities}, which are permissions to access a memory location as a certain type. To perform a strong update, a capability of the original type for that location must be consumed, and in return, a capability of the new type is produced. Since capabilities are linear, there's no risk of another part of the program still holding a capability to the old type.
+
+The restrictions placed by the type system also ensure that any program written in L$^3$ terminates: while cyclic graphs can be created through pointers, the linearity of the capabilities themselves prevents any infinite loops.
+
+Although L$^3$ is not a session-typed language, it is interesting to note that strong updates are in a way a feature present in session typed languages, where the type of a session changes during execution, after each action is performed.
 
 \subsubsection{Linear Haskell}
 
