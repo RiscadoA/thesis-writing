@@ -1,10 +1,14 @@
 \documentclass{beamer}
+%\documentclass[notes]{beamer}
 \usetheme{metropolis}
 
 \usepackage{graphicx} % Required for inserting images
+\usepackage{listings} % Required for code snippets
+\usepackage{pgfgantt}
+\input{../commands.tex}
 
 \title{Efficient Compilation for the Linear Language CLASS}
-\subtitle{PIC2 - Master in Computer Science and Engineering}
+\subtitle{From Session-Typed Programs to Efficient Native Code}
 \logo{\includegraphics[width=2cm,height=2cm,keepaspectratio]{../ist_logo.png}}
 \institute{Instituto Superior Técnico, Universidade de Lisboa}
 \author{Ricardo Antunes}
@@ -17,281 +21,423 @@
 
 \frame{\titlepage}
 
-% \begin{frame}{Historical Stuff}
+\begin{frame}{Summary}
+  \tableofcontents
+\end{frame}
 
-% \begin{alertblock}{Russel's paradox}
+\note{
+  Let's start with a short summary of this presentation.
+  First, we'll introduce the project, its motivation and goals.
+  Then, we'll discuss the background and related work in the area.
+  Afterwards, we'll present our proposed solution.
+  Finally, we'll introduce the evaluation methodology and give an overview of our work schedule.
+}
 
-% Does the set of all sets contain itself?
+\section{Introduction}
+
+\begin{frame}{The Problem}
+
+  \begin{itemize}
+    \item Session typed programming languages, such as \textbf{CLASS}, enforce \textbf{memory safety, deadlock-freedom} and other useful properties \textbf{by construction}.
+    \item The Linear Session Abstract Machine (LSAM) was introduced to provide a formal model for \textbf{sequentially} executing session-typed programs.
+    \item This allowed orders of magnitude faster execution than interpreters which spawn threads for each session.
+    \item However, the LSAM remains limited by its high-level nature and the overhead of its interpreter.
+  \end{itemize}
+
+\end{frame}
+
+\note{
+
+}
+
+\begin{frame}{Key Idea}
+
+  \begin{itemize}
+    \item \textbf{CLASS} is very strongly statically typed, and thus has a lot of information available at compile time.
+    \item A compiler could leverage this information to generate efficient native code, while preserving the safety guarantees of the language.
+    \item This could enable \textbf{CLASS} and similar languages to be used in performance-critical applications, such as network servers.
+  \end{itemize}
+
+\end{frame}
+
+\note{
+
+}
+
+\begin{frame}{Expected Contributions}
+
+  \begin{itemize}
+    \item This project introduces a compilation scheme for \textbf{CLASS} programs to native C code.
+    \item During this project, a prototype has been implemented which already supports a significant subset of the language.
+    \item We aim to extend it to cover the full language, and to use the type information available to implement various optimizations.
+    \item Additionally, we will provide a formal proof of correctness for at least the core parts of the compiler.
+  \end{itemize}
+
+\end{frame}
+
+\section{Background and Related Work}
+
+\begin{frame}{Background: Linear Logic}
+  \begin{itemize}
+    \item Introduced by Girard in the 80s \cite{Girard:1987}
+    \item \textbf{Propositions are consumed exactly once}, unlike classical logic.
+    \item Can be interpreted computationally \cite{Abramsky:1993}, to model concurrent stateful systems.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Background: Linear Logic}
+  \begin{itemize}
+    \item Connectives: multiplicative ($\otimes$, $\parr$) additive ($\oplus$, $\with$), and exponential ($\oc$, $\wn$).
+          \begin{itemize}
+            \item Multiplicative connectives model sending and receiving of messages.
+            \item Additive connectives model choice and selection.
+            \item Exponential connectives model replication and shared state.
+          \end{itemize}
+    \item Each connective has a dual: $\otimes$ and $\parr$, $\oplus$ and $\with$, $\oc$ and $\wn$.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Background: Process Calculus and Session Types}
+  \begin{itemize}
+    \item Process calculi are formal languages for describing concurrent systems.
+    \item $\pi$-calculus allows mobility of processes \cite{Milner:1992:1}.
+          \begin{itemize}
+            \item Communication channels can be passed around as values.
+            \item Turing complete.
+          \end{itemize}
+    \item Session types \cite{Honda:1993} restrict communication to predefined protocols.
+    \item Operations include sending, receiving, choice, and recursion.
+    \item Direct correspondence between session types and linear logic \cite{Caires:2010}.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Background: CLASS}
+  \begin{itemize}
+    \item CLASS is an experimental language for session-based programs \cite{Rocha:2022}
+    \item Expands on the correspondence between session types and linear logic to enable affine types and mutable shared state.
+    \item Well-typed programs always terminate, and memory safety is guaranteed.
+    \item Allows higher-order polymorphism and even recursive types.
+  \end{itemize}
+\end{frame}
+
+\note{
+  CLASS is a session-typed programming language based on the correspondence between session types and linear logic.
+
+  In fact, CLASS is the first language to simultaneously guarantee memory safety and the absence of deadlocks.
+}
+
+\begin{frame}{Background: CLASS - Cut, Wait and Receive}
+  \begin{class}
+    \procdefc{main}{}{
+      \cutc{
+        \waiti{x}\emptyc
+      }{x: \closet}{
+        \closec{x}
+      }
+    }
+  \end{class}
+\end{frame}
+
+\begin{frame}{Background: CLASS - Choice}
+  \begin{class}
+    \procdefc{main}{}{
+      \cutc{
+        \casec{x}{
+          \labelc{inl}{\closec{x}}
+          \labelc{inr}{\waiti{x}\emptyc}
+        }
+      }{x: \choicet{\labelt{inl}{\waitt}\ \labelt{inr}{\closet}}}{
+        \choosec{inl}{x}{\waiti{x}\emptyc}
+      }
+    }
+  \end{class}
+\end{frame}
+
+\begin{frame}{Background: CLASS - Send and Receive}
+  \begin{class}
+    \procdefc{main}{}{
+      \cutc{
+        \sendc{x}{y}{\waiti{y}\emptyc}
+        \waiti{x}\emptyc
+      }{x: \recvt{\closet}{\closet}}{
+        \recvc{x}{z}
+        {\pari{\closec{x}}{\closec{z}}}
+      }
+    }
+  \end{class}
+\end{frame}
+
+\begin{frame}{Background: CLASS - Recursion}
+  \begin{class}
+    \rectypedefc{Nat}{\choicet{\iz\z
+        \labelt{zero}{\waitt}\z
+        \labelt{succ}{Nat}\dz\z
+      }}
+  \end{class}
+\end{frame}
+
+\begin{frame}{Background: CLASS - Recursion}
+  \begin{class}
+    \recprocdefc{printNat}{x: \dualt{Nat}}{
+      \casec{x}{
+        \labelc{zero}{\printlni{0}\closec{x}}
+        \labelc{true}{\printi{S}\proccallc{printNat}{x}}
+      }
+    }
+  \end{class}
+\end{frame}
+
+\begin{frame}{Background: CLASS - Recursion}
+  \begin{class}
+    \procdefc{main}{}{
+      \cutc{
+        \proccallc{printNat}{x}
+      }{x: Nat}{
+        \unfoldmui{x}\choosec{succ}{x}
+        \unfoldmui{x}\choosec{succ}{x}
+        \unfoldmui{x}\choosec{zero}{x}
+        \waiti{x}\emptyc
+      }
+    }
+  \end{class}
+\end{frame}
+
+\begin{frame}{Background: Linear Session Abstract Machine (LSAM)}
+  \begin{itemize}
+    \item An abstract machine for sequential execution of session-typed languages.
+    \item Uses buffered communication channels.
+    \item TODO
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Related Work: Alternative Approaches}
+
+  \begin{itemize}
+    \item L$^3$
+    \item Linear Haskell
+    \item Rust
+  \end{itemize}
+
+\end{frame}
+
+\section{Towards a CLASS Compiler}
+
+\begin{frame}{Solution: Overview}
+  \begin{itemize}
+    \item Compilation scheme heavily based on the SAM interpreter.
+    \item Execution is done sequentially and deterministically, with continuation-based coroutining.
+    \item Processes communicate in a buffered manner through session records.
+    \item CLASS programs are compiled to an Intermediate Representation (IR) which is then translated to C code.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Solution: Session Records}
+  \begin{lstlisting}[language=C]
+struct environment {
+    struct record* records[];
+};
+
+struct record {
+    void* cont;
+    struct environment* cont_env;
+    unsigned char cont_record;
+    unsigned char written, read;
+    unsigned char buffer[];
+};
+
+struct environment *env;
+  \end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{Solution: Tasks}
+  \begin{lstlisting}[language=C]
+struct task {
+    struct task* next;
+    void* cont;
+    struct environment* cont_env;
+};
+
+struct task *task;
+  \end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{Solution: Main Function}
+  \begin{lstlisting}[language=C]
+int main() {
+  task = malloc(sizeof(struct task));
+  task->cont = &&end;
+
+  env = malloc(sizeof(struct environment)
+      + /*n*/ * sizeof(struct record*));
+  goto proc_entry;
+
+  /* ... process definitions ... */
+
+end:
+  return 0;
+}
+  \end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{Solution: Example Compilation 1}
+  \begin{class}
+    \procdefc{main}{}{
+      \cutc{
+        \waiti{x}\emptyc
+      }{x: \closet}{
+        \closec{x}
+      }
+    }
+  \end{class}
+\end{frame}
+
+\begin{frame}[fragile]{Solution: Example Compilation 1}
+  \begin{lstlisting}[language=C]
+proc_main:
+    initSession(0 /*x*/, 0 /*size*/, &&cut_rhs);
+    pushClose(0);
+    flip(0);
+cut_rhs:
+    popClose(0);
+    freeSession(0);
+    nextTask();
+  \end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{Solution: Example Compilation 2}
+  \begin{class}
+    \procdefc{foo}{y: \offert{\labelt{inl}{\closet}\ \labelt{inr}{\waitt}}}{
+      \casec{y}{
+        \labelc{inl}{\closec{y}}
+        \labelc{inr}{\waiti{y}\emptyc}
+      }
+    }
+  \end{class}
+\end{frame}
+
+\begin{frame}[fragile]{Solution: Example Compilation 2}
+  \begin{lstlisting}[language=C]
+proc_foo:
+    popChoice(0 /*y*/, {0 => &&inl, 1 => &&inr});
+inl:
+    pushClose(0);
+    flip(0);
+inr:
+    popClose(0);
+    freeSession(0);
+    nextTask();
+  \end{lstlisting}
+\end{frame}
+
+
+\begin{frame}[fragile]{Solution: Example Compilation 2}
+  \begin{class}
+    \procdefc{main}{}{
+      \cutc{
+        \proccallc{foo}{x}
+      }{x: \choicet{\labelt{inl}{\waitt}\ \labelt{inr}{\closet}}}{
+        \choosec{inl}{x}
+        \waiti{x}\emptyc
+      }
+    }
+  \end{class}
+\end{frame}
+
+\begin{frame}[fragile]{Solution: Example Compilation 2}
+  \begin{lstlisting}[language=C]
+proc_main:
+    initSession(0 /*x*/, 1 /*size*/, &&cut_rhs);
+    pushChoice(0 /*x*/, 0 /*inl*/);
+    flip(0);
+    popClose(0);
+    nextTask();
+cut_rhs:
+    call(proc_foo, 1, {0 /*x*/ => 0 /*y*/});
     
-% \end{alertblock}
-% \pause
-% There is no reasonable answer, and, as we have seen during the course, this led to a crisis with the foundation of mathematics. \pause Two solutions:
-
-% \begin{itemize}
-%     \item ZFC set theory
-%     \item Type theory
-% \end{itemize}
-
-% \pause 
-% But \dots what is the difference?
-
-% \end{frame}
-
-
-
-% \begin{frame}{Set Theory}
-% Formally, set theory can be regarded as a theory inside the framework of first-order logic using the following signature:
-% \[
-% \{ =, \in \}
-% \]
-
-% \pause 
-
-% Thus, we can see \textit{set-theory} as being formed by two "layers":
-% \begin{enumerate}
-%     \item First-order logic with its deductive system (\textit{natural deduction} ecc.) that allows us to derive \textit{judgements} about \textit{logical propositions}.
-%     \item The actual theory, which talks about \textit{sets}, and is composed by a bunch of \textit{axioms} (the one which characterizes ZFC set theory).
-% \end{enumerate}
-
-% \end{frame}
-
-% \begin{frame}{Martin-Löf Type theory}
-
-% \textit{Type theory} instead has a single layer:
-% \begin{itemize}
-%     \item It has only one notion of primitive objects: \textit{types} $\rightarrow$ proofs, etc. are just particular instances of types.
-%     \item It has a \textit{deductive system} that permits to derive \textit{judgements}, that is like "constructing" objects.
-% \end{itemize}
-
-% \end{frame}
-
-% \begin{frame}{Logic Interpretations in Intuitionistic Type Theory}
-
-% And what is the relation with \textit{logic}?
-% \begin{itemize}
-%     \item The \textit{deductive system} of type theory follows the rules of \textit{intuitionistic logic} (removing \textit{excluded middle} rule), as we have seen in the course. 
-%     \item We can regard \textit{Martin-Löf type theory} also as an higher-order logic. As in \textit{second-order} logic we use the quantification over relations to introduce new domains of quantification. Here, we can use $\Pi$, $\Sigma$, $+$, $I$ to introduce new domains of quantification.
-% \end{itemize}
-    
-
-% \end{frame}
-
-% \begin{frame}{Basic type formers}
-
-% The core version of intuitionistic type theory contains all of the type formers needed for typed intuitionistic predicate logic:
-
-% \begin{align*}
-% \bot &= \varnothing\\
-%  \top &= 1\\
-%  A \vee B &= A + B\\
-%  A \wedge B &= A \times B\\
-%  A \supset B &= A \rightarrow B\\
-%  \exists x {:} A.\, B &= \Sigma x {:} A.\, B\\
-%  \forall x {:} A.\, B &= \Pi x {:} A.\, B 
-% \end{align*}
-% \pause
-% Additionally, we have:
-% \begin{itemize}
-%     \item N, type of natural numbers
-%     \item U, type of small types
-% \end{itemize}
-
-% \end{frame}
-
-% \begin{frame}{Judgements}
-
-% Judgements are no longer an affirmation or denial of a proposition, but a general act of knowledge. Judgements may be \textit{categorical}:
-
-% $$
-% \vdash A
-% $$
-
-% \pause
-
-% or \textit{hypothetical}:
-
-% $$
-% \Gamma \vdash A
-% $$
-
-% where $\Gamma = x_1:A_1, ..., x_n:A_n$, meaning that $A$ can depend on variables of earlier types.
-
-% \end{frame}
-
-% \begin{frame}{Judgement Forms}
-
-% There are four basic forms of judgements:
-
-% \begin{itemize}
-%     \item $\Gamma \vdash A$, meaning that $A$ is a well-formed type.
-%     \pause
-%     \item $\Gamma \vdash x : A$, meaning that $x$ has type $A$.
-%     \pause
-%     \item $\Gamma \vdash A = B$, meaning that $A$ and $B$ are equal types.
-%     \pause
-%     \item $\Gamma \vdash x = y : A$, meaning that $x$ and $y$ are equal elements of type $A$.
-% \end{itemize}
-
-% \end{frame}
-
-% \begin{frame}{General Inference Rules}
-
-% The first group of inference rules are general rules of assumption, substitution, context formation and equivalence relations. \pause One rule crucial to computations in types is:
-
-% $$
-% \frac{\Gamma \vdash x {:} A\hspace{2em}\Gamma \vdash A = B} {\Gamma \vdash x {:} B}
-% $$
-
-% \pause
-
-% The remaining rules are specific to the type formers, and are classified into formation, introduction, elimination and equality.
-
-% \end{frame}
-
-% \begin{frame}{$\Pi\text{-type}$ Formation and Introduction}
-
-% $\Pi$-formation:
-
-% $$
-% \frac{\Gamma \vdash A\hspace{2em} \Gamma, x {:} A \vdash B} {\Gamma \vdash \Pi x {:} A. B}
-% $$
-
-% \pause
-
-% $\Pi$-introduction:
-
-% $$
-% \frac{\Gamma, x {:} A \vdash b {:} B} {\Gamma \vdash \lambda x. b {:} \Pi x {:} A. B}
-% $$
-
-% \end{frame}
-
-% \begin{frame}{$\Pi\text{-type}$ Elimination and Equality}
-
-% $\Pi$-elimination:
-
-% $$
-% \frac {\Gamma \vdash f {:} \Pi x {:} A.B\hspace{2em}\Gamma \vdash a {:} A} {\Gamma \vdash f\,a {:} B[x := a]}
-% $$
-
-% \pause
-
-% $\Pi$-equality:
-
-% $$
-% \frac {\Gamma, x {:} A \vdash b {:} B\hspace{2em}\Gamma \vdash a {:} A} {\Gamma \vdash (\lambda x.b)\,a = b[x := a] {:} B[x := a]}
-% $$
-
-% % TODO: maybe add congruence rule?
-
-% \end{frame}
-
-% \begin{frame}{Natural Number Formation and Introduction}
-
-% N-formation:
-% $$
-% \Gamma \vdash N
-% $$
-
-% \pause
-
-% N-introduction:
-% $$
-% \Gamma \vdash 0 {:} N \hspace{2em} \frac{\Gamma \vdash a {:} N} {\Gamma \vdash s(a) {:} N}
-% $$
-
-% \end{frame}
-
-% \begin{frame}{Natural Number Elimination and Equality}
-
-% N-elimination:
-% $$
-% \frac{ \Gamma, x {:} N \vdash P \hspace{0.5em} \Gamma \vdash c {:} N \hspace{0.5em} \Gamma \vdash d {:} P[x := 0] \hspace{0.5em} \Gamma, y {:} N, z {:} P[x := y] \vdash e {:} P[x := s(y)] } { \Gamma \vdash R(c,d,yz.e) {:} P[x := c] }
-% $$
-
-% \pause
-
-% N-equality:
-% \begin{align*}
-% R(0,d,yz.e) &= d {:} P[x := 0]\\
-% R(s(a),d,yz.e) &= e[y := a, z := R(a,d,yz.e)] {:} P[x := s(a)] 
-% \end{align*}
-
-% \end{frame}
-
-% \begin{frame}{Universe of Small Types}
-
-% $U$-formation:
-% $$
-% \Gamma \vdash U
-% $$
-
-% \pause
-
-% $U$-introduction:
-% $$
-% \Gamma \vdash \varnothing {:} U \hspace{3em} \Gamma \vdash 1 {:} U
-% $$
-
-% $$
-% \frac{\Gamma \vdash A {:} U\hspace{2em} \Gamma, x {:} A \vdash B {:} U} {\Gamma \vdash \Pi x {:} A.\, B {:} U}
-% $$
-
-% $$
-% \Gamma \vdash N {:} U
-% $$
-
-% \pause
-
-% $U$-elimination:
-% $$
-% \frac{\Gamma \vdash A {:} U} {\Gamma \vdash A}
-% $$
-
-% \end{frame}
-
-% \begin{frame}{Universe of Small Types}
-
-% \begin{alertblock}{Type of U}
-
-% All small types have a type, $U$, but what is the type of $U$?
-
-% \end{alertblock}
-% \pause
-
-% In Martin-Löf (1975), the universe is extended to a countable hierarchy of universes
-
-% $$
-% U_0 : U_1 : U_2 : \cdots .
-% $$
-
-% This way each type has a type, not only each small type.
-
-% \end{frame}
-
-% \begin{frame}{Conclusion}
-
-% In conclusion, type theory is a powerful framework not only for reasoning about mathematics but also for computation and proof systems. The core theory we've presented here has been extended and modified upon numerous times, such as:
-
-% \begin{itemize}
-%     \item \textit{Extensional Type Theory}, where there's no distinction between propositional equality and judgemental equality.
-% \end{itemize}
-%     \pause
-% There are also attempts to put \textit{type theory} as the foundation of mathematics as:
-% \begin{itemize}
-%     \item \textit{Homotopy Type Theory}, which connects type theory with higher-dimensional geometry and topology, as part of the \textit{univalent foundation program}.
-% \end{itemize}
-
-% \end{frame}
-
-\begin{frame}
-\bibliography{./Bibliography}    
+  \end{lstlisting}
+\end{frame}
+
+\begin{frame}{Solution: Next Steps and Future Work}
+  \begin{itemize}
+    \item Expand the compiler to cover the full CLASS language.
+    \item Deallocate environments using a reference counting scheme.
+    \item Profile and optimize the existing implementation.
+    \item Explore parallelization using thread pools.
+    \item Enable interop with C code.
+    \item Emit LLVM IR instead of C code.
+  \end{itemize}
+\end{frame}
+
+\section{Evaluation}
+
+\begin{frame}{Evaluation}
+  \begin{itemize}
+    \item Extensive testing using incremental unit tests.
+    \item Performance comparison with the original CLASS interpreter and SAM interpreter.
+    \item Measure the performance gained by the optimizations implemented.
+    \item Compare performance with C, Haskell (GHC) and possibly other languages, using interop features.
+  \end{itemize}
+\end{frame}
+
+\section{Work Schedule}
+
+\begin{frame}[shrink=52]{Work Schedule}
+  \begin{figure}
+    \centering
+    \hspace*{-2cm}
+    \begin{ganttchart}[ y unit chart = 0.6cm,
+        vgrid,
+        bar top shift=-0.1,
+        bar height=0.6,
+        title height=0.7]{1}{36}
+      \gantttitle{Feb'25}{4}
+      \gantttitle{Mar'25}{4}
+      \gantttitle{Apr'25}{4}
+      \gantttitle{May'25}{4}
+      \gantttitle{Jun'25}{4}
+      \gantttitle{Jul'25}{4}
+      \gantttitle{Aug'25}{4}
+      \gantttitle{Sep'25}{4}
+      \gantttitle{Oct'25}{4} \\
+      \gantttitlelist{1,...,4}{1}
+      \gantttitlelist{1,...,4}{1}
+      \gantttitlelist{1,...,4}{1}
+      \gantttitlelist{1,...,4}{1}
+      \gantttitlelist{1,...,4}{1}
+      \gantttitlelist{1,...,4}{1}
+      \gantttitlelist{1,...,4}{1}
+      \gantttitlelist{1,...,4}{1}
+      \gantttitlelist{1,...,4}{1} \\
+
+      \ganttgroup{Extend compiler features}{1}{7} \\
+      \ganttbar{Code base clean-up}{1}{2} \\
+      \ganttbar{Affine sessions and shared mutable state}{3}{5} \\
+      \ganttbar{Native types}{6}{6} \\
+      \ganttbar{C Interoperability}{7}{7} \\
+
+      \ganttgroup{Profiling and optimization}{8}{23} \\
+      \ganttbar{Run tests and evaluate solution}{8}{8}\\
+      \ganttbar{Better memory management}{9}{11} \\
+      \ganttbar{Multi-threading}{12}{12} \\
+      \ganttbar{Investigate and implement other optimizations}{13}{23} \\
+
+      \ganttgroup{Writing dissertation}{1}{36} \\
+      \ganttbar{Alpha version}{1}{23} \\
+      \ganttbar{Final revision by advisor}{24}{27} \\
+      \ganttbar{Beta version}{28}{36} \\
+
+    \end{ganttchart}
+  \end{figure}
+\end{frame}
+
+\begin{frame}[shrink=20]
+  \bibliography{./Bibliography}
 \end{frame}
 
 \begin{frame}{}
   \begin{center}
-    \huge Thank you!  
+    \huge Thank you!
   \end{center}
-    
+
 \end{frame}
 \end{document}
