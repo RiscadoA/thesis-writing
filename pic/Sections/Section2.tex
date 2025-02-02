@@ -568,7 +568,7 @@ CLASS supports defining inductive types and processes. Figure \ref{fig:CLASSNatE
                 \unfoldnuc{x}
                 \casec{x}{
                     \labelc{zero}{\printlni{0}\closec{x}}
-                    \labelc{true}{\printi{S}\proccallc{printNat}{x}}
+                    \labelc{succ}{\printi{S}\proccallc{printNat}{x}}
                 }
             }
         \end{class}
