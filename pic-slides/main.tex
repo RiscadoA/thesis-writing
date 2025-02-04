@@ -418,7 +418,6 @@
     \item Compilation scheme heavily based on the LSAM interpreter.
     \item Execution is done sequentially and deterministically, with continuation-based coroutining.
     \item Processes communicate in a buffered manner through session records.
-    \item Built on top of the existing CLASS interpreter and LSAM codebase.
     \item CLASS programs are compiled to an Intermediate Representation (IR) which is then translated to C code.
   \end{itemize}
 \end{frame}
@@ -517,7 +516,6 @@ end:
   \begin{itemize}
     \item There's a single cut, and thus the environment will have size 1.
     \item Index 0 is associated to the channel $x$.
-    \item Process code will be preceded by a label \texttt{proc\_main}.
   \end{itemize}
 \end{frame}
 
@@ -703,8 +701,7 @@ lhs:
   \begin{itemize}
     \item Extensive testing using incremental unit tests.
     \item Performance comparison with the original CLASS interpreter and SAM interpreter.
-    \item Measure the performance gained by the optimizations implemented.
-    \item Compare performance with C, Haskell (GHC) and possibly other languages, using interop features.
+    \item Compare performance with C, Haskell (GHC) and possibly other languages.
   \end{itemize}
 \end{frame}
 
