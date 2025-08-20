@@ -13,3 +13,15 @@
 *.nav
 *.snm
 *.vrb
+*.mtc*
+*.mlt*
+*.mlf*
+*.maf
+*.blg
+*.loa
+*.loc
+*.lof
+*.lol
+*.lot
+*.glo
+!Images/*.pdf
