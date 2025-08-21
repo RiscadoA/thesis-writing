@@ -24,4 +24,5 @@
 *.lol
 *.lot
 *.glo
-!Images/*.pdf
+*.xdy
+!**/Images/*.pdf
