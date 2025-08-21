@@ -25,4 +25,5 @@
 *.lot
 *.glo
 *.xdy
+*.soc
 !**/Images/*.pdf

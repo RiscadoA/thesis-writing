@@ -453,7 +453,7 @@ The $\recvp$ process is compiled as shown below. The process generates code to p
 
 \begin{compilation}{\recvc{x}{y}{P}}{\varepsilon}
     \popsession{\varepsilon(x)}{\varepsilon(y)}
-    \flip{\varepsilon(y)} \note{\text{only if }y\text{ has a negative type}}
+    \flip{\varepsilon(y)} \comment{\text{only if }y\text{ has a negative type}}
     \recurse{P}{\varepsilon}
 \end{compilation}
 

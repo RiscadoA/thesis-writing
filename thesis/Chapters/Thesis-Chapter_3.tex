@@ -3,83 +3,498 @@
 % !TEX root = ../main.tex
 % #############################################################################
 % Change the Name of the Chapter i the following line
-\fancychapter{This is the Third Chapter}
+\fancychapter{Towards a CLASS Compiler}
 % The following line allows to ref this chapter
 \label{chap:architecture}
 
-Donec gravida posuere arcu. Nulla facilisi. Phasellus imperdiet. Vestibulum at metus. Integer euismod. Nullam placerat rhoncus sapien. Ut euismod. Praesent libero. Morbi pellentesque libero sit amet ante. Maecenas tellus. Maecenas erat. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas.
-% #############################################################################
-\section{Architecture Design} 
-\textcolor{violet}{Example of a Flowchart for a system, in \Cref{fig:flowchart}, created with \url{https://app.diagrams.net} and then exported as ``PDF'' crop format (a true vector image that can be scaled to no end, with no pixels or distortion).}
+The solution proposed by this project to the problem of compiling CLASS programs to native code is a compilation scheme heavily based on the SAM interpreter. Execution is done sequentially and deterministically, with the compiler generating code that closely resembles the execution of the SAM, implementing continuation-based coroutining. Communication between processes is done in a buffered manner through session records, which store the data exchanged between two end points of a session. Whenever a process finishes writing to a session, a jump is made to the other end point, which will read the data, and continue execution.
 
-\begin{figure}[h]
-\centering
-\includegraphics[width=1.0\textwidth]{./Images/Flowchart_from_draw-io.pdf}
-\caption{System Processes}
-\label{fig:flowchart}
-\end{figure}
+For simplicity, we first compile CLASS programs to an intermediate representation (IR), which abstracts some details of the target language, which in this case is C. The IR is then translated to C code, which is finally compiled to native code using the GNU Compiler Collection (GCC).
 
-Quisque facilisis erat a dui. Nam malesuada ornare dolor. Cras gravida, diam sit amet rhoncus ornare, erat elit consectetuer erat, id egestas pede nibh eget odio. Proin tincidunt, velit vel porta elementum, magna diam molestie sapien, non aliquet massa pede eu diam. Aliquam iaculis. Fusce et ipsum et nulla tristique facilisis. Donec eget sem sit amet ligula viverra gravida. Etiam vehicula urna vel turpis. 
+This chapter is divided into three sections. In the first section, we explain some of the IR constructs we defined, and how they are translated to C code. In the second section, we describe the compilation process of selected CLASS constructs to the IR. Finally, in the third section, we list some of the problems that we still haven't solved, both those that will be tackled in the rest of the project, and those that will be left as future work.
 
-\textcolor{violet}{And here another diagram of a network (\Cref{fig:network}) created with \url{https://app.diagrams.net} and then exported as ``PDF'' crop format.}
+To keep this report short, details such as the handling of CLASS 's polymorphic types, recursion and exponentials are omitted. These will be addressed in the final work.
 
-\begin{figure}[h]
-\centering
-\includegraphics[width=1.0\textwidth]{./Images/Network_from_draw-io.pdf}
-\caption{Network Diagram}
-\label{fig:network}
-\end{figure}
+\section{IR to C}
 
-Suspendisse sagittis ante a urna. Morbi a est quis orci consequat rutrum. Nullam egestas feugiat felis. Integer adipiscing semper ligula. Nunc molestie, nisl sit amet cursus convallis, sapien lectus pretium metus, vitae pretium enim wisi id lectus. Donec vestibulum. Etiam vel nibh. Nulla facilisi. Mauris pharetra. Donec augue. Fusce ultrices, neque id dignissim ultrices, tellus mauris dictum elit, vel lacinia enim metus eu nunc:
+In this section we describe the C programs the compiler generates from the intermediate representation (IR), which is produced by the code generation phase.
 
-\begin{description}
-	\item[\textbf{Web-streaming:}]
-	The client application should support streaming media using \ac{HTTP} protocols.
-	\item[\textbf{Multi-source streaming:}]
-	The client application should support multi-source streaming media, i.e., ``simultaneous'' streaming of media content components from a network, supported\slash complemented by \ac{CDN}\slash \ac{CC} services. 
-	\item[\textbf{Support content Metadata Description:}]
-	The client application should support content metadata description in a format similar or compliant with MPEG \ac{DASH} \cite{ISO/IEC:2012fk}. 
-	\item[\textbf{Scalable and Adaptive Media Contents:}]
-	The system should support on-demand streaming of scalable and adaptive contents based on \ac{SVC}.
-	\item[\textbf{Heterogenous End-User Devices:}]
-	The client application should be compatible with current and future generations of end-user devices form factors, irrespective of their performance, screen size and resolution.
-	\item[\textbf{Access Network independency:}] 
-	The solution should provide the expected service over different types of access networks supported by the end-user devices, such as Wireless \acp{LAN} (IEEE 802.11) or cellular data networks such as \ac{GPRS}, \ac{UMTS}, \ac{LTE}, etc.
-\end{description}
+The intermediate representation used by the compiler is an imperative stateful language which closely resembles an assembly language for an abstract machine. An IR program is a list of blocks of instructions, which may be labeled. Each block corresponds to a process definition in the source CLASS program.
 
-Cras gravida, diam sit amet rhoncus ornare, erat elit consectetuer erat, id egestas pede nibh eget odio. Proin tincidunt, velit vel porta elementum, magna diam molestie sapien, non aliquet massa pede eu diam. Aliquam iaculis. Fusce et ipsum et nulla tristique facilisis.
-% #############################################################################
-\section{Architecture Design Requirements}
-Ut nulla. Vivamus bibendum, nulla ut congue fringilla, lorem ipsum ultricies risus, ut rutrum velit tortor vel purus. In hac habitasse platea dictumst. Duis fermentum, metus sed congue gravida, arcu dui ornare urna, ut imperdiet enim odio dignissim ipsum. Nulla facilisi. Cras magna ante, bibendum sit amet, porta vitae, laoreet ut, justo. Nam tortor sapien, pulvinar nec, malesuada in, ultrices in, tortor. Cras ultricies placerat eros. Quisque odio eros, feugiat non, iaculis nec, lobortis sed, arcu. Pellentesque sit amet sem et purus pretium consectetuer \Cref{mpd}\todo[color=cyan!40, author=RC, fancyline]{A listing for XML code, with syntax highlighting}{}.
+We start by showing the C type definitions for the data structures generated by the compiler. Then, we give an overview of our intermediate representation, and show how these IR constructs are translated to C code.
 
-\begin{minipage}[c]{0.95\textwidth}
-\begin{center}
-\begin{spacing}{0.5}
-\begin{lstlisting}[frame=lines,style=XML,caption={Example of a MPD file.},label=mpd]
-<?xml version="1.0" encoding="UTF-8"?>
-<StreamInfo version="2.0">
-    <Clip duration="PT01M0.00S">
-        <BaseURL>videos/</BaseURL>
-        <Description>svc_1</Description>
-        <Representation mimeType="video/SVC" codecs="svc" frameRate="30.00" bandwidth="401.90"
-            width="176" height="144" id="L0">
-            <BaseURL>svc_1/</BaseURL>
-            <SegmentInfo from="0" to="11" duration="PT5.00S">
-                <BaseURL>svc_1-L0-</BaseURL>
-            </SegmentInfo>
-        </Representation>
-        <Representation mimeType="video/SVC" codecs="svc" frameRate="30.00" bandwidth="1322.60"
-            width="352" height="288" id="L1">
-            <BaseURL>svc_1/</BaseURL>
-            <SegmentInfo from="0" to="11" duration="PT5.00S">
-                <BaseURL>svc_1-L1-</BaseURL>
-            </SegmentInfo>
-        </Representation>
-    </Clip>
-</StreamInfo>
+\subsection{Data Types}
+
+Below, we show the C type which describes an execution environment, which is responsible for binding session records to session indices. At any time during the execution of a program, there exists an active environment, where the records accessible to the current process are stored. The environment is a struct which contains an array of pointers to session records, with at most $255$ elements.
+% and a pointer to the first exponential closure in the environment
+
+% missing struct exponential* exponential;
+\begin{lstlisting}[language=C]
+struct environment {
+    struct record* records[];
+};
 \end{lstlisting}
-\end{spacing}
-\end{center}
-\end{minipage}
 
-Nam malesuada ornare dolor. Cras gravida, diam sit amet rhoncus ornare, erat elit consectetuer erat, id egestas pede nibh eget odio. Proin tincidunt, velit vel porta elementum, magna diam molestie sapien, non aliquet massa pede eu diam.
+The session records, whose type is shown below, describe the current state of a session. The fields \texttt{cont}, \texttt{cont\_env} and \texttt{cont\_record} are used to implement the coroutining aspect of the execution. The \texttt{cont} field is a pointer which stores the program address to jump to when resuming the opposite end point of the session (when executing a flip). This address is obtained from a label, through the GCC extension for computed gotos. The \texttt{cont\_env} field stores a pointer to the environment to switch to when executing a flip, and the \texttt{cont\_record} field stores the index of the session record itself in the environment referenced by \texttt{cont\_env}. The purpose of these fields will be explained more clearly in the next subsections.
+
+To store the data exchanged asynchronously between the two end points of the session, we keep a session buffer in the field \texttt{buffer}, which is a simple byte array. Its size is determined at allocation time, and is at most $255$ bytes. To track how many data has already been written and pending to read, we use the fields \texttt{written} and \texttt{read}, respectively. The \texttt{written} field keeps the count on how many bytes have been written to the buffer, and the \texttt{read} field keeps the count on how many bytes have been read from the buffer.
+
+\begin{lstlisting}[language=C]
+struct record {
+    void* cont;
+    struct environment* cont_env;
+    unsigned char cont_record;
+    unsigned char written, read;
+    unsigned char buffer[];
+};
+\end{lstlisting}
+
+% The exponential closures form a linked list, where each closure points to its parent closure. The \texttt{cont} field stores the program address to jump to, and the \texttt{size} field stores the size of the environment that should be created when the closure is instantiated.
+
+% \begin{lstlisting}[language=C]
+% struct exponential {
+%     struct exponential* parent;
+%     void* cont;
+%     int size;
+% };
+% \end{lstlisting}
+
+Finally, we define a C type for tasks. Tasks store a continuation, i.e., a program address and an environment to switch to. These exist solely to implement the parallel construct of CLASS, which corresponds to the mix rule of linear logic. Tasks form a linked list, where each task points to the next task to be executed.
+
+\begin{lstlisting}[language=C]
+struct task {
+    struct task* next;
+    void* cont;
+    struct environment* cont_env;
+};
+\end{lstlisting}
+
+\subsection{Registers}
+
+Translated IR instructions operate on the registers shown below. The \texttt{env} register points to the current environment, on which operations are performed. The \texttt{task} registers point to the next task to be executed. The rest of the registers are used to store temporary values.
+
+\begin{lstlisting}[language=C]
+struct environment *env, *tmp_env;
+struct task *task, *tmp_task;
+struct record *tmp_record;
+void *tmp_cont;
+\end{lstlisting}
+
+\subsection{Main function and labels}
+
+The main function of the generated C program is shown below. It initializes the environment, allocates space for the session records, and then jumps to the entry process. For each process definition, a label of the form \texttt{proc\_X} is generated, where \texttt{X} is the name of the process. The code each for process definition is generated from its IR instructions, immediately after the label.
+
+\begin{lstlisting}[language=C]
+int main() {
+    /* The last task in the list of tasks finishes the program */
+    task = malloc(sizeof(struct task));
+    task->cont = &&end;
+
+    /* Initializes the environment, where n is the number of session records
+       necessary for the entry process */
+    env = malloc(sizeof(struct environment) + /*n*/ * sizeof(struct record*));
+    goto proc_entry;
+
+    /* ... process definitions ... */
+
+end:
+    return 0;
+}
+\end{lstlisting}
+
+Additionally, any labels in the IR are directly translated to C labels, with extra care taken to ensure that each label is unique.
+
+
+\subsection{Tasks}
+
+There are two IR instructions which manipulate the linked list of tasks. The \texttt{newTask} instruction, from which code is generated as shown below, allocates a new task, sets its continuation to a chosen label \texttt{cont}, and inserts it at the end of the linked list.
+
+\begin{lstlisting}[language=C]
+    /* newTask(cont) */
+    tmp_task = malloc(sizeof(struct task));
+    tmp_task->next = task;
+    tmp_task->cont = &&cont;
+    tmp_task->cont_env = env;
+    task = tmp_task;
+\end{lstlisting}
+
+The \texttt{nextTask} instruction, whose generation is shown below, removes the first task from the linked list, changes the current environment and jumps to its continuation.
+
+\begin{lstlisting}[language=C]
+    /* nextTask() */
+    tmp_task = task;
+    task = task->next;
+    env = tmp_task->cont_env;
+    tmp_cont = tmp_task->cont;
+    free(tmp_task);
+    goto *tmp_cont;
+\end{lstlisting}
+
+\subsection{Session initialization and freeing}
+
+Sessions are initialized with the \texttt{initSession} instruction. This instruction receives the index \texttt{record} of the session record in the current environment, the \texttt{size} of the session record buffer in bytes, and the initial continuation of the session, referenced by a label \texttt{cont}. The generated C code for this instruction is shown below.
+
+\begin{lstlisting}[language=C]
+    /* initSession(record, size, cont) */
+    env->records[record] = malloc(sizeof(struct record) + size);
+    env->records[record]->cont = &&cont;
+    env->records[record]->cont_env = env;
+    env->records[record]->cont_record = record;
+    env->records[record]->written = 0;
+    env->records[record]->read = 0;
+\end{lstlisting}
+
+Sessions are freed with the \texttt{freeSession} instruction. This instruction receives the index \texttt{record} of the session record in the current environment.
+
+\begin{lstlisting}[language=C]
+    /* freeSession(record) */
+    free(env->records[record]);
+\end{lstlisting}
+
+\subsection{Session buffer manipulation}
+
+To simplify write and read operations on session buffers, we define the \texttt{PUSH} and \texttt{POP} macros, shown below. These macros write and read to the buffer, respectively, and change the \texttt{written} and \texttt{read} fields of the session record accordingly.
+
+\begin{lstlisting}[language=C]
+#define READ(record) env->records[record]->read
+#define WRITTEN(record) env->records[record]->written
+#define BUFFER(record) env->records[record]->buffer
+
+#define PUSH(record, type, value) \
+    *((type*)&BUFFER(record)[WRITTEN(record) += sizeof(type)]) = value
+#define POP(record, type) \
+    *((type*)&BUFFER(record)[READ(record) += sizeof(type)])
+\end{lstlisting}
+
+The \texttt{pushClose} and \texttt{popClose} instructions both receive the index \texttt{record} of the session record in the current environment. Both instructions compile to nothing, as close tokens are zero-sized, and thus, nothing needs to be written or read from the session buffer. They're included only for debugging purposes.
+
+The \texttt{pushTag} instruction receives the index \texttt{record} of the session record in the current environment, and a tag \texttt{tag} to be pushed to the session buffer. The generated C code for this instruction is shown below.
+
+\begin{lstlisting}[language=C]
+    /* pushTag(record, tag) */
+    PUSH(record, unsigned char, tag);
+\end{lstlisting}
+
+Since tags are represented as \texttt{unsigned char}, we limit the maximum number of branches in choice and offer processes to $256$.
+
+The \texttt{popTag} instruction receives the index \texttt{record} of the session record in the current environment, and a mapping \texttt{cases} from tags to labels.
+
+\begin{lstlisting}[language=C]
+    /* popTag(record, cases) */
+    switch (POP(record, unsigned char)) {
+        case /*tag*/: goto /*label*/; /* for each (tag, label) in cases */
+    }
+\end{lstlisting}
+
+The \texttt{pushSession} instruction receives the indices \texttt{record} and \texttt{argRecord} of the session records in the current environment, and pushes a pointer to the session record \texttt{argRecord} to the buffer of the session record \texttt{record}. The generated C code for this instruction is shown below.
+
+\begin{lstlisting}[language=C]
+    /* pushSession(record, argRecord) */
+    PUSH(record, struct record*, env->records[argRecord]);
+\end{lstlisting}
+
+The \texttt{popSession} instruction receives the indices \texttt{record} and \texttt{argRecord} of the session records in the current environment, pops a session record pointer from the buffer of the session record \texttt{record} and binds it to \texttt{argRecord} in the current environment.
+
+\begin{lstlisting}[language=C]
+    /* popSession(record, argRecord) */
+    env->records[argRecord] = POP(record, struct record*);
+\end{lstlisting}
+
+% \todo{Write Pushing and popping exponentials}z
+
+\subsection{Flips}
+
+We call the operation of switching the flow of control between two end points of a session a flip. Flips are generated by the \texttt{flip} instruction. This instruction receives the index \texttt{record} of the session record in the current environment, and swaps the current environment and program address with the session record's continuation environment and program address. Additionally, we update the \texttt{cont\_record} field of the record to store the index of the session record in the old environment, which is required by the \texttt{fwd} instruction, as we will see later. In the implementation, care is taken to ensure the continuation label \texttt{cont} is given a unique name for each flip.
+
+Notice that we use the computed goto extension provided by GCC, which allows us to jump to a label stored in a variable. This is necessary to implement the flip operation, as the continuation label is kept in the session record.
+
+\begin{lstlisting}[language=C]
+    /* flip(record) */
+    tmp_cont = env->records[record]->cont;
+    tmp_env = env->records[record]->cont_env;
+    env->records[record]->cont = &&cont;
+    env->records[record]->cont_env = env;
+    env->records[record]->cont_record = record;
+    env = tmp_env;
+    goto *tmp_cont;
+cont:
+\end{lstlisting}
+
+\subsection{Forwarding}
+
+The \texttt{fwd} instructions ties two session records in the current environment, \texttt{record1} and \texttt{record2}, together into a single session record, where the inactive end points of the two sessions become the two end points of the new session. Without loss of generality, we assume that \texttt{record1} corresponds to a session with a reading (negative) type, and \texttt{record2} corresponds to a session with a writing (positive) type - if the opposite is true, the caller can simply swap the arguments.
+
+\texttt{fwd} generates code as shown below. Since \texttt{record1} has a negative type, the currently inactive end point of the session must have already written data to the buffer, which is pending to be read. Similarly, since \texttt{record2} has a positive type, the currently inactive end point of the session may have data which it still hasn't read from its buffer. Thus, the first block of code appends any pending data in the  buffer of \texttt{record1} to the buffer of \texttt{record2}. Then, the continuation of \texttt{record2} is set to point to the continuation of \texttt{record1}. At this point, the only thing that remains to be done is to change the binding which originally belonged to \texttt{record1} to point to the record \texttt{record1}, and then \texttt{record1} session is freed, as the \texttt{record2} session now holds all the data. Finally, the flow of control is passed to the old continuation of \texttt{record2}.
+
+Note that this is the only instruction which makes use of the \texttt{cont\_record} field of the session record. Its only purpose is to allow the rebinding of a session record on a non-active end point's environment.
+
+\begin{lstlisting}[language=C]
+    /* fwd(record1, record2) */
+    memcpy(/*dst=*/  BUFFER(record2) + WRITTEN(record2),
+           /*src=*/  BUFFER(record1) + READ(record1),
+           /*size=*/ WRITTEN(record1) - READ(record1));
+    WRITTEN(record2) += WRITTEN(record1) - READ(record1);
+
+    tmp_cont = env->records[record2]->cont;
+    tmp_env = env->records[record2]->cont_env;
+    env->records[record1]->cont = env->records[record1]->cont;
+    env->records[record1]->cont_env = env->records[record1]->cont_env;
+    env->records[record1]->cont_record = env->records[record1]->cont_record;
+
+    tmp_record = env->records[record1];
+    tmp_record->cont_env[tmp_record->cont_record] = record2;
+    free(tmp_record);
+
+    env = tmp_env;
+    goto *tmp_cont;
+\end{lstlisting}
+
+\subsection{Process calls}
+
+Process calls are performed through the \texttt{call} instruction. This instruction receives the label of the process to be called, the size of the environment to be created, and a mapping containing the indices of the session records to be passed as arguments. The generated C code for this instruction is shown below.
+
+\begin{lstlisting}[language=C]
+    /* call(proc, size, args) */
+    tmp_env = malloc(sizeof(struct environment) + size * sizeof(struct record*));
+    /* for each i in 0..#args */
+    tmp_env->records[/*i*/] = env->records[args[/*i*/]];
+    env = tmp_env;
+    goto proc;
+\end{lstlisting}
+
+\section{CLASS to IR}
+
+In this section we sketch a formal definition of the translation from CLASS to the intermediate representation (IR) we defined in the previous section. We hope to build on specifications such as this to provide a formal correction proof of at least of a fragment of our compiler. We denote $\phi(A)$ to be the buffer size, in bytes, that a session of type $A$ requires. For brevity, we omit its definition here.
+
+% \subsection{Buffer Size Calculation}
+
+% \todo{Optimize buffers to have the minimum size possible; E.g., $\sendt{A}{\recvt{A}{\sendt{A}{\closet{}}}}$ should have size $S$, not $3S$.}
+
+% We denote the size, in bytes, of the buffer necessary for the full execution of a session of type $A$, as $\sizeof A$. This size is computed through pattern matching on the session type, through the rules introduced below.
+
+% For an type, its size must be equal to its dual type, as any value written by one end point must be read by the other. Thus, we omit the dual types for simplicity.
+
+% $$
+%     \sizeof{\dual A} = \sizeof A
+% $$
+
+% The unit types, $\closet{}$ and $\waitt{}$, have size $0$, as they do not require any data to be exchanged. They're only there to signal the end of a session.
+
+% $$
+%     \sizeof{\closet{}} = 0
+% $$
+
+% The sum types, $\offert{\dots}$ and $\choicet{\dots}$ have size equal to the maximum size of their components, plus $1$ byte to store the tag of the chosen branch.
+
+% $$
+%     \sizeof{\offert{\labelt a A\ (\dots)\ \labelt z Z}} =
+%     1 + \max(\sizeof A,\ \dots, \sizeof Z)
+% $$
+
+% The multiplicative types, $\sendt{A}{B}$ and $\recvt{A}{B}$, have size equal to the size of $B$, plus $S$ bytes to store a pointer to the sent session record, where $S$ is the size of a pointer to a session record in the compilation target architecture.
+
+% $$
+%     \sizeof{\sendt A B} = S + \sizeof B
+% $$
+
+% The exponential types, $\bangt A$ and $\whynott A$, have size $E + C + 1$, where $E$ and $C$ are, respectively, the size of pointers to an environment and to a program address in the compilation target architecture.
+
+% $$
+%     \sizeof{\bangt A} = E + C + 1
+% $$
+
+% Finally, if the type is a recursive type, any occurrence of recursive variable $X$ has a size of $0$. When a recursive type is unfolded, the session buffer is reused its beginning, and thus, there's no need to allocate more space.
+
+% $$
+%     \sizeof{X} = 0
+% $$
+
+\subsection{Environment}
+
+First we introduce notation to represent the state of the compiler, which we refer to as the environment. An environment $\varepsilon$ is a mapping from session names to their session record indices in the current environment.
+
+We define $\varepsilon[x \mapsto n]$ to be the environment $\varepsilon$ where the session record index of session $x$ is updated to $n$. Additionally, $\varepsilon(x)$ denotes the session record index of $x$, and $\#\varepsilon$ the number of mappings in $\varepsilon$.
+The session record index mapping can be determined for a given process through the function $n(\varepsilon, P)$. This function expands $\varepsilon$ to include space for new bindings in $P$, and is defined by pattern matching on the process $P$.
+
+For the $\cutp$ process, we reserve a new binding for $x$ in $\varepsilon$.
+
+$$
+    n(\varepsilon, \cutc{P}{x}{Q}) = n(n(\varepsilon[x \mapsto \#\varepsilon], P), Q)
+$$
+
+For the $\sendp$ process, we reserve a new binding for $y$ in $\varepsilon$.
+
+$$
+    n(\varepsilon, \sendc{x}{y}{P}{Q}) = n(n(\varepsilon[y \mapsto \#\varepsilon], P), Q)
+$$
+
+Similarly, we define $n$ for the $\recvp$ process.
+
+$$
+    n(\varepsilon, \recvc{x}{y}{P}) = n(\varepsilon[y \mapsto \#\varepsilon], P)
+$$
+
+For the $\parp$ process, we simply join the mappings of the two processes.
+
+$$
+    n(\varepsilon, \parc{P}{Q}) = n(n(\varepsilon, P), Q)
+$$
+
+We do the same for all branches of $\casep$.
+
+$$
+    n(\varepsilon, \casec{x}{\labelc{a}{A},\,\dots,\,\labelc{z}{Z}}) = n(n(\dots n(\varepsilon, A), \dots), Z)
+$$
+
+For all other processes of the form $\alpha; P$, we simply recurse on $P$.
+
+$$
+    n(\varepsilon, \alpha; P) = n(\varepsilon, P)
+$$
+
+Finally, for processes $\emptyp$, $\closep$, $\fwdp$ and $\bangp$, we return just $\varepsilon$:
+
+$$
+    n(\varepsilon, \emptyc) = n(\varepsilon, \closec{x}) = n(\varepsilon, \fwdc{x}{y}) = n(\varepsilon, \bangc{x}{y}{P}) = \varepsilon
+$$
+
+Notice that the right-hand side of $\bangp$ isn't considered when computing $\varepsilon$. This is due to $P$ operating on a completely separate environment.
+
+\subsection{Compilation and Flips}
+
+The compilation of a CLASS process $P$ to the IR on a given environment $\varepsilon$ is represented by $\compiled{P}_\varepsilon$. We define the concept of an action $\mathcal{A}$, as a process which performs some operation on a session's buffer.
+
+Actions are typically processes of the form $\alpha; P$, with the exception of the $\closep$ action, which has no continuation $P$. We denote the subject $s(\mathcal{A})$ of an action $\mathcal{A}$ as the leftmost name occurrence in $\mathcal{A}$. For example, $s(\waitc{x}{P}) = x$.
+
+The remainder $r(\tau)$ of a type $\tau$ is defined as the type which is left after executing the next possible action on a session of type $\tau$. For example, $r(\sendt{A}{B}) = B$. The remainder is not defined for types $\closet{}$ and $\waitt{}$.
+
+Whenever an action $\mathcal{A}$ with subject $s$ of type $\tau$ is compiled, if $\tau$ is a positive type and $r(\tau)$ is a negative type, a flip is generated immediately after it, before compiling the continuation $P$. For simplicity, this is done implicitly in the compilation rules introduced in the following sections.
+
+This closely resembles the behavior of the SAM, specifically, its write-to-read adjustment. By jumping to the other end point of the session, which will be writing, we ensure that whenever a read operation is performed, its writing counterpart must have already executed, and thus, written the data to the session buffer.
+
+\subsection{Cut, Parallel and Empty}
+
+We start by defining the compilation of a $\cutp$ process, which can be seen below. We assume, without loss of generality, that $A$ is a positive type, and thus, that $P$ will be writing to $x$ before $Q$ executes - if $A$ were negative, we could simply swap $P$ and $Q$. The process initializes a session record in the environment with a new label \texttt{rhs} as continuation, and then recursively compiles $P$. Finally, it compiles $Q$ in front of the label \texttt{rhs}.
+
+\begin{compilation}{\cutc{P}{x: A}{Q}}{\varepsilon}
+    \initsession{\varepsilon(x)}{\phi(A)}{\texttt{rhs}}
+    \recurse{P}{\varepsilon}
+    \labelir{rhs}
+    \recurse{Q}{\varepsilon}
+\end{compilation}
+
+The compilation of a $\parp$ process is shown below. The process starts by generating code to insert a new task for executing $Q$ into the task linked list. Then, it compiles $P$, which will be executed immediately.
+
+\begin{compilation}{\parc{P}{Q}}{\varepsilon}
+    \newtask{rhs}
+    \recurse{P}{\varepsilon}
+    \labelir{rhs}
+    \recurse{Q}{\varepsilon}
+\end{compilation}
+
+The $\emptyp$ process is compiled as shown below. The process marks the end of the current task, as it has no continuation. The flow of control is thus simply passed to the next task in the linked list.
+
+\begin{compilation}{\emptyc}{\varepsilon}
+    \nexttask
+\end{compilation}
+
+\subsection{Forwarding}
+
+The $\fwdp$ process is compiled directly to IR - we simply translate the names to the record indices.
+
+\begin{compilation}{\fwdc{x}{y}}{\varepsilon}
+    \fwd{\varepsilon(x)}{\varepsilon(y)}
+\end{compilation}
+
+\subsection{Close and Wait}
+
+The compilation of a $\closep$ process can be seen below. The process pushes a close token to the session buffer of record $\varepsilon(x)$, and then flips back to the other end point of the session. This action doesn't have a continuation, as the session is closed and no more writing operations can be performed on it. The flow of control is passed to the other end point of the session, and won't return.
+
+\begin{compilation}{\closec{x}}{\varepsilon}
+    \pushclose{\varepsilon(x)}
+    \flip{\varepsilon(x)}
+\end{compilation}
+
+The $\waitp$ process is compiled as shown below. The close token is popped from the buffer of the session record $\varepsilon(x)$, the session's resources are freed, and the continuation $P$ is compiled in the environment $\varepsilon$, where $x$ is no longer bound.
+
+\begin{compilation}{\waitc{x}{P}}{\varepsilon}
+    \popclose{\varepsilon(x)}
+    \freesession{\varepsilon(x)}
+    \recurse{P}{\varepsilon}
+\end{compilation}
+
+\subsection{Offer and Choice}
+
+The compilation of a $\casep$ process is shown below. The compiler generates code which reads a tag from the session buffer of record $\varepsilon(x)$, jumps to the corresponding label and then recurses, generating code for each possible branch, preceded by the respective label. We define $i(\#a)$ as the index of the tag \texttt{a} in the alphabetically sorted list of tags in the offer process.
+
+\begin{compilation}{\casec{x}{\labelc{a}{A},\,\dots,\,\labelc{z}{Z}}}{\varepsilon}
+    \poptag{\varepsilon(x)}{\{(i(\#a),\texttt{a}),\,\dots,\,(i(\#z),\texttt{z})\}}
+    \labelir{a}
+    \recurse{A}{\varepsilon}
+    \beginir\dots
+    \labelir{z}
+    \recurse{Z}{\varepsilon}
+\end{compilation}
+
+The compilation of choice processes is shown below. Code is generated which writes a tag to the session buffer of record $\varepsilon(x)$ and then recurses on the continuation.
+
+\begin{compilation}{\choosec{a}{x}{P}}{\varepsilon}
+    \pushtag{\varepsilon(x)}{i(\#a)}
+    \recurse{P}{\varepsilon}
+\end{compilation}
+
+\subsection{Send and Receive}
+
+The compilation of a $\sendp$ process is shown below. The process initializes a session record with a new label \texttt{lhs} as continuation, and generates an instruction to push that new session record, $\varepsilon(y)$, to the buffer of $\varepsilon(x)$. Then, it compiles $Q$. Finally, it compiles $P$ in front of the label \texttt{lhs}. This means that $P$ will only be executed after its session record is received by the other end point, and a flip to it is performed.
+
+\begin{compilation}{\sendc{x}{y:A}{P}{Q}}{\varepsilon}
+    \initsession{\varepsilon(y)}{\phi(A)}{\texttt{lhs}}
+    \pushsession{\varepsilon(x)}{\varepsilon(y)}
+    \recurse{Q}{\varepsilon}
+    \labelir{lhs}
+    \recurse{P}{\varepsilon}
+\end{compilation}
+
+The $\recvp$ process is compiled as shown below. The process generates code to pop a session record from the buffer of $\varepsilon(x)$. If $y$ is of a negative type, then we will be reading from it in $P$. Thus, we must guarantee that it executes first, and thus, we immediately pass control to it by generating a flip.
+
+\begin{compilation}{\recvc{x}{y}{P}}{\varepsilon}
+    \popsession{\varepsilon(x)}{\varepsilon(y)}
+    \flip{\varepsilon(y)} \comment{\text{only if }y\text{ has a negative type}}
+    \recurse{P}{\varepsilon}
+\end{compilation}
+
+\subsection{Process Definitions and Calls}
+
+The compilation of a process definition is shown below. A label is generated for the definition and code is generated for the process $P$ within it, with the environment $\varepsilon$, which is generated from $P$, using the function described earlier, and additionally including session records for the arguments $x_1,\,\dots,\,x_n$.
+
+\begin{compilation}{\procdefc{foo}{x_1:A_1,\,\dots,\,x_n:A_n}{P}}{\emptyset}
+    \labelir{proc\_foo}
+    \recurse{P}{n(\emptyset[x_1 \mapsto 0,\,\dots,\,x_n\mapsto n - 1], P)}
+\end{compilation}
+
+To call a process from another process, we simply use the call IR construct we previously defined, which initializes a new environment with the required number of session records, and with passed arguments bound to their respective slots.
+
+\begin{figure}[H]
+    \centering
+    \begin{compilation}{\proccallc{foo}{x_1,\,\dots,\,x_n}}{\varepsilon}
+        \call{\texttt{proc\_foo}}{n + \#n(\emptyset, P)}{\{0 \mapsto \varepsilon(x_1),\,\dots,\, n-1 \mapsto \varepsilon(x_n)\}}
+    \end{compilation}
+    \caption{Compilation of a process call}
+    \label{fig:ProcessCallCompilation}
+\end{figure}
+
+\section{Next Steps and Future Work}
+
+An implementation of the proposed solution, including some polymorphism functionality, recursion and exponentials, has already been developed, but still has to be profiled and optimized. In terms of language features, it still doesn't cover any of the shared state and reference cell constructs of CLASS.
+
+One challenge brought up by polymorphism is that we no longer know at compile time whether on a given code section a type variable is positive or negative, and thus, whether we should generate a flip or not when encountering it as a remainder type. We expect to solve this problem by keeping track of the polarity of type variables in the environment, and branching on it when necessary.
+
+Memory management is currently very inefficient, as we allocate a new session record as sessions are created as needed and freed as they are closed, using the \texttt{malloc} and \texttt{free} functions provided by the C standard library. These functions are very slow, and we could improve performance by using a custom memory allocator, specially given that due to the linear nature of CLASS, we have plenty of guarantees about the lifetime of session records. It would also be interesting to explore the possibility of reusing data by doing in-place updates on session buffers, instead of copying data around.
+
+One other issue also related to memory management is the deallocation of environments. Currently, environments are never deallocated, which means that we have at least one memory leak for each process call. Once again, due to the linearity of CLASS, it's possible that we may be able to determine statically when an environment is no longer needed, and deallocate it. The challenge lies in determining when an environment is no longer needed, as it may be shared between multiple sessions, and sessions may be passed around dynamically. This is a problem that will be tackled in the full implementation. We're expecting to solve the problem through type driven compilation, and thus avoid the need for garbage collection. This can be achieved by using a reference counting mechanism, where an environment's reference count is decremented each time one of its sessions is closed, and deallocated when the count reaches zero.
+
+Adding support for native types such as integers and booleans is also something that will be addressed in the final implementation, as it will greatly increase the performance capabilities of the compiler.
+
+Although this work focuses on generating sequential code, it should still be useful to make use of the natural parallelism of the CLASS language. One possibly solution would be to distribute the tasks in the task list to multiple threads, through a thread pool, for example.
+
+Finally, there are several other improvements and optimizations that could be made to the compiler that are not and won't be addressed in this work, but would be interesting to explore in the future. One such improvement would be to change the target language from C to LLVM IR, which is a low-level intermediate representation used by the LLVM compiler infrastructure. This would allow us to take advantage of the more advanced optimizations provided by the LLVM compiler.

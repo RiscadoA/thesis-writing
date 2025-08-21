@@ -29,7 +29,7 @@
 \usepackage{calc}
 
 % These are useful!
-\newcommand{\todo}[1]{\textcolor{red}{\textbf{#1}}}
+\renewcommand{\todo}[1]{\textcolor{red}{\textbf{#1}}}
 
 % Useful for CLASS snippets
 \lstdefinelanguage{CLASS}{
@@ -210,7 +210,7 @@
     \newcommand{\mktwoargir}[2]{\newcommand{##1}[2]{\beginir\texttt{##2}(####1, ####2);}}
     \newcommand{\mkthreeargir}[2]{\newcommand{##1}[3]{\beginir\texttt{##2}(####1, ####2, ####3);}}
     \newcommand{\labelir}[1]{\\&\hspace{1.25em}\texttt{##1:}}
-    \renewcommand{\note}{\quad\%\ }
+    \renewcommand{\comment}{\quad\%\ }
 
     \mkoneargir{\newtask}{newTask}
     \mkzeroargir{\nexttask}{nextTask}
@@ -236,3 +236,6 @@
     $$
     \endgroup
 }
+
+% For \Mapsto
+\usepackage{stmaryrd}

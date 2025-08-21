@@ -6,61 +6,21 @@
 \fancychapter{Introduction}
 % The following line allows to ref this chapter
 \label{chap:intro}
-\noindent \todo[color=green!40,author=Rui Cruz, inline]{The examples of techniques, tools, and packages along the document are for you to get familiarized with them. It is advisable to preserve those examples of usage, for reference, by moving the respective blocks of text to the last Chapter of this template (or to a Chapter file that you know you will not use), until you finish your document.}
 
-\textcolor{violet}{Example of using package} \verb:todo: \textcolor{violet}{for notes of authors.} \textcolor{violet}{In this case} \todo[color=yellow!40,author=Johnny, fancyline]{pointing out to the place} \textcolor{violet}{the author Johnny is calling the attention for something at the specific place in the text.}
+Type systems are a powerful tool which can be used to ensure the absence of some runtime errors, which would otherwise require extensive testing or program analysis. Essentially, type systems form a set of rules which limit the programs that can be written in a given language. Most traditional compiled imperative languages, such as C and Java, have type systems that avoid some common programming errors, such as passing a string to a function that expects an integer. Although such programs in a weakly or dynamically typed language such as Python or JavaScript would compile and run, they would likely fail at runtime, whereas in a strongly typed language, the compiler would catch the error at compile time. One extra benefit of strongly typed languages is that the type system can be used to provide more information about the behavior of the code to the compiler, opening up new optimization paths.
 
-\textcolor{violet}{In this other case, another co-author is commenting on something inline.} \todo[color=orange!40,author=Manuel, inline]{Inline comment or Note. It can be an extract of some recommended text. ``Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Morbi commodo, ipsum sed pharetra gravida, orci magna rhoncus neque, id pulvinar odio lorem non turpis. Nullam sit amet enim. Suspendisse id velit vitae ligula volutpat condimentum. Aliquam erat volutpat. Sed quis velit. Nulla facilisi. Nulla libero. Vivamus pharetra posuere sapien.''}
+Some languages take this concept further, by using the type system to enforce stronger properties of the code. For example, Rust \cite{Matsakis:2014} uses an affine type system to enforce memory safety, and absence of data races and dangling pointers, which are common source of bugs in C and C++ programs, without the need for a garbage collector. However, Rust still does not guarantee that concurrent programs are deadlock-free, as it does not have a type system that enforces communication protocols.
 
-\textcolor{violet}{In this other case, another co-author is making a note about the citation for missing some bibliographic record}~\cite{Apple:2011fk,AdobeHDS:ys,A.:qy}.
-\todo[color=red!40,author=Pete]{You should cite also Pellentesque:2014}
+% \todo{Maybe also mention here that type-safe languages are becoming more and more popular and valuable, e.g., US government encouraging writing new software in Rust instead of C/C++ due to memory vulnerabilities}.
 
+Session types \cite{Honda:1993,Honda:1998} have been used to enforce correctness in communication protocols, namely in languages based on process calculus, which model concurrent systems \cite{Milner:1980,Milner:1992:1,Milner:1992:2}. By coupling session types with linear logic \cite{Girard:1987,Caires:2010}, it has been possible to additionally guarantee deadlock freedom. CLASS \cite{Rocha:2022}, is an example of a session-typed language, built on top of the correspondence between session types and linear logic, that provides these guarantees. In fact, CLASS is the first language to simultaneously guarantee memory safety and the absence of dead-locks. The original CLASS interpreter implemented by Rocha et al. \cite{Rocha:2021:artifact} served as a proof of concept for the language. It wasn't optimized for performance, and thus, it wasn't suitable for real-world applications.
 
-Nam consectetuer. Sed aliquam, nunc eget euismod ullamcorper, lectus nunc ullamcorper orci, fermentum bibendum enim nibh eget ipsum. Donec porttitor ligula eu dolor. Maecenas vitae nulla consequat libero cursus venenatis. Nam magna enim, accumsan eu, blandit sed, blandit a, eros.
+The Linear Session Abstract Machine (SAM) \cite{Caires:2024} is an abstract machine that allows for the sequential execution of session-typed languages such as CLASS through the use of buffered communication channels. Caires et al. expanded the existing CLASS interpreter with this new scheme \cite{Caires:2024:artifact}. This permitted a great increase in performance, as the overhead of spawning threads is very high in modern systems, and thus it is not feasible to spawn threads for every parallel process in a session-typed program, as most threads end up executing few instructions and spend most time waiting for communication. However, the SAM still does not make use of the properties of the source language to generate efficient machine code, as it is a high-level abstract machine.
 
-Quisque facilisis erat a dui. Nam malesuada ornare dolor. \enquote{Cras gravida, diam sit amet rhoncus ornare, erat elit consectetuer erat, id egestas pede nibh eget odio.}\todo[color=green!40,author=Rui Cruz, fancyline]{notice here how to enquote correctly}{} 
+\section{Work Objectives}
 
-Proin tincidunt, velit vel porta elementum, magna diam molestie sapien, non aliquet massa pede eu diam. Aliquam iaculis. Fusce et ipsum et nulla tristique facilisis. Donec eget sem sit amet ligula viverra gravida. Etiam vehicula urna vel turpis. Suspendisse sagittis ante a urna. Morbi a est quis orci consequat rutrum. Nullam egestas feugiat felis. Integer adipiscing semper ligula. Nunc molestie, nisl sit amet cursus convallis, sapien lectus pretium metus, vitae pretium enim wisi id lectus. Donec vestibulum. Etiam vel nibh. Nulla facilisi. Mauris pharetra. Donec augue. Fusce ultrices, neque id dignissim ultrices, tellus mauris dictum elit, vel lacinia enim metus eu nunc.
+This project aims to design and implement a compilation scheme that translates the session-typed language CLASS into a low-level imperative language, such as C, while maintaining all of the safety and liveness guarantees of CLASS. This approach will allow the execution of CLASS programs possibly in orders of magnitude more efficient manner than the SAM interpreter, as the compiler will have extensive knowledge of the compiled programs. The SAM interpreter, on which the compiler is based, currently has no support for the affine sessions, reference cells and shared state features of CLASS. Instead, it covers only the pure fragment of the language. In this work, we aim to support all of the features of CLASS in the compiled programs, including the aforementioned ones.
 
-\textcolor{violet}{This is an example of Tracking} \replaced[id=JO]{Changes}{Xanges} (in this case a replacement) by different authors in the document. The Text can additionally be modified by \added[id=PT]{adding} new text or by deleting \deleted[id=MN]{wrong} inadequate text. Author can manipulate changes \replaced[id=PT]{introduced by each author\deleted[id=MN]{, as adequate}}{intrroduced by other authors}.
+The base CLASS language will also be extended with interoperation features with C, allowing programs to interact with the C standard library and other C programs. This will allow for the creation of more complex programs, which will be helpful to measure the real-world performance of the compiled programs. With this thesis, we also aim to use the properties guaranteed by the source language to optimize the target code in a way that is not possible for commonly used programming languages. We will compare the performance of the compiled programs with the original CLASS interpreter, the SAM interpreter, and with equivalent programs written in other languages, such as Haskell, Rust and C.
 
-Proin at eros non eros adipiscing mollis. Donec semper turpis sed diam. Sed consequat ligula nec tortor. Integer eget sem. Ut vitae enim eu est vehicula gravida. Morbi ipsum ipsum, porta nec, tempor id, auctor vitae, purus. Pellentesque neque. Nulla luctus erat vitae libero. Integer nec enim. Phasellus aliquam enim et tortor. Quisque aliquet, quam elementum condimentum feugiat, tellus odio consectetuer wisi, vel nonummy sem neque in elit. Curabitur eleifend wisi iaculis ipsum.
-% #############################################################################
-\section{Morbi ipsum ipsum}
-Pellentesque nibh felis, eleifend id, commodo in, interdum vitae, leo. 
- Praesent mauris \ac{SD} and \ac{HD} volutpat ligula eget enim \acp{WLAN} and 3G\slash 4G \acp{WWAN}.\todo[color=cyan!40, author=RC]{use of ACRONYMS that are defined in file ``Chapters/Thesis-MSc-Aconyms.tex''}
-
-Praesent eu elit. Ut eu ligula. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos hymenaeos. Maecenas elementum augue nec nisl. Proin auctor lorem at nibh. Curabitur nulla purus, feugiat id, elementum in, lobortis quis, pede. Vivamus sodales adipiscing sapien. Vestibulum posuere nulla eget wisi. Integer volutpat ligula eget enim. Suspendisse vitae arcu. Quisque pellentesque. Nullam consequat, sem vitae rhoncus tristique, mauris nulla fermentum est, bibendum ullamcorper sapien magna et quam. Sed dapibus vehicula odio. Proin bibendum gravida nisl. Fusce lorem. Phasellus sagittis, nulla in hendrerit laoreet, libero lacus feugiat urna, eget hendrerit pede magna vitae lorem. 
- 
-Aliquam erat \ac{WLAN} volutpat \ac{CPU} mauris nulla fermentum est \ac{OS} Fusce magna mi, porttitor quis, convallis eget, sodales ac, urna.
-Pellentesque nibh felis, eleifend id, commodo in, interdum vitae, leo. Praesent eu elit. Ut eu ligula. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos hymenaeos. Maecenas elementum augue nec nisl. Please notice the use of automatic referencig to objects such as Figures, Tables, equations, Algorithms, sections of a document, etc. by using the command \verb:\Cref{ref}: as in this case pointing to \Cref{fig:cashed}.\todo[color=cyan!40, author=RC, fancyline]{the correct Name of the float object, in this case a Figure, is determined by the system}
-
-\begin{figure}[h]
-\centering
-\includegraphics[width=0.9\textwidth]{./Images/cashed5}
-\caption{Ecosystem}
-\label{fig:cashed}
-\end{figure}
-
-Proin auctor lorem at nibh. Curabitur nulla purus, feugiat id, elementum in, lobortis quis, pede. Vivamus sodales adipiscing sapien. Vestibulum posuere nulla eget wisi. Integer volutpat ligula eget enim. Suspendisse vitae arcu. Quisque pellentesque. Nullam consequat, sem vitae rhoncus tristique, mauris nulla fermentum est, bibendum ullamcorper sapien magna et quam. Sed dapibus vehicula odio. Proin bibendum gravida nisl. Fusce lorem. Phasellus sagittis, nulla in hendrerit laoreet, libero lacus feugiat urna, eget hendrerit pede magna vitae lorem. Praesent mauris Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos hymenaeos H.264\slash \ac{AVC} standard, sem vitae rhoncus tristique \ac{SVC} \cite{Fraunhofer-Heinrich-Hertz-Institute:2013fk,ISO:H-264} nulla in hendrerit laoreet, libero lacus feugiat urna, eget hendrerit pede magna vitae lorem.
-
-\textcolor{violet}{You can use in-paragraph lists with this construct for: 
-\begin{inparaenum}[(a)]
-\item first case;
-\item second case; and
-\item third case,
-\end{inparaenum}
-making the text organized and fluid.}
-
-Vivamus auctor leo vel dui. Aliquam erat volutpat. Phasellus nibh. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae; Cras tempor. Morbi egestas, urna non consequat tempus, nunc arcu mollis enim, eu aliquam erat nulla non nibh. Duis consectetuer malesuada velit. Nam ante nulla, interdum vel, tristique ac, condimentum non, tellus. Proin ornare feugiat nisl. Suspendisse dolor nisl, ultrices at, eleifend vel, consequat at, dolor, morbi egestas, urna non consequat tempus, nunc arcu mollis enim, eu aliquam erat nulla non nibh.
-
-Notice that \gls{maths} makes extensive use of \Glspl{formula}\todo[color=cyan!40, author=RC, fancyline]{example of use of Glossaries}{} which are particularly well rendered in documents produced with \gls{LaTeX}.
-
-Maecenas elementum augue nec nisl. Proin auctor lorem at nibh. Curabitur nulla purus, feugiat id, elementum in, lobortis quis, pede. Vivamus sodales adipiscing sapien. Vestibulum posuere nulla eget wisi. Integer volutpat ligula eget enim. Suspendisse vitae arcu. Quisque pellentesque.
-% #############################################################################
-\section{Organization of the Document}
-This thesis is is organized as follows: \Cref{chap:intro} \todo[color=cyan!40, author=RC, fancyline]{references to doc sections/chapters are automatic}{}interdum vel, tristique ac, condimentum non, tellus. 
-In \cref{chap:back} curabitur nulla purus, feugiat id, elementum in, lobortis quis, pede.
-In \cref{chap:architecture} consequat ligula nec tortor. Integer eget sem. Ut vitae enim eu est vehicula gravida.
-\Cref{chap:implement} morbi egestas, urna non consequat tempus, nunc arcu mollis enim, eu aliquam erat nulla non nibh in \cref{chap:evaluation}.
-\Cref{chap:conclusion} suspendisse dolor nisl, ultrices at, eleifend vel, consequat at, dolor.
+Finally, it is worth mentioning that we're planning on publishing a paper based on the results of this project, which will be submitted to a conference or journal in the area of programming languages or compilers.

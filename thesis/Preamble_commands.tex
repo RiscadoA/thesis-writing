@@ -119,9 +119,9 @@
 % -----------------------------------------------------------------------------
 % Create TODO Notes in text
 % The notes can be made invisible by just using the 'disable' option:
-\usepackage[textwidth=2cm, textsize=small]{todonotes}
-%\usepackage[textwidth=2cm, textsize=small, disable]{todonotes}
-\setlength{\marginparwidth}{2cm}
+% \usepackage[textwidth=2cm, textsize=small]{todonotes}
+% %\usepackage[textwidth=2cm, textsize=small, disable]{todonotes}
+% \setlength{\marginparwidth}{2cm}
 %
 % -----------------------------------------------------------------------------
 % PACKAGE changes
@@ -129,7 +129,8 @@
 % Track changes in document (changes in pdf preview).
 %% Use "final" option to make all tracking markups invisible.
 %\usepackage[authormarkup=superscript,authormarkuptext=id,markup=underlined,ulem={ULforem,normalbf},final]{changes}
-\usepackage[authormarkup=superscript,authormarkuptext=id,markup=underlined,ulem={ULforem,normalbf}]{changes}
+% \usepackage[authormarkup=superscript,authormarkuptex\t=id,markup=underlined,ulem={ULforem,normalbf}]{changes}
+ \usepackage[markup=underlined,ulem={ULforem,normalbf}]{changes}
 % commands:
 % \added[id=xx]{text}
 % \deleted[id=xx]{text}
@@ -597,3 +598,7 @@
 \IfLanguageName{english}
 		{\degree{Computer Science and Engineering}}
 		{\degree{Engenharia Informática e de Computadores}}
+
+%%%%%%%%% Specific to this thesis %%%%%%%%%
+
+\input{../commands.tex}
