@@ -14,7 +14,236 @@ At a high-level, the compilation scheme is divided into four phases. First, the 
 
 This chapter is divided into four sections. In the first section, we describe the IR's constructs and its abstract machine. In the second section, we delve into the compilation of CLASS to the IR. In the third section, we define how the IR is translated to C code. Finally, in the fourth section, we list open problems and future work.
 
-\section{IR to C}
+\section{IR Abstract Machine}
+
+\todo{Write this section}
+
+\section{Generating IR programs from CLASS}
+
+\todo{Rewrite this section}
+
+In this section we sketch a formal definition of the translation from CLASS to the intermediate representation (IR) we defined in the previous section. We hope to build on specifications such as this to provide a formal correction proof of at least of a fragment of our compiler. We denote $\phi(A)$ to be the buffer size, in bytes, that a session of type $A$ requires. For brevity, we omit its definition here.
+
+% \subsection{Buffer Size Calculation}
+
+% \todo{Optimize buffers to have the minimum size possible; E.g., $\sendt{A}{\recvt{A}{\sendt{A}{\closet{}}}}$ should have size $S$, not $3S$.}
+
+% We denote the size, in bytes, of the buffer necessary for the full execution of a session of type $A$, as $\sizeof A$. This size is computed through pattern matching on the session type, through the rules introduced below.
+
+% For an type, its size must be equal to its dual type, as any value written by one end point must be read by the other. Thus, we omit the dual types for simplicity.
+
+% $$
+%     \sizeof{\dual A} = \sizeof A
+% $$
+
+% The unit types, $\closet{}$ and $\waitt{}$, have size $0$, as they do not require any data to be exchanged. They're only there to signal the end of a session.
+
+% $$
+%     \sizeof{\closet{}} = 0
+% $$
+
+% The sum types, $\offert{\dots}$ and $\choicet{\dots}$ have size equal to the maximum size of their components, plus $1$ byte to store the tag of the chosen branch.
+
+% $$
+%     \sizeof{\offert{\labelt a A\ (\dots)\ \labelt z Z}} =
+%     1 + \max(\sizeof A,\ \dots, \sizeof Z)
+% $$
+
+% The multiplicative types, $\sendt{A}{B}$ and $\recvt{A}{B}$, have size equal to the size of $B$, plus $S$ bytes to store a pointer to the sent session record, where $S$ is the size of a pointer to a session record in the compilation target architecture.
+
+% $$
+%     \sizeof{\sendt A B} = S + \sizeof B
+% $$
+
+% The exponential types, $\bangt A$ and $\whynott A$, have size $E + C + 1$, where $E$ and $C$ are, respectively, the size of pointers to an environment and to a program address in the compilation target architecture.
+
+% $$
+%     \sizeof{\bangt A} = E + C + 1
+% $$
+
+% Finally, if the type is a recursive type, any occurrence of recursive variable $X$ has a size of $0$. When a recursive type is unfolded, the session buffer is reused its beginning, and thus, there's no need to allocate more space.
+
+% $$
+%     \sizeof{X} = 0
+% $$
+
+\subsection{Environment}
+
+First we introduce notation to represent the state of the compiler, which we refer to as the environment. An environment $\varepsilon$ is a mapping from session names to their session record indices in the current environment.
+
+We define $\varepsilon[x \mapsto n]$ to be the environment $\varepsilon$ where the session record index of session $x$ is updated to $n$. Additionally, $\varepsilon(x)$ denotes the session record index of $x$, and $\#\varepsilon$ the number of mappings in $\varepsilon$.
+The session record index mapping can be determined for a given process through the function $n(\varepsilon, P)$. This function expands $\varepsilon$ to include space for new bindings in $P$, and is defined by pattern matching on the process $P$.
+
+For the $\cutp$ process, we reserve a new binding for $x$ in $\varepsilon$.
+
+$$
+    n(\varepsilon, \cutc{P}{x}{Q}) = n(n(\varepsilon[x \mapsto \#\varepsilon], P), Q)
+$$
+
+For the $\sendp$ process, we reserve a new binding for $y$ in $\varepsilon$.
+
+$$
+    n(\varepsilon, \sendc{x}{y}{P}{Q}) = n(n(\varepsilon[y \mapsto \#\varepsilon], P), Q)
+$$
+
+Similarly, we define $n$ for the $\recvp$ process.
+
+$$
+    n(\varepsilon, \recvc{x}{y}{P}) = n(\varepsilon[y \mapsto \#\varepsilon], P)
+$$
+
+For the $\parp$ process, we simply join the mappings of the two processes.
+
+$$
+    n(\varepsilon, \parc{P}{Q}) = n(n(\varepsilon, P), Q)
+$$
+
+We do the same for all branches of $\casep$.
+
+$$
+    n(\varepsilon, \casec{x}{\labelc{a}{A},\,\dots,\,\labelc{z}{Z}}) = n(n(\dots n(\varepsilon, A), \dots), Z)
+$$
+
+For all other processes of the form $\alpha; P$, we simply recurse on $P$.
+
+$$
+    n(\varepsilon, \alpha; P) = n(\varepsilon, P)
+$$
+
+Finally, for processes $\emptyp$, $\closep$, $\fwdp$ and $\bangp$, we return just $\varepsilon$:
+
+$$
+    n(\varepsilon, \emptyc) = n(\varepsilon, \closec{x}) = n(\varepsilon, \fwdc{x}{y}) = n(\varepsilon, \bangc{x}{y}{P}) = \varepsilon
+$$
+
+Notice that the right-hand side of $\bangp$ isn't considered when computing $\varepsilon$. This is due to $P$ operating on a completely separate environment.
+
+\subsection{Compilation and Flips}
+
+The compilation of a CLASS process $P$ to the IR on a given environment $\varepsilon$ is represented by $\compiled{P}_\varepsilon$. We define the concept of an action $\mathcal{A}$, as a process which performs some operation on a session's buffer.
+
+Actions are typically processes of the form $\alpha; P$, with the exception of the $\closep$ action, which has no continuation $P$. We denote the subject $s(\mathcal{A})$ of an action $\mathcal{A}$ as the leftmost name occurrence in $\mathcal{A}$. For example, $s(\waitc{x}{P}) = x$.
+
+The remainder $r(\tau)$ of a type $\tau$ is defined as the type which is left after executing the next possible action on a session of type $\tau$. For example, $r(\sendt{A}{B}) = B$. The remainder is not defined for types $\closet{}$ and $\waitt{}$.
+
+Whenever an action $\mathcal{A}$ with subject $s$ of type $\tau$ is compiled, if $\tau$ is a positive type and $r(\tau)$ is a negative type, a flip is generated immediately after it, before compiling the continuation $P$. For simplicity, this is done implicitly in the compilation rules introduced in the following sections.
+
+This closely resembles the behavior of the SAM, specifically, its write-to-read adjustment. By jumping to the other end point of the session, which will be writing, we ensure that whenever a read operation is performed, its writing counterpart must have already executed, and thus, written the data to the session buffer.
+
+\subsection{Cut, Parallel and Empty}
+
+We start by defining the compilation of a $\cutp$ process, which can be seen below. We assume, without loss of generality, that $A$ is a positive type, and thus, that $P$ will be writing to $x$ before $Q$ executes - if $A$ were negative, we could simply swap $P$ and $Q$. The process initializes a session record in the environment with a new label \texttt{rhs} as continuation, and then recursively compiles $P$. Finally, it compiles $Q$ in front of the label \texttt{rhs}.
+
+\begin{compilation}{\cutc{P}{x: A}{Q}}{\varepsilon}
+    \initsession{\varepsilon(x)}{\phi(A)}{\texttt{rhs}}
+    \recurse{P}{\varepsilon}
+    \labelir{rhs}
+    \recurse{Q}{\varepsilon}
+\end{compilation}
+
+The compilation of a $\parp$ process is shown below. The process starts by generating code to insert a new task for executing $Q$ into the task linked list. Then, it compiles $P$, which will be executed immediately.
+
+\begin{compilation}{\parc{P}{Q}}{\varepsilon}
+    \newtask{rhs}
+    \recurse{P}{\varepsilon}
+    \labelir{rhs}
+    \recurse{Q}{\varepsilon}
+\end{compilation}
+
+The $\emptyp$ process is compiled as shown below. The process marks the end of the current task, as it has no continuation. The flow of control is thus simply passed to the next task in the linked list.
+
+\begin{compilation}{\emptyc}{\varepsilon}
+    \nexttask
+\end{compilation}
+
+\subsection{Forwarding}
+
+The $\fwdp$ process is compiled directly to IR - we simply translate the names to the record indices.
+
+\begin{compilation}{\fwdc{x}{y}}{\varepsilon}
+    \fwd{\varepsilon(x)}{\varepsilon(y)}
+\end{compilation}
+
+\subsection{Close and Wait}
+
+The compilation of a $\closep$ process can be seen below. The process pushes a close token to the session buffer of record $\varepsilon(x)$, and then flips back to the other end point of the session. This action doesn't have a continuation, as the session is closed and no more writing operations can be performed on it. The flow of control is passed to the other end point of the session, and won't return.
+
+\begin{compilation}{\closec{x}}{\varepsilon}
+    \pushclose{\varepsilon(x)}
+    \flip{\varepsilon(x)}
+\end{compilation}
+
+The $\waitp$ process is compiled as shown below. The close token is popped from the buffer of the session record $\varepsilon(x)$, the session's resources are freed, and the continuation $P$ is compiled in the environment $\varepsilon$, where $x$ is no longer bound.
+
+\begin{compilation}{\waitc{x}{P}}{\varepsilon}
+    \popclose{\varepsilon(x)}
+    \freesession{\varepsilon(x)}
+    \recurse{P}{\varepsilon}
+\end{compilation}
+
+\subsection{Offer and Choice}
+
+The compilation of a $\casep$ process is shown below. The compiler generates code which reads a tag from the session buffer of record $\varepsilon(x)$, jumps to the corresponding label and then recurses, generating code for each possible branch, preceded by the respective label. We define $i(\#a)$ as the index of the tag \texttt{a} in the alphabetically sorted list of tags in the offer process.
+
+\begin{compilation}{\casec{x}{\labelc{a}{A},\,\dots,\,\labelc{z}{Z}}}{\varepsilon}
+    \poptag{\varepsilon(x)}{\{(i(\#a),\texttt{a}),\,\dots,\,(i(\#z),\texttt{z})\}}
+    \labelir{a}
+    \recurse{A}{\varepsilon}
+    \beginir\dots
+    \labelir{z}
+    \recurse{Z}{\varepsilon}
+\end{compilation}
+
+The compilation of choice processes is shown below. Code is generated which writes a tag to the session buffer of record $\varepsilon(x)$ and then recurses on the continuation.
+
+\begin{compilation}{\choosec{a}{x}{P}}{\varepsilon}
+    \pushtag{\varepsilon(x)}{i(\#a)}
+    \recurse{P}{\varepsilon}
+\end{compilation}
+
+\subsection{Send and Receive}
+
+The compilation of a $\sendp$ process is shown below. The process initializes a session record with a new label \texttt{lhs} as continuation, and generates an instruction to push that new session record, $\varepsilon(y)$, to the buffer of $\varepsilon(x)$. Then, it compiles $Q$. Finally, it compiles $P$ in front of the label \texttt{lhs}. This means that $P$ will only be executed after its session record is received by the other end point, and a flip to it is performed.
+
+\begin{compilation}{\sendc{x}{y:A}{P}{Q}}{\varepsilon}
+    \initsession{\varepsilon(y)}{\phi(A)}{\texttt{lhs}}
+    \pushsession{\varepsilon(x)}{\varepsilon(y)}
+    \recurse{Q}{\varepsilon}
+    \labelir{lhs}
+    \recurse{P}{\varepsilon}
+\end{compilation}
+
+The $\recvp$ process is compiled as shown below. The process generates code to pop a session record from the buffer of $\varepsilon(x)$. If $y$ is of a negative type, then we will be reading from it in $P$. Thus, we must guarantee that it executes first, and thus, we immediately pass control to it by generating a flip.
+
+\begin{compilation}{\recvc{x}{y}{P}}{\varepsilon}
+    \popsession{\varepsilon(x)}{\varepsilon(y)}
+    \flip{\varepsilon(y)} \comment{\text{only if }y\text{ has a negative type}}
+    \recurse{P}{\varepsilon}
+\end{compilation}
+
+\subsection{Process Definitions and Calls}
+
+The compilation of a process definition is shown below. A label is generated for the definition and code is generated for the process $P$ within it, with the environment $\varepsilon$, which is generated from $P$, using the function described earlier, and additionally including session records for the arguments $x_1,\,\dots,\,x_n$.
+
+\begin{compilation}{\procdefc{foo}{x_1:A_1,\,\dots,\,x_n:A_n}{P}}{\emptyset}
+    \labelir{proc\_foo}
+    \recurse{P}{n(\emptyset[x_1 \mapsto 0,\,\dots,\,x_n\mapsto n - 1], P)}
+\end{compilation}
+
+To call a process from another process, we simply use the call IR construct we previously defined, which initializes a new environment with the required number of session records, and with passed arguments bound to their respective slots.
+
+\begin{figure}[H]
+    \centering
+    \begin{compilation}{\proccallc{foo}{x_1,\,\dots,\,x_n}}{\varepsilon}
+        \call{\texttt{proc\_foo}}{n + \#n(\emptyset, P)}{\{0 \mapsto \varepsilon(x_1),\,\dots,\, n-1 \mapsto \varepsilon(x_n)\}}
+    \end{compilation}
+    \caption{Compilation of a process call}
+    \label{fig:ProcessCallCompilation}
+\end{figure}
+
+\section{Generating C code from IR programs}
+
+\todo{Rewrite this section}
 
 In this section we describe the C programs the compiler generates from the intermediate representation (IR), which is produced by the code generation phase.
 
@@ -261,228 +490,9 @@ Process calls are performed through the \texttt{call} instruction. This instruct
     goto proc;
 \end{lstlisting}
 
-\section{CLASS to IR}
-
-In this section we sketch a formal definition of the translation from CLASS to the intermediate representation (IR) we defined in the previous section. We hope to build on specifications such as this to provide a formal correction proof of at least of a fragment of our compiler. We denote $\phi(A)$ to be the buffer size, in bytes, that a session of type $A$ requires. For brevity, we omit its definition here.
-
-% \subsection{Buffer Size Calculation}
-
-% \todo{Optimize buffers to have the minimum size possible; E.g., $\sendt{A}{\recvt{A}{\sendt{A}{\closet{}}}}$ should have size $S$, not $3S$.}
-
-% We denote the size, in bytes, of the buffer necessary for the full execution of a session of type $A$, as $\sizeof A$. This size is computed through pattern matching on the session type, through the rules introduced below.
-
-% For an type, its size must be equal to its dual type, as any value written by one end point must be read by the other. Thus, we omit the dual types for simplicity.
-
-% $$
-%     \sizeof{\dual A} = \sizeof A
-% $$
-
-% The unit types, $\closet{}$ and $\waitt{}$, have size $0$, as they do not require any data to be exchanged. They're only there to signal the end of a session.
-
-% $$
-%     \sizeof{\closet{}} = 0
-% $$
-
-% The sum types, $\offert{\dots}$ and $\choicet{\dots}$ have size equal to the maximum size of their components, plus $1$ byte to store the tag of the chosen branch.
-
-% $$
-%     \sizeof{\offert{\labelt a A\ (\dots)\ \labelt z Z}} =
-%     1 + \max(\sizeof A,\ \dots, \sizeof Z)
-% $$
-
-% The multiplicative types, $\sendt{A}{B}$ and $\recvt{A}{B}$, have size equal to the size of $B$, plus $S$ bytes to store a pointer to the sent session record, where $S$ is the size of a pointer to a session record in the compilation target architecture.
-
-% $$
-%     \sizeof{\sendt A B} = S + \sizeof B
-% $$
-
-% The exponential types, $\bangt A$ and $\whynott A$, have size $E + C + 1$, where $E$ and $C$ are, respectively, the size of pointers to an environment and to a program address in the compilation target architecture.
-
-% $$
-%     \sizeof{\bangt A} = E + C + 1
-% $$
-
-% Finally, if the type is a recursive type, any occurrence of recursive variable $X$ has a size of $0$. When a recursive type is unfolded, the session buffer is reused its beginning, and thus, there's no need to allocate more space.
-
-% $$
-%     \sizeof{X} = 0
-% $$
-
-\subsection{Environment}
-
-First we introduce notation to represent the state of the compiler, which we refer to as the environment. An environment $\varepsilon$ is a mapping from session names to their session record indices in the current environment.
-
-We define $\varepsilon[x \mapsto n]$ to be the environment $\varepsilon$ where the session record index of session $x$ is updated to $n$. Additionally, $\varepsilon(x)$ denotes the session record index of $x$, and $\#\varepsilon$ the number of mappings in $\varepsilon$.
-The session record index mapping can be determined for a given process through the function $n(\varepsilon, P)$. This function expands $\varepsilon$ to include space for new bindings in $P$, and is defined by pattern matching on the process $P$.
-
-For the $\cutp$ process, we reserve a new binding for $x$ in $\varepsilon$.
-
-$$
-    n(\varepsilon, \cutc{P}{x}{Q}) = n(n(\varepsilon[x \mapsto \#\varepsilon], P), Q)
-$$
-
-For the $\sendp$ process, we reserve a new binding for $y$ in $\varepsilon$.
-
-$$
-    n(\varepsilon, \sendc{x}{y}{P}{Q}) = n(n(\varepsilon[y \mapsto \#\varepsilon], P), Q)
-$$
-
-Similarly, we define $n$ for the $\recvp$ process.
-
-$$
-    n(\varepsilon, \recvc{x}{y}{P}) = n(\varepsilon[y \mapsto \#\varepsilon], P)
-$$
-
-For the $\parp$ process, we simply join the mappings of the two processes.
-
-$$
-    n(\varepsilon, \parc{P}{Q}) = n(n(\varepsilon, P), Q)
-$$
-
-We do the same for all branches of $\casep$.
-
-$$
-    n(\varepsilon, \casec{x}{\labelc{a}{A},\,\dots,\,\labelc{z}{Z}}) = n(n(\dots n(\varepsilon, A), \dots), Z)
-$$
-
-For all other processes of the form $\alpha; P$, we simply recurse on $P$.
-
-$$
-    n(\varepsilon, \alpha; P) = n(\varepsilon, P)
-$$
-
-Finally, for processes $\emptyp$, $\closep$, $\fwdp$ and $\bangp$, we return just $\varepsilon$:
-
-$$
-    n(\varepsilon, \emptyc) = n(\varepsilon, \closec{x}) = n(\varepsilon, \fwdc{x}{y}) = n(\varepsilon, \bangc{x}{y}{P}) = \varepsilon
-$$
-
-Notice that the right-hand side of $\bangp$ isn't considered when computing $\varepsilon$. This is due to $P$ operating on a completely separate environment.
-
-\subsection{Compilation and Flips}
-
-The compilation of a CLASS process $P$ to the IR on a given environment $\varepsilon$ is represented by $\compiled{P}_\varepsilon$. We define the concept of an action $\mathcal{A}$, as a process which performs some operation on a session's buffer.
-
-Actions are typically processes of the form $\alpha; P$, with the exception of the $\closep$ action, which has no continuation $P$. We denote the subject $s(\mathcal{A})$ of an action $\mathcal{A}$ as the leftmost name occurrence in $\mathcal{A}$. For example, $s(\waitc{x}{P}) = x$.
-
-The remainder $r(\tau)$ of a type $\tau$ is defined as the type which is left after executing the next possible action on a session of type $\tau$. For example, $r(\sendt{A}{B}) = B$. The remainder is not defined for types $\closet{}$ and $\waitt{}$.
-
-Whenever an action $\mathcal{A}$ with subject $s$ of type $\tau$ is compiled, if $\tau$ is a positive type and $r(\tau)$ is a negative type, a flip is generated immediately after it, before compiling the continuation $P$. For simplicity, this is done implicitly in the compilation rules introduced in the following sections.
-
-This closely resembles the behavior of the SAM, specifically, its write-to-read adjustment. By jumping to the other end point of the session, which will be writing, we ensure that whenever a read operation is performed, its writing counterpart must have already executed, and thus, written the data to the session buffer.
-
-\subsection{Cut, Parallel and Empty}
-
-We start by defining the compilation of a $\cutp$ process, which can be seen below. We assume, without loss of generality, that $A$ is a positive type, and thus, that $P$ will be writing to $x$ before $Q$ executes - if $A$ were negative, we could simply swap $P$ and $Q$. The process initializes a session record in the environment with a new label \texttt{rhs} as continuation, and then recursively compiles $P$. Finally, it compiles $Q$ in front of the label \texttt{rhs}.
-
-\begin{compilation}{\cutc{P}{x: A}{Q}}{\varepsilon}
-    \initsession{\varepsilon(x)}{\phi(A)}{\texttt{rhs}}
-    \recurse{P}{\varepsilon}
-    \labelir{rhs}
-    \recurse{Q}{\varepsilon}
-\end{compilation}
-
-The compilation of a $\parp$ process is shown below. The process starts by generating code to insert a new task for executing $Q$ into the task linked list. Then, it compiles $P$, which will be executed immediately.
-
-\begin{compilation}{\parc{P}{Q}}{\varepsilon}
-    \newtask{rhs}
-    \recurse{P}{\varepsilon}
-    \labelir{rhs}
-    \recurse{Q}{\varepsilon}
-\end{compilation}
-
-The $\emptyp$ process is compiled as shown below. The process marks the end of the current task, as it has no continuation. The flow of control is thus simply passed to the next task in the linked list.
-
-\begin{compilation}{\emptyc}{\varepsilon}
-    \nexttask
-\end{compilation}
-
-\subsection{Forwarding}
-
-The $\fwdp$ process is compiled directly to IR - we simply translate the names to the record indices.
-
-\begin{compilation}{\fwdc{x}{y}}{\varepsilon}
-    \fwd{\varepsilon(x)}{\varepsilon(y)}
-\end{compilation}
-
-\subsection{Close and Wait}
-
-The compilation of a $\closep$ process can be seen below. The process pushes a close token to the session buffer of record $\varepsilon(x)$, and then flips back to the other end point of the session. This action doesn't have a continuation, as the session is closed and no more writing operations can be performed on it. The flow of control is passed to the other end point of the session, and won't return.
-
-\begin{compilation}{\closec{x}}{\varepsilon}
-    \pushclose{\varepsilon(x)}
-    \flip{\varepsilon(x)}
-\end{compilation}
-
-The $\waitp$ process is compiled as shown below. The close token is popped from the buffer of the session record $\varepsilon(x)$, the session's resources are freed, and the continuation $P$ is compiled in the environment $\varepsilon$, where $x$ is no longer bound.
-
-\begin{compilation}{\waitc{x}{P}}{\varepsilon}
-    \popclose{\varepsilon(x)}
-    \freesession{\varepsilon(x)}
-    \recurse{P}{\varepsilon}
-\end{compilation}
-
-\subsection{Offer and Choice}
-
-The compilation of a $\casep$ process is shown below. The compiler generates code which reads a tag from the session buffer of record $\varepsilon(x)$, jumps to the corresponding label and then recurses, generating code for each possible branch, preceded by the respective label. We define $i(\#a)$ as the index of the tag \texttt{a} in the alphabetically sorted list of tags in the offer process.
-
-\begin{compilation}{\casec{x}{\labelc{a}{A},\,\dots,\,\labelc{z}{Z}}}{\varepsilon}
-    \poptag{\varepsilon(x)}{\{(i(\#a),\texttt{a}),\,\dots,\,(i(\#z),\texttt{z})\}}
-    \labelir{a}
-    \recurse{A}{\varepsilon}
-    \beginir\dots
-    \labelir{z}
-    \recurse{Z}{\varepsilon}
-\end{compilation}
-
-The compilation of choice processes is shown below. Code is generated which writes a tag to the session buffer of record $\varepsilon(x)$ and then recurses on the continuation.
-
-\begin{compilation}{\choosec{a}{x}{P}}{\varepsilon}
-    \pushtag{\varepsilon(x)}{i(\#a)}
-    \recurse{P}{\varepsilon}
-\end{compilation}
-
-\subsection{Send and Receive}
-
-The compilation of a $\sendp$ process is shown below. The process initializes a session record with a new label \texttt{lhs} as continuation, and generates an instruction to push that new session record, $\varepsilon(y)$, to the buffer of $\varepsilon(x)$. Then, it compiles $Q$. Finally, it compiles $P$ in front of the label \texttt{lhs}. This means that $P$ will only be executed after its session record is received by the other end point, and a flip to it is performed.
-
-\begin{compilation}{\sendc{x}{y:A}{P}{Q}}{\varepsilon}
-    \initsession{\varepsilon(y)}{\phi(A)}{\texttt{lhs}}
-    \pushsession{\varepsilon(x)}{\varepsilon(y)}
-    \recurse{Q}{\varepsilon}
-    \labelir{lhs}
-    \recurse{P}{\varepsilon}
-\end{compilation}
-
-The $\recvp$ process is compiled as shown below. The process generates code to pop a session record from the buffer of $\varepsilon(x)$. If $y$ is of a negative type, then we will be reading from it in $P$. Thus, we must guarantee that it executes first, and thus, we immediately pass control to it by generating a flip.
-
-\begin{compilation}{\recvc{x}{y}{P}}{\varepsilon}
-    \popsession{\varepsilon(x)}{\varepsilon(y)}
-    \flip{\varepsilon(y)} \comment{\text{only if }y\text{ has a negative type}}
-    \recurse{P}{\varepsilon}
-\end{compilation}
-
-\subsection{Process Definitions and Calls}
-
-The compilation of a process definition is shown below. A label is generated for the definition and code is generated for the process $P$ within it, with the environment $\varepsilon$, which is generated from $P$, using the function described earlier, and additionally including session records for the arguments $x_1,\,\dots,\,x_n$.
-
-\begin{compilation}{\procdefc{foo}{x_1:A_1,\,\dots,\,x_n:A_n}{P}}{\emptyset}
-    \labelir{proc\_foo}
-    \recurse{P}{n(\emptyset[x_1 \mapsto 0,\,\dots,\,x_n\mapsto n - 1], P)}
-\end{compilation}
-
-To call a process from another process, we simply use the call IR construct we previously defined, which initializes a new environment with the required number of session records, and with passed arguments bound to their respective slots.
-
-\begin{figure}[H]
-    \centering
-    \begin{compilation}{\proccallc{foo}{x_1,\,\dots,\,x_n}}{\varepsilon}
-        \call{\texttt{proc\_foo}}{n + \#n(\emptyset, P)}{\{0 \mapsto \varepsilon(x_1),\,\dots,\, n-1 \mapsto \varepsilon(x_n)\}}
-    \end{compilation}
-    \caption{Compilation of a process call}
-    \label{fig:ProcessCallCompilation}
-\end{figure}
-
 \section{Next Steps and Future Work}
+
+\todo{Rewrite this section}
 
 An implementation of the proposed solution, including some polymorphism functionality, recursion and exponentials, has already been developed, but still has to be profiled and optimized. In terms of language features, it still doesn't cover any of the shared state and reference cell constructs of CLASS.
 
