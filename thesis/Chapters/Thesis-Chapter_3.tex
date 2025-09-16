@@ -3,17 +3,16 @@
 % !TEX root = ../main.tex
 % #############################################################################
 % Change the Name of the Chapter i the following line
-\fancychapter{Towards a CLASS Compiler}
+\fancychapter{A CLASS Compiler}
 % The following line allows to ref this chapter
 \label{chap:architecture}
 
-The solution proposed by this project to the problem of compiling CLASS programs to native code is a compilation scheme heavily based on the SAM interpreter. Execution is done sequentially and deterministically, with the compiler generating code that closely resembles the execution of the SAM, implementing continuation-based coroutining. Communication between processes is done in a buffered manner through session records, which store the data exchanged between two end points of a session. Whenever a process finishes writing to a session, a jump is made to the other end point, which will read the data, and continue execution.
+The solution we developed on this thesis to the problem of compiling CLASS programs to native code is a compilation scheme heavily based on the SAM interpreter. Execution is done sequentially and deterministically, with the compiler generating code that closely resembles the execution of the SAM, implementing continuation-based coroutining.
+Associated to each process is a block of data called an environment, similar to a stack frame of traditional imperative languages. This environment stores the continuations of each session, as well as any data received through them. Whenever a process finishes writing data to a session, a jump is made to its other end point, which will read the data and continue execution.
 
-For simplicity, we first compile CLASS programs to an intermediate representation (IR), which abstracts some details of the target language, which in this case is C. The IR is then translated to C code, which is finally compiled to native code using the GNU Compiler Collection (GCC).
+At a high-level, the compilation scheme is divided into four phases. First, the source CLASS program is parsed and type-checked. This phase is not discussed in this report, as the implementation of it has been reused from the previous work on the SAM and CLASS interpreters. Then, the program is compiled to an intermediate representation (IR) which abstracts some details of the target language. Next, the IR is analyzed and optimized by a series of passes. Finally, the optimized IR is translated to C code, which is then compiled to native code using the GNU Compiler Collection (GCC).
 
-This chapter is divided into three sections. In the first section, we explain some of the IR constructs we defined, and how they are translated to C code. In the second section, we describe the compilation process of selected CLASS constructs to the IR. Finally, in the third section, we list some of the problems that we still haven't solved, both those that will be tackled in the rest of the project, and those that will be left as future work.
-
-To keep this report short, details such as the handling of CLASS 's polymorphic types, recursion and exponentials are omitted. These will be addressed in the final work.
+This chapter is divided into four sections. In the first section, we describe the IR's constructs and its abstract machine. In the second section, we delve into the compilation of CLASS to the IR. In the third section, we define how the IR is translated to C code. Finally, in the fourth section, we list open problems and future work.
 
 \section{IR to C}
 
