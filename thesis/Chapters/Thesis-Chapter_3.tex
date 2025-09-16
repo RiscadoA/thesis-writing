@@ -16,6 +16,61 @@ This chapter is divided into four sections. In the first section, we describe th
 
 \section{IR Abstract Machine}
 
+In this section, we describe the intermediate representation (IR) used by the compiler and its abstract machine. The IR is an imperative stateful language meant to act as a bridge between the high-level session-based language CLASS and the low-level imperative language C.
+
+We start by describing the syntax and layout of IR programs. Then, we define the data structures and other necessary concepts used by the abstract machine, and finally, we explain the semantics of each IR instruction.
+
+\subsection{Layout}
+
+An IR program is a list of named processes, each consisting of a header and a body. The header contains the number of end points of the process, the names of the type parameters, the names of the session parameters, the names of the data sections and their data layouts, and finally, the data to be dropped when the process finishes execution (see Figure~\ref{fig:IRProcessExample} for an example).
+
+\begin{figure}[H]
+    \begin{lstlisting}[language=IR]
+    main_poly2_n: // process name and header
+        end points: 1
+        types: t0
+        sessions: s0 s1
+        data d0: <[exponential]> (arg s0)
+        data d1: <[exponential]>
+        drop e0: [exponential] at d1[]~[]
+    entry: // process body, entry block
+        continueSession(s0, continue_0)
+    continue_0: // another block
+        moveValue(d1, d0, [exponential])
+        jump(recv_rhs_1)
+    recv_rhs_1: // another block
+        deferDrop(e0)
+        writeExponential(s0, main_poly2_n_exp6, t0 <- t0, d1 =[exponential] d1)
+        finishSession(s0, end point)
+    \end{lstlisting}
+    \caption{An example IR process}
+    \label{fig:IRProcessExample}
+\end{figure}
+
+\subsection{Environment}
+
+The context of the execution of a process is stored in an environment $\varepsilon$.
+
+\todo{Write this section}
+
+\subsection{Slots and Offsets}
+
+\todo{Write this section}
+
+\subsection{Exponentials}
+
+\todo{Write this section}
+
+\subsection{Cells}
+
+\todo{Write this section}
+
+\subsection{Tasks}
+
+\todo{Write this section}
+
+\subsection{Instruction Set}
+
 \todo{Write this section}
 
 \section{Generating IR programs from CLASS}
