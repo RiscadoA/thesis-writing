@@ -36,7 +36,7 @@ An IR program is a list of named processes, each consisting of a header and a bo
     entry: // process body, entry block
         continueSession(s0, continue_0)
     continue_0: // another block
-        moveValue(d1, d0, [exponential])
+        move(d1, d0, [exponential])
         jump(recv_rhs_1)
     recv_rhs_1: // another block
         deferDrop(e0)
@@ -49,13 +49,33 @@ An IR program is a list of named processes, each consisting of a header and a bo
 
 \subsection{Environment}
 
-The context of the execution of a process is stored in an environment $\varepsilon$.
+\todo{It would be nice to immediatelly explain what feature of class these concepts are trying to represent}
 
-\todo{Write this section}
+An environment is the equivalent to a stack frame in the IR.
+The process header in the IR source code describes what is known at compile-time about the process. The environment itself exists at run-time and complements this information with both dynamic state, such as local data and sessions, or simply parameters known only at run-time, such as the properties of polymorphic types.
 
-\subsection{Slots and Offsets}
+The first section in the environment contains the number of remaining end points of the process. Instructions which terminate a block might be marked as end points, in which case the environment's end point count is decremented. When it reaches zero, the environment is deallocated. The IR generation phase is responsible for ensuring that the number of end points can only be zero when there's no more code left to execute within the environment.
+\todo{make sure the IR gen phase explains properly why this is safe}
 
-\todo{Write this section}
+The next section contains the size, alignment and flags describing any polymorphic types being passed to this process. The size and alignment fields are necessary to compute the right memory offsets and layouts during execution, while the flags field is used by optimizations to describe a type in more detail. \todo{We must come back to this and explain the 'is value flag'}. \todo{It might also be weird to already mention 'size and alignment' here as if they're needed by this layer}
+
+The state of all sessions in the process is also stored within the environment. A session is similar to both a return address and a coroutine. Sessions are linked in pairs, such that each session has a \textit{remote} counterpart. Occasionally, a session might be it's own remote session. Sessions are described by four fields: a reference to their remote counterpart, a remote location to write to, the remote environment and the program address to jump to when continuing the session. \todo{This definitely needs to be explained better}
+
+The local data section stores the actual data being used by the process. Each data entry is described by an identifier such as \texttt{d3} and by the possible types of data which can be stored on it. How these types are described is explained in \ref{subsection:SlotsAndOffsets}. \todo{maybe explain the (arg s0)?}
+
+The last section lists local data locations to be dropped when the process terminates, i.e., when the last end point is executed. This section is necessary to implement the exponential side of CLASS. Drop locations can be marked as 'certain', in which case no runtime state is kept. If they're not certain, a bit is stored for each indicating whether the variable should be dropped on end. On environment initialization, these bits are cleared. This allows programs where variables are initialized depending on the branches taken.  
+
+\subsection{Slots and Offsets} \label{subsection:SlotsAndOffsets}
+
+The IR is completely target-platform agnostic, which means that when addressing memory or describing type layouts, we never use concrete byte offsets and counts. Instead, we describe type sizes by their composition, i.e., what \textit{slots} they're composed of.
+
+A slot is a primitive type of the IR. The following slots are used by the compiler: \texttt{int}, \texttt{bool}, \texttt{string}, \texttt{tag}, \texttt{session}, \texttt{exponential}, \texttt{type}, \texttt{var} and \texttt{cell}.
+
+The  \texttt{int}, \texttt{bool} and \texttt{string} slots are used to model the respective basic types in CLASS. The \texttt{tag} slot is used to model choices, and represents a chosen choice. The \texttt{session} slot holds a reference to a session in some environment. The \texttt{exponential} slot holds a reference to an exponential \todo{(should I link the section explaining exponentials here?)}. The \texttt{type} and \texttt{var} slots are used by polymorphic code, where \texttt{type} stores type information and \texttt{var} is a polymorphic slot referring to a type defined in the current environment. Finally, the \texttt{cell} slot holds a reference to a shared state cell.
+
+Due to the choice construct of CLASS, data types may diverge depending on branches taken. Thus, when describing the size of a type we resort to trees of slots instead of sequences of slots. These trees branch when a choice is made or when the structure depends on some polymorphic type flag. \todo{give examples of valid slot trees}
+
+In order for the C generation phase to be able to determine the alignment of a given data offset, we must describe offsets in the IR through not only one slot tree, but two slots trees: one describing the data we're skipping, and another describing the data that comes next. \todo{give examples of valid slot offsets}
 
 \subsection{Exponentials}
 
