@@ -17,10 +17,26 @@ Session types \cite{Honda:1993,Honda:1998} have been used to enforce correctness
 
 The Linear Session Abstract Machine (SAM) \cite{Caires:2024} is an abstract machine that allows for the sequential execution of session-typed languages such as CLASS through the use of buffered communication channels. Caires et al. expanded the existing CLASS interpreter with this new scheme \cite{Caires:2024:artifact}. This permitted a great increase in performance, as the overhead of spawning threads is very high in modern systems, and thus it is not feasible to spawn threads for every parallel process in a session-typed program, as most threads end up executing few instructions and spend most time waiting for communication. However, the SAM still does not make use of the properties of the source language to generate efficient machine code, as it is a high-level abstract machine.
 
-\section{Work Objectives}
+\section{Context}
+
+\section{Motivation}
+
+\section{Objectives}
 
 This project aims to design and implement a compilation scheme that translates the session-typed language CLASS into a low-level imperative language, such as C, while maintaining all of the safety and liveness guarantees of CLASS. This approach will allow the execution of CLASS programs possibly in orders of magnitude more efficient manner than the SAM interpreter, as the compiler will have extensive knowledge of the compiled programs. The SAM interpreter, on which the compiler is based, currently has no support for the affine sessions, reference cells and shared state features of CLASS. Instead, it covers only the pure fragment of the language. In this work, we aim to support all of the features of CLASS in the compiled programs, including the aforementioned ones.
 
 The base CLASS language will also be extended with interoperation features with C, allowing programs to interact with the C standard library and other C programs. This will allow for the creation of more complex programs, which will be helpful to measure the real-world performance of the compiled programs. With this thesis, we also aim to use the properties guaranteed by the source language to optimize the target code in a way that is not possible for commonly used programming languages. We will compare the performance of the compiled programs with the original CLASS interpreter, the SAM interpreter, and with equivalent programs written in other languages, such as Haskell, Rust and C.
 
 Finally, it is worth mentioning that we're planning on publishing a paper based on the results of this project, which will be submitted to a conference or journal in the area of programming languages or compilers.
+
+\section{Achieved Goals}
+
+Throughout this research project, a compiler for the entire CLASS language has been developed and implemented.
+Additionally, a suite of tests was created, to further ensure the correctness of the compiler and the generated code.
+Finally, multiple optimization techniques were implemented, and its impacts on the performance of the generated programs were measured. 
+
+\todo{}
+
+\section{Document Structure}
+
+\todo{Brief description of the structure of the document}
