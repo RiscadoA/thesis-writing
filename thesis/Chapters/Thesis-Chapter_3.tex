@@ -79,11 +79,11 @@ In order for the C generation phase to be able to determine the alignment of a g
 
 \subsection{Exponentials}
 
-\todo{Write this section}
+The exponential sessions in CLASS are modeled in the unoptimized IR through the \texttt{exponential} slot. This slot holds a reference to an exponential process closure and any captured data. \todo{explain better}
 
 \subsection{Cells}
 
-\todo{Write this section}
+Cell slots are references to shared state cells. Data stored in cells can be indexed in any instruction just like local data or remote data. For example, the location \texttt{c(d0).[int]$\sim$[int]} refers to the second integer stored in the cell referenced by the slot at the start of the local data \texttt{d0}. Additionally, cell slots store both a mutex and a reference count, which are used to ensure safe concurrent access and deallocation, respectively. These are managed by the \texttt{lockCell}, \texttt{unlockCell}, \texttt{acquireCell} and \texttt{releaseCell} instructions.
 
 \subsection{Tasks}
 
