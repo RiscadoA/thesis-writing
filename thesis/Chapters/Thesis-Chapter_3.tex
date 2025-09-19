@@ -14,17 +14,17 @@ At a high-level, the compilation scheme is divided into four phases. First, the 
 
 This chapter is divided into four sections. In the first section, we describe the \ac{IR}'s constructs and its abstract machine. In the second section, we delve into the compilation of \ac{CLASS} to the \ac{IR}. In the third section, we define how the \ac{IR} is translated to C code. Finally, in the fourth section, we list open problems and future work.
 
-\section{IR Abstract Machine}
+\section{Intermediate Representation}
 
-In this section, we describe the intermediate representation (\ac{IR}) used by the compiler and its abstract machine. The \ac{IR} is an imperative stateful language meant to act as a bridge between the high-level session-based language \ac{CLASS} and the low-level imperative language C.
+In this section, we introduce the intermediate representation (\ac{IR}) used by the compiler and its abstract machine. The \ac{IR} is an imperative stateful language meant to act as a bridge between the high-level session-based language \ac{CLASS} and the low-level imperative language C.
 
 We start by describing the syntax and layout of \ac{IR} programs. Then, we define the data structures and other necessary concepts used by the abstract machine, as we go through the semantics of each \ac{IR} instruction.
 
-A complete list of \ac{IR} instructions can be found in Appendix~\ref{chapter:appendixIR}.
+A complete specification of the \ac{IR} can be found in Appendix~\ref{chapter:appendixIR}.
 
-\subsection{Layout}
+\subsection{Program Structure}
 
-An \ac{IR} program is a list of named processes, each consisting of a header and a body. The header contains the number of end points of the process, the names of the type parameters, the names of the session parameters, the names of the data sections and their data layouts, and finally, the data to be dropped when the process finishes execution (see Figure~\ref{fig:IRProcessExample} for an example).
+An \ac{IR} program is a set of named processes, each consisting of a header and a body. The header contains the number of end points of the process, the names of the type parameters, the names of the session parameters, the names of the data sections and their data layouts, and finally, the data to be dropped when the process finishes execution (see Figure~\ref{fig:IRProcessExample} for an example).
 
 \begin{figure}[H]
     \begin{lstlisting}[language=IR]
@@ -34,7 +34,7 @@ main_poly2_n: // process name and header
     sessions: s0 s1
     data d0: <[exponential]> (arg s0)
     data d1: <[exponential]>
-    drop e0: [exponential] at d1[]~[]
+    drop e0: [exponential] at d1
 entry: // process body, entry block
     continueSession(s0, continue_0)
 continue_0: // another block
@@ -49,48 +49,15 @@ recv_rhs_1: // another block
     \label{fig:IRProcessExample}
 \end{figure}
 
-\subsection{Environment}
+\subsection{Environments}
 
-\todo{It would be nice to immediatelly explain what feature of class these concepts are trying to represent}
+Each process invocation creates an \textit{environment} which holds its dynamic state, similarly to a stack frame in a traditional function call. This state includes the number of remaining end points, the properties of any polymorphic types, the state of all sessions, the local data being used by the process and finally, a bitset indicating which data locations should be dropped when the process terminates.
 
-An environment is the equivalent to a stack frame in the \ac{IR}.
-The process header in the \ac{IR} source code describes what is known at compile-time about the process. The environment itself exists at run-time and complements this information with both dynamic state, such as local data and sessions, or simply parameters known only at run-time, such as the properties of polymorphic types.
+All instructions in a process implicitly operate on its environment. When an instruction refers to a session or a data location, it is referring to the respective section in the current environment.
 
-The first section in the environment contains the number of remaining end points of the process. Instructions which terminate a block might be marked as end points, in which case the environment's end point count is decremented. When it reaches zero, the environment is deallocated. The \ac{IR} generation phase is responsible for ensuring that the number of end points can only be zero when there's no more code left to execute within the environment.
-\todo{make sure the \ac{IR} gen phase explains properly why this is safe}
+\subsection{Sessions}
 
-The next section contains the size, alignment and flags describing any polymorphic types being passed to this process. The size and alignment fields are necessary to compute the right memory offsets and layouts during execution, while the flags field is used by optimizations to describe a type in more detail. \todo{We must come back to this and explain the 'is value flag'}. \todo{It might also be weird to already mention 'size and alignment' here as if they're needed by this layer}
-
-The state of all sessions in the process is also stored within the environment. A session is similar to both a return address and a coroutine. Sessions are linked in pairs, such that each session has a \textit{remote} counterpart. Occasionally, a session might be it's own remote session. Sessions are described by four fields: a reference to their remote counterpart, a remote location to write to, the remote environment and the program address to jump to when continuing the session. \todo{This definitely needs to be explained better}
-
-The local data section stores the actual data being used by the process. Each data entry is described by an identifier such as \texttt{d3} and by the possible types of data which can be stored on it. How these types are described is explained in \ref{subsection:SlotsAndOffsets}. \todo{maybe explain the (arg s0)?}
-
-The last section lists local data locations to be dropped when the process terminates, i.e., when the last end point is executed. This section is necessary to implement the exponential side of \ac{CLASS}. Drop locations can be marked as 'certain', in which case no runtime state is kept. If they're not certain, a bit is stored for each indicating whether the variable should be dropped on end. On environment initialization, these bits are cleared. This allows programs where variables are initialized depending on the branches taken.  
-
-\subsection{Slots and Offsets} \label{subsection:SlotsAndOffsets}
-
-The \ac{IR} is completely target-platform agnostic, which means that when addressing memory or describing type layouts, we never use concrete byte offsets and counts. Instead, we describe type sizes by their composition, i.e., what \textit{slots} they're composed of.
-
-A slot is a primitive type of the \ac{IR}. The following slots are used by the compiler: \texttt{int}, \texttt{bool}, \texttt{string}, \texttt{tag}, \texttt{session}, \texttt{exponential}, \texttt{type}, \texttt{var} and \texttt{cell}.
-
-The  \texttt{int}, \texttt{bool} and \texttt{string} slots are used to model the respective basic types in \ac{CLASS}. The \texttt{tag} slot is used to model choices, and represents a chosen choice. The \texttt{session} slot holds a reference to a session in some environment. The \texttt{exponential} slot holds a reference to an exponential \todo{(should I link the section explaining exponentials here?)}. The \texttt{type} and \texttt{var} slots are used by polymorphic code, where \texttt{type} stores type information and \texttt{var} is a polymorphic slot referring to a type defined in the current environment. Finally, the \texttt{cell} slot holds a reference to a shared state cell.
-
-Due to the choice construct of \ac{CLASS}, data types may diverge depending on branches taken. Thus, when describing the size of a type we resort to trees of slots instead of sequences of slots. These trees branch when a choice is made or when the structure depends on some polymorphic type flag. \todo{give examples of valid slot trees}
-
-In order for the C generation phase to be able to determine the alignment of a given data offset, we must describe offsets in the \ac{IR} through not only one slot tree, but two slots trees: one describing the data we're skipping, and another describing the data that comes next. \todo{give examples of valid slot offsets}
-
-\subsection{Exponentials}
-
-The exponential sessions in \ac{CLASS} are modeled in the unoptimized \ac{IR} through the \texttt{exponential} slot. This slot holds a reference to an exponential process closure and any captured data. \todo{explain better}
-
-\subsection{Cells}
-
-\todo{this is written from a 'slot' perspective, but it should be write from the perspective of the cell's state itself}
-Cell slots are references to shared state cells. Data stored in cells can be indexed in any instruction just like local data or remote data. For example, the location \texttt{c(d0).[int]$\sim$[int]} refers to the second integer stored in the cell referenced by the slot at the start of the local data \texttt{d0}. Additionally, cell slots store both a mutex and a reference count, which are used to ensure safe concurrent access and deallocation, respectively. These are managed by the \texttt{lockCell}, \texttt{unlockCell}, \texttt{acquireCell} and \texttt{releaseCell} instructions.
-
-\subsection{Session initialization, continuation and forwarding}
-
-\ac{IR} sessions are similar to both return addresses and coroutines. They are used to model the flow of control between two end points of a \ac{CLASS} session.
+\ac{IR} sessions are similar to both return addresses and coroutines. They are used to model the flow of control between two end points of a \ac{CLASS} channel.
 A session is described by four properties: a reference to its opposite end point session (which might be itself), a data location to write to when sending data to it, and a continuation address and environment to switch to when passing control to it.
 
 Sessions are stored in the environment of each process, and are referenced by their index in the environment's session section. For example, \texttt{s0} refers to the first session in the environment, \texttt{s1} to the second session, and so on. Additionally, references to sessions can be passed around as data through the \texttt{session} slot.
@@ -112,7 +79,7 @@ cont:
 
 Program flow through session is manipulated through three main instructions: \texttt{initializeSession}, \texttt{continueSession} and \texttt{finishSession}. An example flow of control through a session is shown in Figure~\ref{fig:IRSessionFlowControlSimple}.
 
-The \texttt{initializeSession(s0, rhs, d0)} initializes the session \texttt{s0} in the current environment such that its remote counterpart (opposite end point) is itself, its writing data location is \texttt{d0} and its continuation is the block \texttt{rhs} on the current process.
+The \texttt{initializeSession(s0, rhs, d0)} instruction initializes the session \texttt{s0} in the current environment such that its remote counterpart (opposite end point) is itself, its writing data location is \texttt{d0} and its continuation is the block \texttt{rhs} on the current process.
 
 Then, the \texttt{continueSession(s0)} instruction is executed, which jumps to the continuation of \texttt{s0} and replaces the continuation of \texttt{s0}'s remote session (itself in this case) with the block \texttt{cont} on the current process. This means that when \texttt{s0} is continued again, control will be passed to \texttt{cont}.
 
@@ -140,26 +107,51 @@ In this example two sessions \texttt{s0} and \texttt{s1} are initialized as befo
 
 On the block \texttt{rhs}, the instruction \texttt{finishSession(s1)} is executed, which just like before passes control to the continuation of \texttt{s1}, which was set to \texttt{lhs} by the forwarding instruction.
 
-\subsection{Manipulating data}
+\subsection{Data Storage}
 
-Data can be manipulated through a multitude of instructions. All of these instructions address data through \textit{data locations}. A data location is defined by a base address and an offset. The base address can be either a local data section (e.g., \texttt{d0}), a remote data section, identified by a session (e.g., \texttt{s0}), or a cell location (e.g., \texttt{c(d0)}). The offset is defined by two slot trees, one describing the data being skipped, and another describing the data that comes next, for alignment purposes.
+All data in \ac{IR} programs (excluding meta data such as sessions and type information) is stored in one of two places: within a local data section on an environment, or within a cell. Local data sections are referenced by identifiers such as \texttt{d0} and \texttt{d1}, similarly to sessions, while cells are referenced through cell slots (see Section~\ref{subsection:Cells}).
+
+\subsubsection{Slots}
+
+\ac{IR} programs are completely platform agnostic, and thus, data types and addresses are described through their composition of \textit{slots}, instead of concrete byte sizes and offsets. A \textit{slot} is a unit of data in the \ac{IR}. There are many types of slots, from primitive types such as \texttt{int} and \texttt{string} to more domain-specific types such as \texttt{session} and \texttt{exponential} (see Appendix~\ref{chapter:appendixIR} for a complete list).
+
+In order to model branching data types (such as choices from \ac{CLASS}) and polymorphic data types, data layouts are described through trees of slots, instead of plain sequences. These trees branch on the choices taken or on the properties of polymorphic types (see Figure~\ref{fig:IRSlotTreeExample} for some examples).
+
+\begin{figure}[H]
+    \centering
+    \begin{lstlisting}[language=IR]
+// Integer, followed by a boolean, followed by a string.
+[int, bool, string]
+
+// Integer, followed by a tag, followed by a boolean if the tag is 0,
+// or by a string if the tag is 1.
+[int, tag[[bool] | [string]]]
+
+// If the polymorphic type t0 has the 'is value' flag set, then there
+// are no slots. Otherwise, there's a session slot.
+isValue<t0>[[] | [session]] 
+    \end{lstlisting}
+    \caption{Examples of slot trees}
+    \label{fig:IRSlotTreeExample}
+\end{figure}
+
+Local data sections are described by their identifier and by a sum of slot trees describing the possible layouts of data that can be stored on them. For example, \texttt{data d0:\ <[int, bool] + [string]>} describes a local data section \texttt{d0} which can either store an integer followed by a boolean, or a string.
+
+\subsubsection{Indexing Data}
+
+A \textit{data location} is defined by a base address and an offset. The base address can be either a local data section (e.g., \texttt{d0}), remote data referenced by a session (e.g., \texttt{s0}), or a cell location (e.g., \texttt{c(d0)}). The offset is defined by two slot trees, one describing the data being skipped (named \textit{past}), and another describing the data that may come next (named \textit{future}). The future slot tree is necessary to determine the alignment of the data being accessed.
 
 For example, the location \dataloc{d0}{int}{int} refers to the second integer stored in the local data section \texttt{d0}, while the location \dataloc{s0}{bool}{string} refers to a string stored in the remote data of the session \texttt{s0}, after a boolean. When the offset is zero, it is omitted for brevity. For example, \texttt{d0} as a data location refers to the start of the local data section \texttt{d0}.
 
-\subsubsection{Writing data}
-
-There are many instructions to write slots to specified locations. All \texttt{write*} instructions take as arguments this location, and any other arguments necessary to compute the slot being written. Examples of these instructions include \texttt{writeExpression}, \texttt{writeTag}, \texttt{writeSession} and \texttt{writeExponential}.
-
-\subsubsection{Moving data}
+\subsection{Moving data}
 
 Sometimes it is necessary to simply move data from one location to another. This is done through the \texttt{moveSlots} instruction, which takes as arguments a destination location, a source location and a slot tree describing the data to be moved. To exemplify, \texttt{moveSlots(s1, \dataloc{d0}{bool}{string, int}, [string, int])} moves a string followed by an integer from the local data section \texttt{d0} after a boolean to the start of the remote data section of session \texttt{s1}.
 
 The \texttt{cloneSlots} instruction is used to clone data from one location to another, taking the same arguments. This instruction is only defined for cloneable slots, which are \texttt{int}, \texttt{bool}, \texttt{string}, \texttt{tag} and \texttt{exponential}. In addition to copying the memory, it also increments reference counts for exponentials and allocates new strings as necessary. It used to model the exponential part of \ac{CLASS}.
 
-\subsubsection{Expressions}
+\subsection{Expressions}
 
-Expressions compute basic values (\texttt{int}, \texttt{bool} or \texttt{string}) from a tree of sub-expressions without side effects. Examples of expressions include arithmetic operations, comparisons, boolean operations, string concatenation and data access.
-\todo{Should I define the syntax of expressions more formally (e.g., BNF)?}
+Expressions are tree-like structure which compute basic values (\texttt{int}, \texttt{bool} or \texttt{string}) without side effects. Examples of expressions include arithmetic operations, comparisons, boolean operations, string concatenation and data access. A full specification of expressions can be found in Appendix~\ref{chapter:appendixIR}.
 
 While expressions do not occur as instructions, they are used as arguments to some instructions, such as \texttt{writeExpression}, \texttt{branchExpression} and \texttt{print}.
 
@@ -167,33 +159,110 @@ An example of an expression is \texttt{(move(d0, int) + 3) + clone(d1, string)}.
 
 In the particular case of integers and booleans, both \texttt{move} and \texttt{clone} are equivalent, as these types are trivially copyable. For strings, however, the difference is important, as \texttt{clone} allocates a new string and copies the contents, while \texttt{move} simply uses the existing allocation.
 
-\subsubsection{Printing}
+\subsection{Input and output}
 
 The \texttt{print} and \texttt{printLine} instructions are used to print values to the standard output. They take a single argument expression, which is evaluated and printed. The \texttt{printLine} instruction additionally appends a new line after printing the value.
 
-\subsubsection{Storing and binding sessions}
+The \texttt{writeScan} instruction is used to read values from the standard input. It takes as arguments a data location to store the read value to and a slot describing the type of data to be read.
 
-\todo{Explain the writeSession instruction}
+\begin{figure}[H]
+    \centering
+    \begin{lstlisting}[language=IR]
+main:
+    data d0: <[int; int]>
+entry:
+    writeScan(d0, int)
+    writeScan(d0.[int]~[int], int)
+    printLine(move(d0, int) + move(d0.[int]~[int], int))
+    ...
+    \end{lstlisting}
+    \caption{Reading two integers from standard input and printing their sum}
+\end{figure}
 
-\todo{Explain the bindSession instruction}
+\subsection{Writing and binding sessions}
 
-\subsubsection{}
+\begin{sloppypar}
+References to sessions (\texttt{session} slots) can be written to and read from data locations using the \texttt{writeSession} and \texttt{bindSession} instructions, respectively. The first instruction takes a data location and a session identifier as arguments. The second takes a data location to read from, a session identifier to bind to, and a data location to set as the writing location of the session's remote end point.
+\end{sloppypar}
 
-\subsection{Tasks}
+An example of writing a session to local data and then binding it to another session is shown in Figure~\ref{fig:IRSessionDataExample}. First, a session \texttt{s1} is initialized with its remote end point being itself, its writing location being \texttt{d1} and its continuation being the block \texttt{s1\_cont}. Then, a reference to session \texttt{s1} is written to the local data section \texttt{d0}. Next, the reference stored at \texttt{d0} is read and bound to the session \texttt{s2}, with its remote writing location being modified to \texttt{d2}. At this point, the remote session of \texttt{s2} is \texttt{s1}, and vice-versa. Finally, \texttt{s2} is continued, jumping to \texttt{s1\_cont}, and setting the continuation of \texttt{s1} to the current block. Thus, when executing \texttt{finishSession(s1)}, control will jump to \texttt{s2\_cont}.
+
+\begin{figure}[H]
+    \centering
+    \begin{lstlisting}[language=IR]
+    initializeSession(s1, d1, s1_cont) // 1
+    writeSession(d0, s1)               // 2
+    bindSession(d0, s2, d2)            // 3
+    continueSession(s2, s2_cont)       // 4
+s1_cont:
+    finishSession(s1)                  // 5
+s2_cont:
+    ...                                // 6
+    \end{lstlisting}
+    \caption{Writing a session to local data and binding it to another session}
+    \label{fig:IRSessionDataExample}
+\end{figure}
+
+\subsection{Tags and branching}
+
+Branching is done through the \texttt{branchTag}, \texttt{branchExpression} and \texttt{branchIsValue} instructions. The first instruction branches on a tag stored a data location, similarly to a switch statement in C. The second instruction branches on the result a boolean expression, similarly to an if statement in C. Finally, the third instruction branches on whether a set of polymorphic types has the 'is value' flag set or not.
+
+Each possible branch is defined by a code location (block label) and an integer indicating how many end points are behind that branch. This is used to keep track of the number of remaining end points in the environment, and is explained in more detail in \ref{subsection:EndPoints}.
+
+Tags are written to data locations through the \texttt{writeTag} instruction, which takes as arguments a data location and a constant tag value.
+
+\begin{figure}[H]
+    \centering
+    \begin{lstlisting}[language=IR]
+main:
+    data d0: <tag[[int] | [string]]>
+entry:
+    writeTag(d0, 1)
+    ...
+    branchTag(d0, if_int:1, if_string:1)
+if_int:
+    ...
+if_string:
+    ...
+    \end{lstlisting}
+    \caption{Branching on a tag}
+\end{figure}
+
+\subsection{Tasks and jumps}
+
+\todo{Write this section}
+
+\subsection{Cells} \label{subsection:Cells}
+
+\todo{this is written from a 'slot' perspective, but it should be write from the perspective of the cell's state itself}
+Cell slots are references to shared state cells. Data stored in cells can be indexed in any instruction just like local data or remote data. For example, the location \texttt{c(d0).[int]$\sim$[int]} refers to the second integer stored in the cell referenced by the slot at the start of the local data \texttt{d0}. Additionally, cell slots store both a mutex and a reference count, which are used to ensure safe concurrent access and deallocation, respectively. These are managed by the \texttt{lockCell}, \texttt{unlockCell}, \texttt{acquireCell} and \texttt{releaseCell} instructions.
 
 \subsection{Threads}
 
 \subsection{Jumps}
 
-\todo{Write this section}
+\subsection{Exponentials}
 
-\subsection{End points}
+The exponential sessions in \ac{CLASS} are modeled in the unoptimized \ac{IR} through the \texttt{exponential} slot. This slot holds a reference to an exponential process closure and any captured data. \todo{explain better}
 
-\todo{explain the end points concept and refer all instructions that manipulate them}
+\subsection{Polymorphism}
 
-\subsection{MISSING INSTRUCTIONS}
+\todo{this was copied over from the old environment section, needs rewriting}
+The next section contains the size, alignment and flags describing any polymorphic types being passed to this process. The size and alignment fields are necessary to compute the right memory offsets and layouts during execution, while the flags field is used by optimizations to describe a type in more detail. \todo{We must come back to this and explain the 'is value flag'}. \todo{It might also be weird to already mention 'size and alignment' here as if they're needed by this layer}
 
-\todo{Add sections explaining other instructions}
+\subsection{Drop locations}
+
+\todo{this was copied over from the old environment section, needs rewriting}
+The last section lists local data locations to be dropped when the process terminates, i.e., when the last end point is executed. This section is necessary to implement the exponential side of \ac{CLASS}. Drop locations can be marked as 'certain', in which case no runtime state is kept. If they're not certain, a bit is stored for each indicating whether the variable should be dropped on end. On environment initialization, these bits are cleared. This allows programs where variables are initialized depending on the branches taken.  
+
+\subsection{End points} \label{subsection:EndPoints}
+
+\todo{this was copied over from the old environment section, needs rewriting}
+The first section in the environment contains the number of remaining end points of the process. Instructions which terminate a block might be marked as end points, in which case the environment's end point count is decremented. When it reaches zero, the environment is deallocated. The \ac{IR} generation phase is responsible for ensuring that the number of end points can only be zero when there's no more code left to execute within the environment.
+
+\todo{make sure the \ac{IR} gen phase explains properly why this is safe}
+
+\todo{Mention and list instructions which may decrement the end point count}
 
 \section{Generating IR programs from CLASS}
 
