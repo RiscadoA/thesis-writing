@@ -26,22 +26,22 @@ An IR program is a list of named processes, each consisting of a header and a bo
 
 \begin{figure}[H]
     \begin{lstlisting}[language=IR]
-    main_poly2_n: // process name and header
-        end points: 1
-        types: t0
-        sessions: s0 s1
-        data d0: <[exponential]> (arg s0)
-        data d1: <[exponential]>
-        drop e0: [exponential] at d1[]~[]
-    entry: // process body, entry block
-        continueSession(s0, continue_0)
-    continue_0: // another block
-        move(d1, d0, [exponential])
-        jump(recv_rhs_1)
-    recv_rhs_1: // another block
-        deferDrop(e0)
-        writeExponential(s0, main_poly2_n_exp6, t0 <- t0, d1 =[exponential] d1)
-        finishSession(s0, end point)
+main_poly2_n: // process name and header
+    end points: 1
+    types: t0
+    sessions: s0 s1
+    data d0: <[exponential]> (arg s0)
+    data d1: <[exponential]>
+    drop e0: [exponential] at d1[]~[]
+entry: // process body, entry block
+    continueSession(s0, continue_0)
+continue_0: // another block
+    move(d1, d0, [exponential])
+    jump(recv_rhs_1)
+recv_rhs_1: // another block
+    deferDrop(e0)
+    writeExponential(s0, main_poly2_n_exp6, t0 <- t0, d1 =[exponential] d1)
+    finishSession(s0, end point)
     \end{lstlisting}
     \caption{An example IR process}
     \label{fig:IRProcessExample}
@@ -88,23 +88,73 @@ Cell slots are references to shared state cells. Data stored in cells can be ind
 
 \subsection{Session initialization, continuation and forwarding}
 
-\todo{Introduce concept of sessions, explain the initializeSession instruction}
+IR sessions are similar to both return addresses and coroutines. They are used to model the flow of control between two end points of a CLASS session.
+A session is described by four properties: a reference to its opposite end point session (which might be itself), a data location to write to when sending data to it, and a continuation address and environment to switch to when passing control to it.
 
-\todo{Explain the continueSession instruction}
+Sessions are stored in the environment of each process, and are referenced by their index in the environment's session section. For example, \texttt{s0} refers to the first session in the environment, \texttt{s1} to the second session, and so on. Additionally, references to sessions can be passed around as data through the \texttt{session} slot.
 
-\todo{Explain the finishSession instruction}
+\begin{figure}[H]
+    \centering
+    \begin{lstlisting}[language=IR]
+entry:
+    initializeSession(s0, rhs, d0) // 1
+    continueSession(s0, cont)      // 2
+rhs:
+    finishSession(s0)              // 3
+cont:
+    ...                            // 4
+    \end{lstlisting}
+    \caption{Example flow control using sessions}
+    \label{fig:IRSessionFlowControlSimple}
+\end{figure}
 
-\todo{Explain the forwardSessions instruction}
+Program flow through session is manipulated through three main instructions: \texttt{initializeSession}, \texttt{continueSession} and \texttt{finishSession}. An example flow of control through a session is shown in Figure~\ref{fig:IRSessionFlowControlSimple}.
 
-\subsection{}
+The \texttt{initializeSession(s0, rhs, d0)} initializes the session \texttt{s0} in the current environment such that its remote counterpart (opposite end point) is itself, its writing data location is \texttt{d0} and its continuation is the block \texttt{rhs} on the current process.
+
+Then, the \texttt{continueSession(s0)} instruction is executed, which jumps to the continuation of \texttt{s0} and replaces the continuation of \texttt{s0}'s remote session (itself in this case) with the block \texttt{cont} on the current process. This means that when \texttt{s0} is continued again, control will be passed to \texttt{cont}.
+
+Finally, the \texttt{finishSession(s0)} instruction is executed, which passes control to the continuation of \texttt{s0}, which is \texttt{cont}. Additionally, it detaches \texttt{s0} from its remote session by setting its remote session reference to \texttt{NULL}. This instruction is similar to continue, but with the difference that flow of control won't ever return.
+
+\begin{figure}[H]
+    \centering
+    \begin{lstlisting}[language=IR]
+entry:
+    initializeSession(s0, lhs, d0) // 1
+    initializeSession(s1, rhs, d1) // 2
+    forwardSessions(s0, s1)        // 3
+lhs:
+    ...                            // 5
+rhs:
+    finishSession(s1)              // 4
+    \end{lstlisting}
+    \caption{Example flow control using session forwarding}
+    \label{fig:IRSessionFlowControlForwarding}
+\end{figure}
+
+Additionally, the instruction \texttt{forwardSessions} is used to model forwarding of CLASS channels. An example of its use is shown in Figure~\ref{fig:IRSessionFlowControlForwarding}.
+
+In this example two sessions \texttt{s0} and \texttt{s1} are initialized as before. Then, the \texttt{forwardSessions(s0, s1)} instruction is executed, which makes the remote session of \texttt{s0} be the remote session of \texttt{s1}, and vice-versa. After linking the sessions, the instruction jumps to the continuation of its second argument (\texttt{s1} in this case, and thus, the block \texttt{rhs}).
+
+On the block \texttt{rhs}, the instruction \texttt{finishSession(s1)} is executed, which just like before passes control to the continuation of \texttt{s1}, which was set to \texttt{lhs} by the forwarding instruction.
+
+\subsection{Passing sessions around}
+
+\todo{Explain the pushSession instruction}
+
+\todo{Explain the bindSession instruction}
 
 \subsection{Tasks}
 
 \todo{Write this section}
 
-\subsection{Instruction Set}
+\subsection{End points}
 
-\todo{Write this section}
+\todo{explain the end points concept and refer all instructions that manipulate them}
+
+\subsection{MISSING INSTRUCTIONS}
+
+\todo{Add sections explaining other instructions}
 
 \section{Generating IR programs from CLASS}
 
