@@ -18,7 +18,9 @@ This chapter is divided into four sections. In the first section, we describe th
 
 In this section, we describe the intermediate representation (\ac{IR}) used by the compiler and its abstract machine. The \ac{IR} is an imperative stateful language meant to act as a bridge between the high-level session-based language \ac{CLASS} and the low-level imperative language C.
 
-We start by describing the syntax and layout of \ac{IR} programs. Then, we define the data structures and other necessary concepts used by the abstract machine, and finally, we explain the semantics of each \ac{IR} instruction.
+We start by describing the syntax and layout of \ac{IR} programs. Then, we define the data structures and other necessary concepts used by the abstract machine, as we go through the semantics of each \ac{IR} instruction.
+
+A complete list of \ac{IR} instructions can be found in Appendix~\ref{chapter:appendixIR}.
 
 \subsection{Layout}
 
@@ -150,9 +152,9 @@ There are many instructions to write slots to specified locations. All \texttt{w
 
 \subsubsection{Moving data}
 
-Some times it is necessary to simply move data from one location to another. This is done through the \texttt{moveSlots} instruction, which takes as arguments a destination location, a source location and a slot tree describing the data to be moved. To exemplify, \texttt{moveSlots(s1, \dataloc{d0}{bool}{string, int}, [string, int])} moves a string followed by an integer from the local data section \texttt{d0} after a boolean to the start of the remote data section of session \texttt{s1}.
+Sometimes it is necessary to simply move data from one location to another. This is done through the \texttt{moveSlots} instruction, which takes as arguments a destination location, a source location and a slot tree describing the data to be moved. To exemplify, \texttt{moveSlots(s1, \dataloc{d0}{bool}{string, int}, [string, int])} moves a string followed by an integer from the local data section \texttt{d0} after a boolean to the start of the remote data section of session \texttt{s1}.
 
-To model the exponential part of \ac{CLASS}, the \texttt{cloneSlots} instruction is used to clone data from one location to another, taking the same arguments. This instruction is only defined for cloneable slots, which are \texttt{int}, \texttt{bool}, \texttt{string}, \texttt{tag} and \texttt{exponential}. In addition to copying the memory, it also increments reference counts for exponentials and allocates new strings as necessary.
+The \texttt{cloneSlots} instruction is used to clone data from one location to another, taking the same arguments. This instruction is only defined for cloneable slots, which are \texttt{int}, \texttt{bool}, \texttt{string}, \texttt{tag} and \texttt{exponential}. In addition to copying the memory, it also increments reference counts for exponentials and allocates new strings as necessary. It used to model the exponential part of \ac{CLASS}.
 
 \subsubsection{Expressions}
 
