@@ -137,7 +137,7 @@ isValue<t0>[[] | [session]]
 
 Local data sections are described by their identifier and by a sum of slot trees describing the possible layouts of data that can be stored on them. For example, \texttt{data d0:\ <[int, bool] + [string]>} describes a local data section \texttt{d0} which can either store an integer followed by a boolean, or a string.
 
-\subsubsection{Indexing Data}
+\subsubsection{Addressing Data} \label{subsection:DataAddressing}
 
 A \textit{data location} is defined by a base address and an offset. The base address can be either a local data section (e.g., \texttt{d0}), remote data referenced by a session (e.g., \texttt{s0}), or a cell location (e.g., \texttt{c(d0)}). The offset is defined by two slot trees, one describing the data being skipped (named \textit{past}), and another describing the data that may come next (named \textit{future}). The future slot tree is necessary to determine the alignment of the data being accessed.
 
@@ -148,6 +148,28 @@ For example, the location \dataloc{d0}{int}{int} refers to the second integer st
 Sometimes it is necessary to simply move data from one location to another. This is done through the \texttt{moveSlots} instruction, which takes as arguments a destination location, a source location and a slot tree describing the data to be moved. To exemplify, \texttt{moveSlots(s1, \dataloc{d0}{bool}{string, int}, [string, int])} moves a string followed by an integer from the local data section \texttt{d0} after a boolean to the start of the remote data section of session \texttt{s1}.
 
 The \texttt{cloneSlots} instruction is used to clone data from one location to another, taking the same arguments. This instruction is only defined for cloneable slots, which are \texttt{int}, \texttt{bool}, \texttt{string}, \texttt{tag} and \texttt{exponential}. In addition to copying the memory, it also increments reference counts for exponentials and allocates new strings as necessary. It used to model the exponential part of \ac{CLASS}.
+
+\subsection{Dropping data}
+
+Although \ac{CLASS} is a linear language, it also supports both affine and exponential types. Thus, it is necessary to be able to drop some types of data if they are no longer needed. To this end, two instructions are provided: \texttt{dropSlots} and \texttt{deferDrop}.
+
+The \texttt{dropSlots} instruction takes as arguments a data location and a slot tree, and immediately drops the passed data. This instruction is only defined for droppable slots, which are \texttt{string}, \texttt{session}, \texttt{cell} and \texttt{exponential}.
+
+The \texttt{deferDrop} instruction takes as argument a drop bit identifier, and sets the respective bit. Drop bits are defined in the process header, and indicate a data location and a slot tree to be dropped when the process terminates, if their respective bit is set. Drop bit identifiers start with \texttt{e} followed by a number, such as \texttt{e0} and \texttt{e1}.
+
+\begin{figure}[H]
+    \centering
+    \begin{lstlisting}[language=IR]
+main:
+    data d0: <[string; string]>
+    drop e0: [string] at d0.[string]~[string]
+entry:
+    ... // something that initializes both strings at d0
+    deferDrop(e0) // the second string will be dropped later
+    dropSlots(d0, [string]) // the first string is dropped now
+    \end{lstlisting}
+    \caption{Dropping data directly and through a drop bit}
+\end{figure}
 
 \subsection{Expressions}
 
@@ -203,7 +225,7 @@ s2_cont:
     \label{fig:IRSessionDataExample}
 \end{figure}
 
-\subsection{Tags and branching}
+\subsection{Tags and branching} \label{subsection:Branching}
 
 Branching is done through the \texttt{branchTag}, \texttt{branchExpression} and \texttt{branchIsValue} instructions. The first instruction branches on a tag stored a data location, similarly to a switch statement in C. The second instruction branches on the result a boolean expression, similarly to an if statement in C. Finally, the third instruction branches on whether a set of polymorphic types has the 'is value' flag set or not.
 
@@ -228,32 +250,74 @@ if_string:
     \caption{Branching on a tag}
 \end{figure}
 
-\subsection{Tasks and jumps}
+\subsection{Tasks}
 
-\todo{Write this section}
+Tasks are a flow control mechanism completely separate from sessions, used to model the mix construct from \ac{CLASS}. For each thread of execution, there's a stack of tasks, where each task stores a continuation to be executed when the current task is finished.
+
+Tasks can be pushed to the stack through the \texttt{pushTask} instruction, which takes a code location as argument. To finish the current task and jump to the continuation of the topmost task, the \texttt{popTask} instruction is used.
+
+At the start of a thread, the task stack is initialized with a single task responsible for terminating the thread. Thus, the last instruction to be executed in a thread is always \texttt{popTask}.
+
+\subsection{Jumps}
+
+A simple jump to a constant code location is also possible through the \texttt{jump} instruction. This instruction is useful to merge control flow after branching, for example.
 
 \subsection{Cells} \label{subsection:Cells}
 
-\todo{this is written from a 'slot' perspective, but it should be write from the perspective of the cell's state itself}
-Cell slots are references to shared state cells. Data stored in cells can be indexed in any instruction just like local data or remote data. For example, the location \texttt{c(d0).[int]$\sim$[int]} refers to the second integer stored in the cell referenced by the slot at the start of the local data \texttt{d0}. Additionally, cell slots store both a mutex and a reference count, which are used to ensure safe concurrent access and deallocation, respectively. These are managed by the \texttt{lockCell}, \texttt{unlockCell}, \texttt{acquireCell} and \texttt{releaseCell} instructions.
+Cells are used to model the shared state part of \ac{CLASS}. They're mutable memory locations which can be safely shared between multiple threads of execution. Cells are referenced through \texttt{cell} slots, and maintain a mutex to ensure safe concurrent access, as well as a reference count to guarantee proper deallocation.
+
+A new cell can be created through the \texttt{writeCell} instruction, which takes as arguments a data location to write the \texttt{cell} slot to, and a slot tree describing the data that will be stored in the cell. The reference count of a cell can be incremented and decremented through the \texttt{acquireCell} and \texttt{releaseCell} instructions, respectively. Finally, the mutex of a cell can be locked and unlocked through the \texttt{lockCell} and \texttt{unlockCell} instructions, respectively.
+
+The data stored in a cell can be accessed through any data location, by using a cell location as the base address, as explained in \ref{subsection:DataAddressing}.
+
+\begin{figure}[H]
+    \centering
+    \begin{lstlisting}[language=IR]
+main:
+    data d0: <cell[int]>
+entry:
+    writeCell(d0, [int]) // create a cell with space for an integer
+    lockCell(c(d0)) // lock the cell's mutex
+    writeExpression(c(d0), 42) // write 42 to the cell
+    unlockCell(c(d0)) // unlock the cell's mutex
+    acquireCell(c(d0)) // increase reference count to 2
+    releaseCell(c(d0)) // decrease reference count to 1
+    releaseCell(c(d0)) // decrease reference count to 0, deallocating the cell
+    \end{lstlisting}
+    \caption{Creating and using a cell}
+\end{figure}
+
+\subsubsection{Cell Slot Arguments}
+
+While other slots are represented solely by their type, \texttt{cell} slots come in two variants: one with a slot tree argument, and another without. The first variant is used to represent cells which store droppable data. The second variant is used to represent cells which store sessions.
+
+The behavior differs only when a cell is deallocated, which happens when its reference count reaches zero. If the cell stores droppable data, the data is dropped according to the slot tree argument. If the cell stores sessions, the affine protocol is followed.
+
+The affine protocol for sessions in cells is as follows. When a cell is to be deallocated, a tag with value $0$ is written to indicate the session will not be used, and control is passed to it with a continue instruction. Then, the session should finish, passing control back to the cell deallocator.
 
 \subsection{Threads}
 
-\subsection{Jumps}
+New threads of execution can be launched through the \texttt{launchThread} instruction, which takes as arguments a code location to start executing at and a list of data locations of locked cells to pass to the new thread. The new thread starts with a single task responsible for terminating it, and shares the same environment as the parent thread, but a separate task stack.
+
+Accesses to the environment are not synchronized except for reference and end point counting, and it is the responsibility of the \ac{IR} generator to ensure different threads do not access the same data concurrently.
+
+The list of locked cells is necessary to avoid undefined behavior on the generated C code, as explained further in \todo{reference the relevant C generation subsection here}. The list should contain all and only cells which are locked at the moment of launching the thread, and which will be owned and thus later unlocked by the new thread. 
+
+\subsection{Polymorphism}
+
+Processes in the \ac{IR} may be parametrized by polymorphic types. These types are identified by names which start with \texttt{t} followed by a number, such as \texttt{t0} and \texttt{t1}. Types may be used directly as slots in slot trees. Additionally, they may also be used in \texttt{branchIsValue} instructions, as mentioned in \ref{subsection:Branching}.
+
+Types can be written to data locations through the \texttt{writeType} instruction, producing a \texttt{type} slot. This slot can then be read by a process invocation instruction, such as \texttt{callProcess}. The \texttt{writeType} instructions takes as arguments a data location to write to, a slot tree describing the type's layout, and a set of types which must have the 'is value' flag set for the type to also have it set.
+
+For example, \texttt{writeType(d0, [int; t1], value=if(t1))} writes a type to \texttt{d0} which stores first an integer, and then data of type \texttt{t1}, which is a polymorphic type in the current environment. Additionally, the written type will have the 'is value' flag set if and only if \texttt{t1} also has it set.
+
+\subsection{Process calls}
+
+\todo{write this section}
 
 \subsection{Exponentials}
 
 The exponential sessions in \ac{CLASS} are modeled in the unoptimized \ac{IR} through the \texttt{exponential} slot. This slot holds a reference to an exponential process closure and any captured data. \todo{explain better}
-
-\subsection{Polymorphism}
-
-\todo{this was copied over from the old environment section, needs rewriting}
-The next section contains the size, alignment and flags describing any polymorphic types being passed to this process. The size and alignment fields are necessary to compute the right memory offsets and layouts during execution, while the flags field is used by optimizations to describe a type in more detail. \todo{We must come back to this and explain the 'is value flag'}. \todo{It might also be weird to already mention 'size and alignment' here as if they're needed by this layer}
-
-\subsection{Drop locations}
-
-\todo{this was copied over from the old environment section, needs rewriting}
-The last section lists local data locations to be dropped when the process terminates, i.e., when the last end point is executed. This section is necessary to implement the exponential side of \ac{CLASS}. Drop locations can be marked as 'certain', in which case no runtime state is kept. If they're not certain, a bit is stored for each indicating whether the variable should be dropped on end. On environment initialization, these bits are cleared. This allows programs where variables are initialized depending on the branches taken.  
 
 \subsection{End points} \label{subsection:EndPoints}
 
