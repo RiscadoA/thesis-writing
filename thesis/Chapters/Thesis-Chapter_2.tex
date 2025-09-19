@@ -7,7 +7,7 @@
 % The following line allows to ref this chapter
 \label{chap:back}
 
-In this chapter, the theoretical foundations of linear logic, process calculi and session types are introduced, and then the programming language CLASS \cite{Rocha:2021} and the abstract machine SAM \cite{Caires:2024}, on which this work was built on top of, are presented. Finally, some work following the same line of research or with the same goal but in different contexts is discussed.
+In this chapter, the theoretical foundations of linear logic, process calculi and session types are introduced, and then the programming language \ac{CLASS} \cite{Rocha:2021} and the abstract machine \ac{SAM} \cite{Caires:2024}, on which this work was built on top of, are presented. Finally, some work following the same line of research or with the same goal but in different contexts is discussed.
 
 \section{Linear Logic}
 
@@ -201,11 +201,11 @@ The multiplicative connectives of linear logic can be used to represent the send
 
 \section{CLASS}
 
-CLASS (Classic Linear Logic with Affine Shared State) is an experimental language for session-based programs \cite{Rocha:2023, Rocha:2022, Rocha:2021}. It expands on the correspondence between session types and linear logic, adding affine types, reference cells and shared state. In CLASS, well-typed programs are guaranteed to never deadlock on communication or reference cell acquisition, and to not leak any memory. Additionally, programs always terminate, while still allowing for higher-order polymorphic functional code and even recursion.
+\ac{CLASS} (Classic Linear Logic with Affine Shared State) is an experimental language for session-based programs \cite{Rocha:2023, Rocha:2022, Rocha:2021}. It expands on the correspondence between session types and linear logic, adding affine types, reference cells and shared state. In \ac{CLASS}, well-typed programs are guaranteed to never deadlock on communication or reference cell acquisition, and to not leak any memory. Additionally, programs always terminate, while still allowing for higher-order polymorphic functional code and even recursion.
 
 \subsection{\texorpdfstring{$\mu$}{mu}CLL}
 
-We start by presenting the pure fragment of CLASS, dubbed $\mu$CLL. As the name suggests, $\mu$CLL is related, via a propositions-as-types correspondence \cite{Caires:2016}, to classical linear logic, extended with mix and inductive/coinductive types.
+We start by presenting the pure fragment of \ac{CLASS}, dubbed $\mu$CLL. As the name suggests, $\mu$CLL is related, via a propositions-as-types correspondence \cite{Caires:2016}, to classical linear logic, extended with mix and inductive/coinductive types.
 
 As usual in session-typed based programming languages, in $\mu$CLL processes communicate through sessions $x, y, z, \ldots$. Each session has two end points (also referred to as channels), and each end point is associated with a session type, which describes the communication protocol that the end point must follow. We write $x: A$ to denote that the session end point $x$ obeys type $A$. These types describe the direction, order and content of the messages exchanged. For example
 
@@ -338,7 +338,7 @@ Below, we present some typing rules for $\mu$CLL. The inaction process, $\emptyp
 
 \subsection{Syntax of CLASS}
 
-The syntax of CLASS we'll be using on this thesis differs slightly from $\mu$CLL. Additionally, while in $\mu$CLL the typing contexts are separated into linear and unrestricted parts, in CLASS we have one extra division: the affine part. Process constructs and types for affine sessions, reference cells and non-determinism are also added. The types of CLASS follow the correspondence to $\mu$CLL presented in Table \ref{tab:CLASSTypes}, and are defined by the following BNF grammar:
+The syntax of \ac{CLASS} we'll be using on this thesis differs slightly from $\mu$CLL. Additionally, while in $\mu$CLL the typing contexts are separated into linear and unrestricted parts, in \ac{CLASS} we have one extra division: the affine part. Process constructs and types for affine sessions, reference cells and non-determinism are also added. The types of \ac{CLASS} follow the correspondence to $\mu$CLL presented in Table \ref{tab:CLASSTypes}, and are defined by the following BNF grammar:
 
 \begin{align*}
     A, B ::=\  & X \text{ (type variable)}                 &  & |\ \sim X \text{ (dual type variable)}        \\
@@ -354,11 +354,11 @@ The syntax of CLASS we'll be using on this thesis differs slightly from $\mu$CLL
 
 \begin{table}
     \centering
-    \caption{Mapping $\mu$CLL types to CLASS types}
+    \caption{Mapping $\mu$CLL types to \ac{CLASS} types}
     \label{tab:CLASSTypes}
     \begin{tabular}{ll}
         \toprule
-        $\mu$CLL Type & CLASS Type                                  \\
+        $\mu$CLL Type & \ac{CLASS} Type                                  \\
         \midrule
         $\mathbf{1}$  & $\closet$                                   \\
         $\bot$        & $\waitt$                                    \\
@@ -376,7 +376,7 @@ The syntax of CLASS we'll be using on this thesis differs slightly from $\mu$CLL
     \end{tabular}
 \end{table}
 
-The $\classt{affine}$, $\classt{coaffine}$, $\classt{state}$, $\classt{usage}$, $\classt{statel}$ and $\classt{usagel}$ types are not present in $\mu$CLL and are used to define affine sessions and reference cells, which we won't be diving into in this report. Note that recursive types are defined indirectly, through the \texttt{rec} keyword in definitions, as will be shown below. A CLASS program is composed of a collection of type definitions and process definitions, with the following BNF grammar:
+The $\classt{affine}$, $\classt{coaffine}$, $\classt{state}$, $\classt{usage}$, $\classt{statel}$ and $\classt{usagel}$ types are not present in $\mu$CLL and are used to define affine sessions and reference cells, which we won't be diving into in this report. Note that recursive types are defined indirectly, through the \texttt{rec} keyword in definitions, as will be shown below. A \ac{CLASS} program is composed of a collection of type definitions and process definitions, with the following BNF grammar:
 
 \begin{align*}
     \text{Program} ::=\  & \text{ProcDef}\ \text{Program} &  & |\ \text{ProcDef} \\
@@ -399,7 +399,7 @@ A process definition associates a name $\texttt{proc\_id}$ to a process $P$, whi
     |\                   & \recprocdefgc{proc\_id}{X_1,\ \dots,\ X_n}{x_1: A_1,\ \dots,\ x_n: A_n}{P}
 \end{align*}
 
-Finally, processes in CLASS are defined by the following BNF grammar, where $x$ and $y$ are session end points:
+Finally, processes in \ac{CLASS} are defined by the following BNF grammar, where $x$ and $y$ are session end points:
 
 \begin{align*}
     P, Q ::=\  & \cutc{P}{x: A}{Q}                                          &  & |\ \parc{P}{Q}                                                 \\
@@ -418,11 +418,11 @@ Finally, processes in CLASS are defined by the following BNF grammar, where $x$ 
     |\         & \putc{x}{y}{P}Q
 \end{align*}
 
-These have a direct correspondence to the process composition constructs in $\mu$CLL and the actions shown in Table \ref{tab:muCLLActions}, with the exception of the process definition calling, print, affine and reference cell constructs. Note that in CLASS the sum/choice type is expanded to allow for an arbitrary number of choices, as opposed to $\mu$CLL, where the sum type is binary. This simplifies the syntax of the language, and all arbitrary sized sums can be trivially encoded as binary sums. Additionally, we have print constructs, and the process definition call construct, similar to a function call in an imperative language, which allows for reducing code duplication.
+These have a direct correspondence to the process composition constructs in $\mu$CLL and the actions shown in Table \ref{tab:muCLLActions}, with the exception of the process definition calling, print, affine and reference cell constructs. Note that in \ac{CLASS} the sum/choice type is expanded to allow for an arbitrary number of choices, as opposed to $\mu$CLL, where the sum type is binary. This simplifies the syntax of the language, and all arbitrary sized sums can be trivially encoded as binary sums. Additionally, we have print constructs, and the process definition call construct, similar to a function call in an imperative language, which allows for reducing code duplication.
 
 \subsection{Example Programs}
 
-We now present some example programs in CLASS, starting with a simple program which does nothing but close a session (Figure \ref{fig:CLASSWaitCloseExample}). The \texttt{main} process definition never has any channel or type arguments. In this program, a session $x$ is initialized through a $\cutp$. Its type annotation $x: \closet$ indicates that on the right-hand side of the $\cutp$ the only action that can (and must) be performed is $\closep$. On the left-hand side, the dual is true - that is, the actions on $x$ must match the dual type of $\closet$, which is $\waitt$. The $\waitp$ action has a continuation, which in this case is set to $\emptyc$ (empty), indicating that the process has terminated.
+We now present some example programs in \ac{CLASS}, starting with a simple program which does nothing but close a session (Figure \ref{fig:CLASSWaitCloseExample}). The \texttt{main} process definition never has any channel or type arguments. In this program, a session $x$ is initialized through a $\cutp$. Its type annotation $x: \closet$ indicates that on the right-hand side of the $\cutp$ the only action that can (and must) be performed is $\closep$. On the left-hand side, the dual is true - that is, the actions on $x$ must match the dual type of $\closet$, which is $\waitt$. The $\waitp$ action has a continuation, which in this case is set to $\emptyc$ (empty), indicating that the process has terminated.
 
 \begin{figure}[H]
     \centering
@@ -435,7 +435,7 @@ We now present some example programs in CLASS, starting with a simple program wh
             }
         }
     \end{class}
-    \caption{Wait and Close CLASS Example}
+    \caption{Wait and Close \ac{CLASS} Example}
     \label{fig:CLASSWaitCloseExample}
 \end{figure}
 
@@ -456,7 +456,7 @@ On the right-hand side of the cut, session $y$ is received and bound to $z$. The
             }
         }
     \end{class}
-    \caption{Send and Receive CLASS Example}
+    \caption{Send and Receive \ac{CLASS} Example}
     \label{fig:CLASSSendAndReceiveExample}
 \end{figure}
 
@@ -476,7 +476,7 @@ In Figure \ref{fig:CLASSChoiceExample} we present a program with a cut where the
             }
         }
     \end{class}
-    \caption{Choice CLASS Example}
+    \caption{Choice \ac{CLASS} Example}
     \label{fig:CLASSChoiceExample}
 \end{figure}
 
@@ -497,7 +497,7 @@ The forward construct $\fwdp$ is used to link two sessions together, making them
             }
         }
     \end{class}
-    \caption{Forwarding CLASS Example}
+    \caption{Forwarding \ac{CLASS} Example}
     \label{fig:CLASSForwardExample}
 \end{figure}
 
@@ -517,11 +517,11 @@ Figure \ref{fig:CLASSProcDefExample} presents a program equivalent to the one in
             }
         }
     \end{class}
-    \caption{Process Definition Call CLASS Example}
+    \caption{Process Definition Call \ac{CLASS} Example}
     \label{fig:CLASSProcDefExample}
 \end{figure}
 
-When writing complex programs in CLASS, we use type definitions to simplify the code. In Figure \ref{fig:CLASSBoolExample}, a type $Bool$ is defined which is equivalent to a choice of two labels, each option leading to $\waitt$. Then, this definition can be used in the type annotations of the processes. The \texttt{printBool} process definition receives a session $x$ of type $\dualt{Bool}$, i.e., receives a choice of one of two labels, and prints the choice made.
+When writing complex programs in \ac{CLASS}, we use type definitions to simplify the code. In Figure \ref{fig:CLASSBoolExample}, a type $Bool$ is defined which is equivalent to a choice of two labels, each option leading to $\waitt$. Then, this definition can be used in the type annotations of the processes. The \texttt{printBool} process definition receives a session $x$ of type $\dualt{Bool}$, i.e., receives a choice of one of two labels, and prints the choice made.
 
 The main process definition \texttt{main} initializes a session $x$ of type $Bool$ with the choice $\labelp{false}$, and calls the \texttt{printBool} process definition with it. Running this program will print \texttt{false}.
 
@@ -555,11 +555,11 @@ The main process definition \texttt{main} initializes a session $x$ of type $Boo
             }
         \end{class}
     \end{minipage}
-    \caption{Definition and Use of a Boolean Type in CLASS}
+    \caption{Definition and Use of a Boolean Type in \ac{CLASS}}
     \label{fig:CLASSBoolExample}
 \end{figure}
 
-CLASS supports defining inductive types and processes. Figure \ref{fig:CLASSNatExample} presents a inductive definition of natural numbers in CLASS, and a recursive process that prints a natural number. The unfold actions $\unfoldmuc{x}$ and $\unfoldnuc{x}$ are used to unfold the inductive type $Nat$, i.e., transform $Nat$ into $\choicet{\labelt{zero}{\waitt}\ \labelt{succ}{Nat}}$. Unfold actions are added implicitly, but they are explicit in the example for clarity. This example prints \texttt{S S 0}, representing the number $2$.
+\ac{CLASS} supports defining inductive types and processes. Figure \ref{fig:CLASSNatExample} presents a inductive definition of natural numbers in \ac{CLASS}, and a recursive process that prints a natural number. The unfold actions $\unfoldmuc{x}$ and $\unfoldnuc{x}$ are used to unfold the inductive type $Nat$, i.e., transform $Nat$ into $\choicet{\labelt{zero}{\waitt}\ \labelt{succ}{Nat}}$. Unfold actions are added implicitly, but they are explicit in the example for clarity. This example prints \texttt{S S 0}, representing the number $2$.
 
 \begin{figure}[H]
     \centering
@@ -594,11 +594,11 @@ CLASS supports defining inductive types and processes. Figure \ref{fig:CLASSNatE
             }
         \end{class}
     \end{minipage}
-    \caption{Inductive Natural Number Definition in CLASS}
+    \caption{Inductive Natural Number Definition in \ac{CLASS}}
     \label{fig:CLASSNatExample}
 \end{figure}
 
-The last example we present, in Figure \ref{fig:CLASSPolymorphismExample}, is a simple demonstration of polymorphism in CLASS. The type definition \texttt{List} is a polymorphic type that receives a type variable $X$, and is defined as a choice between two labels, one for the empty list and another for a list with a head of type $X$ and a tail of type $List\ X$. The inductive process definition \texttt{concatList} operates on lists of a generic type $X$: it receives two lists $x$ and $y$ of type $List\ X$, and concatenates them into a new list $z$ of type $List\ X$. Unfolds have been omitted for brevity, but they are implicit in the example.
+The last example we present, in Figure \ref{fig:CLASSPolymorphismExample}, is a simple demonstration of polymorphism in \ac{CLASS}. The type definition \texttt{List} is a polymorphic type that receives a type variable $X$, and is defined as a choice between two labels, one for the empty list and another for a list with a head of type $X$ and a tail of type $List\ X$. The inductive process definition \texttt{concatList} operates on lists of a generic type $X$: it receives two lists $x$ and $y$ of type $List\ X$, and concatenates them into a new list $z$ of type $List\ X$. Unfolds have been omitted for brevity, but they are implicit in the example.
 
 The concatenation is done by matching on the first list $x$. If it is $\labelp{nil}$, then the list $y$ is forwarded into $z$ without modification. If it is $\labelp{cons}$, then we extract the head $a$ from $x$, and insert it into $z$, by choosing the $\labelp{cons}$ label on $z$ and sending $a$ to $z$. Finally, the process calls itself recursively with the same type $X$, the tail of $x$, the same list $y$, and the new list $z$.
 
@@ -623,19 +623,19 @@ The concatenation is done by matching on the first list $x$. If it is $\labelp{n
             }
         }
     \end{class}
-    \caption{Polymorphic List Concatenation in CLASS}
+    \caption{Polymorphic List Concatenation in \ac{CLASS}}
     \label{fig:CLASSPolymorphismExample}
 \end{figure}
 
 \section{Linear Session Abstract Machine}
 
-In this section, an overview of Linear Session Abstract Machine (Linear SAM) is given. The Linear SAM, introduced by Luís Caires and Bernardo Toninho in 2024, is a virtual machine for executing session processes typed by (classical) linear logic \cite{Caires:2024}. It provides an ``efficient deterministic execution model for the implicitly sequential session-typed program idioms''. Essentially, its goal is to provide a performant execution model for the sequential parts of session-typed programs, which make up the majority of the code in practice, while still seamlessly integrating with the concurrent parts. A proof-of-concept implementation of the SAM \cite{Caires:2024:artifact} was integrated as an alternative backend for CLASS \cite{Rocha:2022,Rocha:2021:artifact}.
+In this section, an overview of the \acf{SAM} is given. The \ac{SAM}, introduced by Luís Caires and Bernardo Toninho in 2024, is a virtual machine for executing session processes typed by (classical) linear logic \cite{Caires:2024}. It provides an ``efficient deterministic execution model for the implicitly sequential session-typed program idioms''. Essentially, its goal is to provide a performant execution model for the sequential parts of session-typed programs, which make up the majority of the code in practice, while still seamlessly integrating with the concurrent parts. A proof-of-concept implementation of the \ac{SAM} \cite{Caires:2024:artifact} was integrated as an alternative backend for \ac{CLASS} \cite{Rocha:2022,Rocha:2021:artifact}.
 
-The core components of the SAM are session references $x, y$, values $V ::= \checkmark\ |\ \labelp{c}\ |\ \text{clos}(x, P)$, queues $q ::= \text{nil}\ |\ V\ |\ V@q$, session records $R ::= x\langle q,P\rangle y$ and the heap $H ::= x \mapsto R$, where $P$ is a process. Values $V$ can either be the close token $\checkmark$, a label $\#c$, or a closure $\text{clos}(x, P)$, where $x$ is a session reference and $P$ is a process. Queues $q$ are sequences of values, and session records $R$ are tuples of session references $x, y$, a queue $q$ and a process $P$. The heap $H$ maps session references to session records.
+The core components of the \ac{SAM} are session references $x, y$, values $V ::= \checkmark\ |\ \labelp{c}\ |\ \text{clos}(x, P)$, queues $q ::= \text{nil}\ |\ V\ |\ V@q$, session records $R ::= x\langle q,P\rangle y$ and the heap $H ::= x \mapsto R$, where $P$ is a process. Values $V$ can either be the close token $\checkmark$, a label $\#c$, or a closure $\text{clos}(x, P)$, where $x$ is a session reference and $P$ is a process. Queues $q$ are sequences of values, and session records $R$ are tuples of session references $x, y$, a queue $q$ and a process $P$. The heap $H$ maps session references to session records.
 
 \subsection{Reduction Rules}
 
-The Linear SAM is a state transition system, where the state is a tuple $(P, H)$, with the heap $H$ and a process $P$. The transition relation is defined by a set of rules, some of which are presented in this section.
+The Linear \ac{SAM} is a state transition system, where the state is a tuple $(P, H)$, with the heap $H$ and a process $P$. The transition relation is defined by a set of rules, some of which are presented in this section.
 
 The $\cutp$ rule, shown in Figure \ref{fig:SAMCutRule}, inserts a new session record in the heap, associated to the session reference $x$, for executing the continuation $Q$ of the process $P$, assuming, without loss of generality, that $A$ is a positive type, i.e., that $P$ will push values into the session queue, and $Q$ will later pop them. Essentially, the rule transitions to a state where $P$ will be executed immediately, and where $Q$ is delayed to a later time. If $A$ is a negative type, we simply apply the rule but with $P$ and $Q$ swapped.
 
@@ -646,7 +646,7 @@ The $\cutp$ rule, shown in Figure \ref{fig:SAMCutRule}, inserts a new session re
         \Mapsto
         (P, H[x: A^+\langle\text{nil},\{y/x\}Q\rangle y:\dual{A^+}])
     $$
-    \caption{SAM Cut Reduction Rule}
+    \caption{\ac{SAM} Cut Reduction Rule}
     \label{fig:SAMCutRule}
 \end{figure}
 
@@ -659,7 +659,7 @@ The $\closep$ rule, shown in Figure \ref{fig:SAMCloseRule}, pushes the close tok
         \Mapsto
         (P,H[x:\emptyset\langle q@\checkmark, \emptyp\rangle y:B])
     $$
-    \caption{SAM Close Reduction Rule}
+    \caption{\ac{SAM} Close Reduction Rule}
     \label{fig:SAMCloseRule}
 \end{figure}
 
@@ -672,7 +672,7 @@ The $\waitp$ rule, shown in Figure \ref{fig:SAMWaitRule}, pops the close token $
         \Mapsto
         (P,H)
     $$
-    \caption{SAM Wait Reduction Rule}
+    \caption{\ac{SAM} Wait Reduction Rule}
     \label{fig:SAMWaitRule}
 \end{figure}
 
@@ -685,7 +685,7 @@ The choice rule, shown in Figure \ref{fig:SAMChoiceRule}, given an action $\choo
         \Mapsto
         (P,H[x:A\langle q@\labelp{c}, Q\rangle y:B])^{wr}
     $$
-    \caption{SAM Choice Reduction Rule}
+    \caption{\ac{SAM} Choice Reduction Rule}
     \label{fig:SAMChoiceRule}
 \end{figure}
 
@@ -698,7 +698,7 @@ The offer rule, shown in Figure \ref{fig:SAMOfferRule}, performs the dual operat
         \Mapsto
         (P_c,H[x:A\langle q, Q\rangle y:B_c]^{rw})
     $$
-    \caption{SAM Offer Reduction Rule}
+    \caption{\ac{SAM} Offer Reduction Rule}
     \label{fig:SAMOfferRule}
 \end{figure}
 
@@ -711,7 +711,7 @@ Finally, we show the $\fwdp$ rule in Figure \ref{fig:SAMForwardRule}, where we a
         \Mapsto
         (P,H[z:A\langle q_2@q_1, Q\rangle w:C])
     $$
-    \caption{SAM Forward Reduction Rule}
+    \caption{\ac{SAM} Forward Reduction Rule}
     \label{fig:SAMForwardRule}
 \end{figure}
 
@@ -723,7 +723,7 @@ $$
     P \equiv \cutc{\waitc{x}{\emptyc}}{x}{\closec{x}}
 $$
 
-The execution of $P$ is shown in Figure \ref{fig:SAMExampleExecutionP}. The initial state of the SAM is $(P, \emptyset)$. We first apply the $\cutp$ rule, which allocates a new session record in the heap, and transitions to $\closep$, as it corresponds to the positive type $\closet$. We apply the $\closep$ rule, which pushes the close token $\checkmark$ into the queue, and transitions to the session record continuation $\waitp$. Finally, we apply the $\waitp$ rule, which pops the close token $\checkmark$ from the queue, and transitions to the continuation $\emptyc$, reaching the final state $(\emptyc, \emptyset)$.
+The execution of $P$ is shown in Figure \ref{fig:SAMExampleExecutionP}. The initial state of the \ac{SAM} is $(P, \emptyset)$. We first apply the $\cutp$ rule, which allocates a new session record in the heap, and transitions to $\closep$, as it corresponds to the positive type $\closet$. We apply the $\closep$ rule, which pushes the close token $\checkmark$ into the queue, and transitions to the session record continuation $\waitp$. Finally, we apply the $\waitp$ rule, which pops the close token $\checkmark$ from the queue, and transitions to the continuation $\emptyc$, reaching the final state $(\emptyc, \emptyset)$.
 
 \begin{figure}[H]
     \begin{align*}
@@ -775,7 +775,7 @@ We show its execution in Figure \ref{fig:SAMExampleExecutionQ}. We first apply t
 
 \section{Alternative Applications}
 
-In this section, we present some works \cite{Ahmed:2007, Bernardy:2017,Kokke:2021,Jespersen:2015, Lagaillardie:2022} which apply linear logic and/or session types through different approaches. These works are not directly related to CLASS or to the Linear SAM, nor do we base this work on them, but they are interesting to mention as they show alternative ways of solving the same problems we are addressing.
+In this section, we present some works \cite{Ahmed:2007, Bernardy:2017,Kokke:2021,Jespersen:2015, Lagaillardie:2022} which apply linear logic and/or session types through different approaches. These works are not directly related to \ac{CLASS} or to the Linear \ac{SAM}, nor do we base this work on them, but they are interesting to mention as they show alternative ways of solving the same problems we are addressing.
 
 \subsection{\texorpdfstring{L$^3$}{L3}}
 
@@ -791,7 +791,7 @@ Linear Haskell \cite{Bernardy:2017} is an extension of Haskell that introduces l
 
 Session types have been implemented in Linear Haskell by Kokke et al. \cite{Kokke:2021} in the form of a small library called \textit{Priority Sesh}. This library allows the programmer to easily define session types and integrate them into their programs. The library also gives the possibility of the user annotating session types with priorities, which can then be used to prove that the program is deadlock-free.
 
-One big disadvantage of the Linear Haskell approach is that it is not able to fully exploit the linearity of the types for compiler optimizations, due to the core compiler being non-linear. In contrast, our approach should in theory be able to do so, as CLASS is a session-typed language from the ground up.
+One big disadvantage of the Linear Haskell approach is that it is not able to fully exploit the linearity of the types for compiler optimizations, due to the core compiler being non-linear. In contrast, our approach should in theory be able to do so, as \ac{CLASS} is a session-typed language from the ground up.
 
 \subsection{Rust}
 

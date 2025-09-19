@@ -7,22 +7,22 @@
 % The following line allows to ref this chapter
 \label{chap:architecture}
 
-The solution we developed on this thesis to the problem of compiling CLASS programs to native code is a compilation scheme heavily based on the SAM interpreter. Execution is done sequentially and deterministically, with the compiler generating code that closely resembles the execution of the SAM, implementing continuation-based coroutining.
+The solution we developed on this thesis to the problem of compiling \ac{CLASS} programs to native code is a compilation scheme heavily based on the \ac{SAM} interpreter. Execution is done sequentially and deterministically, with the compiler generating code that closely resembles the execution of the \ac{SAM}, implementing continuation-based coroutining.
 Associated to each process is a block of data called an environment, similar to a stack frame of traditional imperative languages. This environment stores the continuations of each session, as well as any data received through them. Whenever a process finishes writing data to a session, a jump is made to its other end point, which will read the data and continue execution.
 
-At a high-level, the compilation scheme is divided into four phases. First, the source CLASS program is parsed and type-checked. This phase is not discussed in this report, as the implementation of it has been reused from the previous work on the SAM and CLASS interpreters. Then, the program is compiled to an intermediate representation (IR) which abstracts some details of the target language. Next, the IR is analyzed and optimized by a series of passes. Finally, the optimized IR is translated to C code, which is then compiled to native code using the GNU Compiler Collection (GCC).
+At a high-level, the compilation scheme is divided into four phases. First, the source \ac{CLASS} program is parsed and type-checked. This phase is not discussed in this report, as the implementation of it has been reused from the previous work on the \ac{SAM} and \ac{CLASS} interpreters. Then, the program is compiled to an intermediate representation (\ac{IR}) which abstracts some details of the target language. Next, the \ac{IR} is analyzed and optimized by a series of passes. Finally, the optimized \ac{IR} is translated to C code, which is then compiled to native code using the GNU Compiler Collection (GCC).
 
-This chapter is divided into four sections. In the first section, we describe the IR's constructs and its abstract machine. In the second section, we delve into the compilation of CLASS to the IR. In the third section, we define how the IR is translated to C code. Finally, in the fourth section, we list open problems and future work.
+This chapter is divided into four sections. In the first section, we describe the \ac{IR}'s constructs and its abstract machine. In the second section, we delve into the compilation of \ac{CLASS} to the \ac{IR}. In the third section, we define how the \ac{IR} is translated to C code. Finally, in the fourth section, we list open problems and future work.
 
 \section{IR Abstract Machine}
 
-In this section, we describe the intermediate representation (IR) used by the compiler and its abstract machine. The IR is an imperative stateful language meant to act as a bridge between the high-level session-based language CLASS and the low-level imperative language C.
+In this section, we describe the intermediate representation (\ac{IR}) used by the compiler and its abstract machine. The \ac{IR} is an imperative stateful language meant to act as a bridge between the high-level session-based language \ac{CLASS} and the low-level imperative language C.
 
-We start by describing the syntax and layout of IR programs. Then, we define the data structures and other necessary concepts used by the abstract machine, and finally, we explain the semantics of each IR instruction.
+We start by describing the syntax and layout of \ac{IR} programs. Then, we define the data structures and other necessary concepts used by the abstract machine, and finally, we explain the semantics of each \ac{IR} instruction.
 
 \subsection{Layout}
 
-An IR program is a list of named processes, each consisting of a header and a body. The header contains the number of end points of the process, the names of the type parameters, the names of the session parameters, the names of the data sections and their data layouts, and finally, the data to be dropped when the process finishes execution (see Figure~\ref{fig:IRProcessExample} for an example).
+An \ac{IR} program is a list of named processes, each consisting of a header and a body. The header contains the number of end points of the process, the names of the type parameters, the names of the session parameters, the names of the data sections and their data layouts, and finally, the data to be dropped when the process finishes execution (see Figure~\ref{fig:IRProcessExample} for an example).
 
 \begin{figure}[H]
     \begin{lstlisting}[language=IR]
@@ -36,14 +36,14 @@ main_poly2_n: // process name and header
 entry: // process body, entry block
     continueSession(s0, continue_0)
 continue_0: // another block
-    move(d1, d0, [exponential])
+    moveSlots(d1, d0, [exponential])
     jump(recv_rhs_1)
 recv_rhs_1: // another block
     deferDrop(e0)
     writeExponential(s0, main_poly2_n_exp6, t0 <- t0, d1 =[exponential] d1)
     finishSession(s0, end point)
     \end{lstlisting}
-    \caption{An example IR process}
+    \caption{An example \ac{IR} process}
     \label{fig:IRProcessExample}
 \end{figure}
 
@@ -51,11 +51,11 @@ recv_rhs_1: // another block
 
 \todo{It would be nice to immediatelly explain what feature of class these concepts are trying to represent}
 
-An environment is the equivalent to a stack frame in the IR.
-The process header in the IR source code describes what is known at compile-time about the process. The environment itself exists at run-time and complements this information with both dynamic state, such as local data and sessions, or simply parameters known only at run-time, such as the properties of polymorphic types.
+An environment is the equivalent to a stack frame in the \ac{IR}.
+The process header in the \ac{IR} source code describes what is known at compile-time about the process. The environment itself exists at run-time and complements this information with both dynamic state, such as local data and sessions, or simply parameters known only at run-time, such as the properties of polymorphic types.
 
-The first section in the environment contains the number of remaining end points of the process. Instructions which terminate a block might be marked as end points, in which case the environment's end point count is decremented. When it reaches zero, the environment is deallocated. The IR generation phase is responsible for ensuring that the number of end points can only be zero when there's no more code left to execute within the environment.
-\todo{make sure the IR gen phase explains properly why this is safe}
+The first section in the environment contains the number of remaining end points of the process. Instructions which terminate a block might be marked as end points, in which case the environment's end point count is decremented. When it reaches zero, the environment is deallocated. The \ac{IR} generation phase is responsible for ensuring that the number of end points can only be zero when there's no more code left to execute within the environment.
+\todo{make sure the \ac{IR} gen phase explains properly why this is safe}
 
 The next section contains the size, alignment and flags describing any polymorphic types being passed to this process. The size and alignment fields are necessary to compute the right memory offsets and layouts during execution, while the flags field is used by optimizations to describe a type in more detail. \todo{We must come back to this and explain the 'is value flag'}. \todo{It might also be weird to already mention 'size and alignment' here as if they're needed by this layer}
 
@@ -63,23 +63,23 @@ The state of all sessions in the process is also stored within the environment. 
 
 The local data section stores the actual data being used by the process. Each data entry is described by an identifier such as \texttt{d3} and by the possible types of data which can be stored on it. How these types are described is explained in \ref{subsection:SlotsAndOffsets}. \todo{maybe explain the (arg s0)?}
 
-The last section lists local data locations to be dropped when the process terminates, i.e., when the last end point is executed. This section is necessary to implement the exponential side of CLASS. Drop locations can be marked as 'certain', in which case no runtime state is kept. If they're not certain, a bit is stored for each indicating whether the variable should be dropped on end. On environment initialization, these bits are cleared. This allows programs where variables are initialized depending on the branches taken.  
+The last section lists local data locations to be dropped when the process terminates, i.e., when the last end point is executed. This section is necessary to implement the exponential side of \ac{CLASS}. Drop locations can be marked as 'certain', in which case no runtime state is kept. If they're not certain, a bit is stored for each indicating whether the variable should be dropped on end. On environment initialization, these bits are cleared. This allows programs where variables are initialized depending on the branches taken.  
 
 \subsection{Slots and Offsets} \label{subsection:SlotsAndOffsets}
 
-The IR is completely target-platform agnostic, which means that when addressing memory or describing type layouts, we never use concrete byte offsets and counts. Instead, we describe type sizes by their composition, i.e., what \textit{slots} they're composed of.
+The \ac{IR} is completely target-platform agnostic, which means that when addressing memory or describing type layouts, we never use concrete byte offsets and counts. Instead, we describe type sizes by their composition, i.e., what \textit{slots} they're composed of.
 
-A slot is a primitive type of the IR. The following slots are used by the compiler: \texttt{int}, \texttt{bool}, \texttt{string}, \texttt{tag}, \texttt{session}, \texttt{exponential}, \texttt{type}, \texttt{var} and \texttt{cell}.
+A slot is a primitive type of the \ac{IR}. The following slots are used by the compiler: \texttt{int}, \texttt{bool}, \texttt{string}, \texttt{tag}, \texttt{session}, \texttt{exponential}, \texttt{type}, \texttt{var} and \texttt{cell}.
 
-The  \texttt{int}, \texttt{bool} and \texttt{string} slots are used to model the respective basic types in CLASS. The \texttt{tag} slot is used to model choices, and represents a chosen choice. The \texttt{session} slot holds a reference to a session in some environment. The \texttt{exponential} slot holds a reference to an exponential \todo{(should I link the section explaining exponentials here?)}. The \texttt{type} and \texttt{var} slots are used by polymorphic code, where \texttt{type} stores type information and \texttt{var} is a polymorphic slot referring to a type defined in the current environment. Finally, the \texttt{cell} slot holds a reference to a shared state cell.
+The  \texttt{int}, \texttt{bool} and \texttt{string} slots are used to model the respective basic types in \ac{CLASS}. The \texttt{tag} slot is used to model choices, and represents a chosen choice. The \texttt{session} slot holds a reference to a session in some environment. The \texttt{exponential} slot holds a reference to an exponential \todo{(should I link the section explaining exponentials here?)}. The \texttt{type} and \texttt{var} slots are used by polymorphic code, where \texttt{type} stores type information and \texttt{var} is a polymorphic slot referring to a type defined in the current environment. Finally, the \texttt{cell} slot holds a reference to a shared state cell.
 
-Due to the choice construct of CLASS, data types may diverge depending on branches taken. Thus, when describing the size of a type we resort to trees of slots instead of sequences of slots. These trees branch when a choice is made or when the structure depends on some polymorphic type flag. \todo{give examples of valid slot trees}
+Due to the choice construct of \ac{CLASS}, data types may diverge depending on branches taken. Thus, when describing the size of a type we resort to trees of slots instead of sequences of slots. These trees branch when a choice is made or when the structure depends on some polymorphic type flag. \todo{give examples of valid slot trees}
 
-In order for the C generation phase to be able to determine the alignment of a given data offset, we must describe offsets in the IR through not only one slot tree, but two slots trees: one describing the data we're skipping, and another describing the data that comes next. \todo{give examples of valid slot offsets}
+In order for the C generation phase to be able to determine the alignment of a given data offset, we must describe offsets in the \ac{IR} through not only one slot tree, but two slots trees: one describing the data we're skipping, and another describing the data that comes next. \todo{give examples of valid slot offsets}
 
 \subsection{Exponentials}
 
-The exponential sessions in CLASS are modeled in the unoptimized IR through the \texttt{exponential} slot. This slot holds a reference to an exponential process closure and any captured data. \todo{explain better}
+The exponential sessions in \ac{CLASS} are modeled in the unoptimized \ac{IR} through the \texttt{exponential} slot. This slot holds a reference to an exponential process closure and any captured data. \todo{explain better}
 
 \subsection{Cells}
 
@@ -88,7 +88,7 @@ Cell slots are references to shared state cells. Data stored in cells can be ind
 
 \subsection{Session initialization, continuation and forwarding}
 
-IR sessions are similar to both return addresses and coroutines. They are used to model the flow of control between two end points of a CLASS session.
+\ac{IR} sessions are similar to both return addresses and coroutines. They are used to model the flow of control between two end points of a \ac{CLASS} session.
 A session is described by four properties: a reference to its opposite end point session (which might be itself), a data location to write to when sending data to it, and a continuation address and environment to switch to when passing control to it.
 
 Sessions are stored in the environment of each process, and are referenced by their index in the environment's session section. For example, \texttt{s0} refers to the first session in the environment, \texttt{s1} to the second session, and so on. Additionally, references to sessions can be passed around as data through the \texttt{session} slot.
@@ -132,19 +132,56 @@ rhs:
     \label{fig:IRSessionFlowControlForwarding}
 \end{figure}
 
-Additionally, the instruction \texttt{forwardSessions} is used to model forwarding of CLASS channels. An example of its use is shown in Figure~\ref{fig:IRSessionFlowControlForwarding}.
+Additionally, the instruction \texttt{forwardSessions} is used to model forwarding of \ac{CLASS} channels. An example of its use is shown in Figure~\ref{fig:IRSessionFlowControlForwarding}.
 
 In this example two sessions \texttt{s0} and \texttt{s1} are initialized as before. Then, the \texttt{forwardSessions(s0, s1)} instruction is executed, which makes the remote session of \texttt{s0} be the remote session of \texttt{s1}, and vice-versa. After linking the sessions, the instruction jumps to the continuation of its second argument (\texttt{s1} in this case, and thus, the block \texttt{rhs}).
 
 On the block \texttt{rhs}, the instruction \texttt{finishSession(s1)} is executed, which just like before passes control to the continuation of \texttt{s1}, which was set to \texttt{lhs} by the forwarding instruction.
 
-\subsection{Passing sessions around}
+\subsection{Manipulating data}
 
-\todo{Explain the pushSession instruction}
+Data can be manipulated through a multitude of instructions. All of these instructions address data through \textit{data locations}. A data location is defined by a base address and an offset. The base address can be either a local data section (e.g., \texttt{d0}), a remote data section, identified by a session (e.g., \texttt{s0}), or a cell location (e.g., \texttt{c(d0)}). The offset is defined by two slot trees, one describing the data being skipped, and another describing the data that comes next, for alignment purposes.
+
+For example, the location \dataloc{d0}{int}{int} refers to the second integer stored in the local data section \texttt{d0}, while the location \dataloc{s0}{bool}{string} refers to a string stored in the remote data of the session \texttt{s0}, after a boolean. When the offset is zero, it is omitted for brevity. For example, \texttt{d0} as a data location refers to the start of the local data section \texttt{d0}.
+
+\subsubsection{Writing data}
+
+There are many instructions to write slots to specified locations. All \texttt{write*} instructions take as arguments this location, and any other arguments necessary to compute the slot being written. Examples of these instructions include \texttt{writeExpression}, \texttt{writeTag}, \texttt{writeSession} and \texttt{writeExponential}.
+
+\subsubsection{Moving data}
+
+Some times it is necessary to simply move data from one location to another. This is done through the \texttt{moveSlots} instruction, which takes as arguments a destination location, a source location and a slot tree describing the data to be moved. To exemplify, \texttt{moveSlots(s1, \dataloc{d0}{bool}{string, int}, [string, int])} moves a string followed by an integer from the local data section \texttt{d0} after a boolean to the start of the remote data section of session \texttt{s1}.
+
+To model the exponential part of \ac{CLASS}, the \texttt{cloneSlots} instruction is used to clone data from one location to another, taking the same arguments. This instruction is only defined for cloneable slots, which are \texttt{int}, \texttt{bool}, \texttt{string}, \texttt{tag} and \texttt{exponential}. In addition to copying the memory, it also increments reference counts for exponentials and allocates new strings as necessary.
+
+\subsubsection{Expressions}
+
+Expressions compute basic values (\texttt{int}, \texttt{bool} or \texttt{string}) from a tree of sub-expressions without side effects. Examples of expressions include arithmetic operations, comparisons, boolean operations, string concatenation and data access.
+\todo{Should I define the syntax of expressions more formally (e.g., BNF)?}
+
+While expressions do not occur as instructions, they are used as arguments to some instructions, such as \texttt{writeExpression}, \texttt{branchExpression} and \texttt{print}.
+
+An example of an expression is \texttt{(move(d0, int) + 3) + clone(d1, string)}. This expression reads an integer from \texttt{0}, adds \texttt{3} to it, then reads a cloned string from \texttt{d1} and finally concatenates the two. The \texttt{move} and \texttt{clone} expressions read data from the respective locations, with the difference that \texttt{move} consumes the data (cannot be read again) while \texttt{clone} leaves the data intact.
+
+In the particular case of integers and booleans, both \texttt{move} and \texttt{clone} are equivalent, as these types are trivially copyable. For strings, however, the difference is important, as \texttt{clone} allocates a new string and copies the contents, while \texttt{move} simply uses the existing allocation.
+
+\subsubsection{Printing}
+
+The \texttt{print} and \texttt{printLine} instructions are used to print values to the standard output. They take a single argument expression, which is evaluated and printed. The \texttt{printLine} instruction additionally appends a new line after printing the value.
+
+\subsubsection{Storing and binding sessions}
+
+\todo{Explain the writeSession instruction}
 
 \todo{Explain the bindSession instruction}
 
+\subsubsection{}
+
 \subsection{Tasks}
+
+\subsection{Threads}
+
+\subsection{Jumps}
 
 \todo{Write this section}
 
@@ -160,7 +197,7 @@ On the block \texttt{rhs}, the instruction \texttt{finishSession(s1)} is execute
 
 \todo{Rewrite this section}
 
-In this section we sketch a formal definition of the translation from CLASS to the intermediate representation (IR) we defined in the previous section. We hope to build on specifications such as this to provide a formal correction proof of at least of a fragment of our compiler. We denote $\phi(A)$ to be the buffer size, in bytes, that a session of type $A$ requires. For brevity, we omit its definition here.
+In this section we sketch a formal definition of the translation from \ac{CLASS} to the \ac{IR} we defined in the previous section. We hope to build on specifications such as this to provide a formal correction proof of at least of a fragment of our compiler. We denote $\phi(A)$ to be the buffer size, in bytes, that a session of type $A$ requires. For brevity, we omit its definition here.
 
 % \subsection{Buffer Size Calculation}
 
@@ -258,7 +295,7 @@ Notice that the right-hand side of $\bangp$ isn't considered when computing $\va
 
 \subsection{Compilation and Flips}
 
-The compilation of a CLASS process $P$ to the IR on a given environment $\varepsilon$ is represented by $\compiled{P}_\varepsilon$. We define the concept of an action $\mathcal{A}$, as a process which performs some operation on a session's buffer.
+The compilation of a \ac{CLASS} process $P$ to the \ac{IR} on a given environment $\varepsilon$ is represented by $\compiled{P}_\varepsilon$. We define the concept of an action $\mathcal{A}$, as a process which performs some operation on a session's buffer.
 
 Actions are typically processes of the form $\alpha; P$, with the exception of the $\closep$ action, which has no continuation $P$. We denote the subject $s(\mathcal{A})$ of an action $\mathcal{A}$ as the leftmost name occurrence in $\mathcal{A}$. For example, $s(\waitc{x}{P}) = x$.
 
@@ -266,7 +303,7 @@ The remainder $r(\tau)$ of a type $\tau$ is defined as the type which is left af
 
 Whenever an action $\mathcal{A}$ with subject $s$ of type $\tau$ is compiled, if $\tau$ is a positive type and $r(\tau)$ is a negative type, a flip is generated immediately after it, before compiling the continuation $P$. For simplicity, this is done implicitly in the compilation rules introduced in the following sections.
 
-This closely resembles the behavior of the SAM, specifically, its write-to-read adjustment. By jumping to the other end point of the session, which will be writing, we ensure that whenever a read operation is performed, its writing counterpart must have already executed, and thus, written the data to the session buffer.
+This closely resembles the behavior of the \ac{SAM}, specifically, its write-to-read adjustment. By jumping to the other end point of the session, which will be writing, we ensure that whenever a read operation is performed, its writing counterpart must have already executed, and thus, written the data to the session buffer.
 
 \subsection{Cut, Parallel and Empty}
 
@@ -296,7 +333,7 @@ The $\emptyp$ process is compiled as shown below. The process marks the end of t
 
 \subsection{Forwarding}
 
-The $\fwdp$ process is compiled directly to IR - we simply translate the names to the record indices.
+The $\fwdp$ process is compiled directly to \ac{IR} - we simply translate the names to the record indices.
 
 \begin{compilation}{\fwdc{x}{y}}{\varepsilon}
     \fwd{\varepsilon(x)}{\varepsilon(y)}
@@ -368,7 +405,7 @@ The compilation of a process definition is shown below. A label is generated for
     \recurse{P}{n(\emptyset[x_1 \mapsto 0,\,\dots,\,x_n\mapsto n - 1], P)}
 \end{compilation}
 
-To call a process from another process, we simply use the call IR construct we previously defined, which initializes a new environment with the required number of session records, and with passed arguments bound to their respective slots.
+To call a process from another process, we simply use the call \ac{IR} construct we previously defined, which initializes a new environment with the required number of session records, and with passed arguments bound to their respective slots.
 
 \begin{figure}[H]
     \centering
@@ -383,11 +420,11 @@ To call a process from another process, we simply use the call IR construct we p
 
 \todo{Rewrite this section}
 
-In this section we describe the C programs the compiler generates from the intermediate representation (IR), which is produced by the code generation phase.
+In this section we describe the C programs the compiler generates from the \acf{IR}, which is produced by the code generation phase.
 
-The intermediate representation used by the compiler is an imperative stateful language which closely resembles an assembly language for an abstract machine. An IR program is a list of blocks of instructions, which may be labeled. Each block corresponds to a process definition in the source CLASS program.
+The intermediate representation used by the compiler is an imperative stateful language which closely resembles an assembly language for an abstract machine. An \ac{IR} program is a list of blocks of instructions, which may be labeled. Each block corresponds to a process definition in the source \ac{CLASS} program.
 
-We start by showing the C type definitions for the data structures generated by the compiler. Then, we give an overview of our intermediate representation, and show how these IR constructs are translated to C code.
+We start by showing the C type definitions for the data structures generated by the compiler. Then, we give an overview of our intermediate representation, and show how these \ac{IR} constructs are translated to C code.
 
 \subsection{Data Types}
 
@@ -425,7 +462,7 @@ struct record {
 % };
 % \end{lstlisting}
 
-Finally, we define a C type for tasks. Tasks store a continuation, i.e., a program address and an environment to switch to. These exist solely to implement the parallel construct of CLASS, which corresponds to the mix rule of linear logic. Tasks form a linked list, where each task points to the next task to be executed.
+Finally, we define a C type for tasks. Tasks store a continuation, i.e., a program address and an environment to switch to. These exist solely to implement the parallel construct of \ac{CLASS}, which corresponds to the mix rule of linear logic. Tasks form a linked list, where each task points to the next task to be executed.
 
 \begin{lstlisting}[language=C]
 struct task {
@@ -437,7 +474,7 @@ struct task {
 
 \subsection{Registers}
 
-Translated IR instructions operate on the registers shown below. The \texttt{env} register points to the current environment, on which operations are performed. The \texttt{task} registers point to the next task to be executed. The rest of the registers are used to store temporary values.
+Translated \ac{IR} instructions operate on the registers shown below. The \texttt{env} register points to the current environment, on which operations are performed. The \texttt{task} registers point to the next task to be executed. The rest of the registers are used to store temporary values.
 
 \begin{lstlisting}[language=C]
 struct environment *env, *tmp_env;
@@ -448,7 +485,7 @@ void *tmp_cont;
 
 \subsection{Main function and labels}
 
-The main function of the generated C program is shown below. It initializes the environment, allocates space for the session records, and then jumps to the entry process. For each process definition, a label of the form \texttt{proc\_X} is generated, where \texttt{X} is the name of the process. The code each for process definition is generated from its IR instructions, immediately after the label.
+The main function of the generated C program is shown below. It initializes the environment, allocates space for the session records, and then jumps to the entry process. For each process definition, a label of the form \texttt{proc\_X} is generated, where \texttt{X} is the name of the process. The code each for process definition is generated from its \ac{IR} instructions, immediately after the label.
 
 \begin{lstlisting}[language=C]
 int main() {
@@ -468,12 +505,12 @@ end:
 }
 \end{lstlisting}
 
-Additionally, any labels in the IR are directly translated to C labels, with extra care taken to ensure that each label is unique.
+Additionally, any labels in the \ac{IR} are directly translated to C labels, with extra care taken to ensure that each label is unique.
 
 
 \subsection{Tasks}
 
-There are two IR instructions which manipulate the linked list of tasks. The \texttt{newTask} instruction, from which code is generated as shown below, allocates a new task, sets its continuation to a chosen label \texttt{cont}, and inserts it at the end of the linked list.
+There are two \ac{IR} instructions which manipulate the linked list of tasks. The \texttt{newTask} instruction, from which code is generated as shown below, allocates a new task, sets its continuation to a chosen label \texttt{cont}, and inserts it at the end of the linked list.
 
 \begin{lstlisting}[language=C]
     /* newTask(cont) */
@@ -632,16 +669,16 @@ Process calls are performed through the \texttt{call} instruction. This instruct
 
 \todo{Rewrite this section}
 
-An implementation of the proposed solution, including some polymorphism functionality, recursion and exponentials, has already been developed, but still has to be profiled and optimized. In terms of language features, it still doesn't cover any of the shared state and reference cell constructs of CLASS.
+An implementation of the proposed solution, including some polymorphism functionality, recursion and exponentials, has already been developed, but still has to be profiled and optimized. In terms of language features, it still doesn't cover any of the shared state and reference cell constructs of \ac{CLASS}.
 
 One challenge brought up by polymorphism is that we no longer know at compile time whether on a given code section a type variable is positive or negative, and thus, whether we should generate a flip or not when encountering it as a remainder type. We expect to solve this problem by keeping track of the polarity of type variables in the environment, and branching on it when necessary.
 
-Memory management is currently very inefficient, as we allocate a new session record as sessions are created as needed and freed as they are closed, using the \texttt{malloc} and \texttt{free} functions provided by the C standard library. These functions are very slow, and we could improve performance by using a custom memory allocator, specially given that due to the linear nature of CLASS, we have plenty of guarantees about the lifetime of session records. It would also be interesting to explore the possibility of reusing data by doing in-place updates on session buffers, instead of copying data around.
+Memory management is currently very inefficient, as we allocate a new session record as sessions are created as needed and freed as they are closed, using the \texttt{malloc} and \texttt{free} functions provided by the C standard library. These functions are very slow, and we could improve performance by using a custom memory allocator, specially given that due to the linear nature of \ac{CLASS}, we have plenty of guarantees about the lifetime of session records. It would also be interesting to explore the possibility of reusing data by doing in-place updates on session buffers, instead of copying data around.
 
-One other issue also related to memory management is the deallocation of environments. Currently, environments are never deallocated, which means that we have at least one memory leak for each process call. Once again, due to the linearity of CLASS, it's possible that we may be able to determine statically when an environment is no longer needed, and deallocate it. The challenge lies in determining when an environment is no longer needed, as it may be shared between multiple sessions, and sessions may be passed around dynamically. This is a problem that will be tackled in the full implementation. We're expecting to solve the problem through type driven compilation, and thus avoid the need for garbage collection. This can be achieved by using a reference counting mechanism, where an environment's reference count is decremented each time one of its sessions is closed, and deallocated when the count reaches zero.
+One other issue also related to memory management is the deallocation of environments. Currently, environments are never deallocated, which means that we have at least one memory leak for each process call. Once again, due to the linearity of \ac{CLASS}, it's possible that we may be able to determine statically when an environment is no longer needed, and deallocate it. The challenge lies in determining when an environment is no longer needed, as it may be shared between multiple sessions, and sessions may be passed around dynamically. This is a problem that will be tackled in the full implementation. We're expecting to solve the problem through type driven compilation, and thus avoid the need for garbage collection. This can be achieved by using a reference counting mechanism, where an environment's reference count is decremented each time one of its sessions is closed, and deallocated when the count reaches zero.
 
 Adding support for native types such as integers and booleans is also something that will be addressed in the final implementation, as it will greatly increase the performance capabilities of the compiler.
 
-Although this work focuses on generating sequential code, it should still be useful to make use of the natural parallelism of the CLASS language. One possibly solution would be to distribute the tasks in the task list to multiple threads, through a thread pool, for example.
+Although this work focuses on generating sequential code, it should still be useful to make use of the natural parallelism of the \ac{CLASS} language. One possibly solution would be to distribute the tasks in the task list to multiple threads, through a thread pool, for example.
 
 Finally, there are several other improvements and optimizations that could be made to the compiler that are not and won't be addressed in this work, but would be interesting to explore in the future. One such improvement would be to change the target language from C to LLVM IR, which is a low-level intermediate representation used by the LLVM compiler infrastructure. This would allow us to take advantage of the more advanced optimizations provided by the LLVM compiler.
