@@ -129,7 +129,7 @@ In order to model branching data types (such as choices from \ac{CLASS}) and pol
 
 // If the polymorphic type t0 has the 'is value' flag set, then there
 // are no slots. Otherwise, there's a session slot.
-isValue<t0>[[] | [session]] 
+type<t0.isValue>[[] | [session]] 
     \end{lstlisting}
     \caption{Examples of slot trees}
     \label{fig:IRSlotTreeExample}
@@ -227,7 +227,7 @@ s2_cont:
 
 \subsection{Tags and branching} \label{subsection:Branching}
 
-Branching is done through the \texttt{branchTag}, \texttt{branchExpression} and \texttt{branchIsValue} instructions. The first instruction branches on a tag stored a data location, similarly to a switch statement in C. The second instruction branches on the result a boolean expression, similarly to an if statement in C. Finally, the third instruction branches on whether a set of polymorphic types has the 'is value' flag set or not.
+Branching is done through the \texttt{branchTag}, \texttt{branchExpression} and \texttt{branchTypeFlags} instructions. The first instruction branches on a tag stored a data location, similarly to a switch statement in C. The second instruction branches on the result a boolean expression, similarly to an if statement in C. Finally, the third instruction branches on whether a set of polymorphic types has a set of flag set.
 
 Each possible branch is defined by a code location (block label) and an integer indicating how many end points are behind that branch. This is used to keep track of the number of remaining end points in the environment, and is explained in more detail in \ref{subsection:EndPoints}.
 
@@ -305,7 +305,7 @@ The list of locked cells is necessary to avoid undefined behavior on the generat
 
 \subsection{Polymorphism}
 
-Processes in the \ac{IR} may be parametrized by polymorphic types. These types are identified by names which start with \texttt{t} followed by a number, such as \texttt{t0} and \texttt{t1}. Types may be used directly as slots in slot trees. Additionally, they may also be used in \texttt{branchIsValue} instructions, as mentioned in \ref{subsection:Branching}.
+Processes in the \ac{IR} may be parametrized by polymorphic types. These types are identified by names which start with \texttt{t} followed by a number, such as \texttt{t0} and \texttt{t1}. Types may be used directly as slots in slot trees. Additionally, they may also be used in \texttt{branchTypeFlags} instructions, as mentioned in \ref{subsection:Branching}.
 
 Types can be written to data locations through the \texttt{writeType} instruction, producing a \texttt{type} slot. This slot can then be read by a process invocation instruction, such as \texttt{callProcess}. The \texttt{writeType} instructions takes as arguments a data location to write to, a slot tree describing the type's layout, and a set of types which must have the 'is value' flag set for the type to also have it set.
 
@@ -313,9 +313,47 @@ For example, \texttt{writeType(d0, [int; t1], value=if(t1))} writes a type to \t
 
 \subsection{Process calls}
 
-\todo{write this section}
+Processes can be invoked through the \texttt{callProcess} instruction, which takes as arguments the name of the process to invoke (might be the same process), and a list of type, session and data arguments to initialize the new process environment.
+
+A type argument is described by the target type identifier on the new process, and by either a data location containing a \texttt{type} slot, or by a slot tree and flags describing the type directly. For example, \texttt{t0 <- [int] (value=yes)} initializes the type parameter \texttt{t0} of the new process to be a type which stores an integer, and has the 'is value' flag set, while \texttt{t1 <- d3.[int]~[type]} initializes \texttt{t1} to the type stored at \texttt{d3} after an integer.
+
+A session argument is described by the target session identifier on the new process, by either a source session identifier or a data location containing a \texttt{session} slot, and finally, by a data offset to apply to the writing location of the session. For example, \texttt{s0 <- s1+[int]~[int]} initializes the session parameter \texttt{s0} of the new process to be the same as session \texttt{s1} of the current process, but with its writing location pointing at \dataloc{s1}{int}{int}. If the offset is zero, it is omitted for brevity.
+
+Finally, a data argument is described by the target data identifier on the new process, by a source data location, by a slot tree describing the data, and by a flag indicating whether to clone the data or not. For example, \texttt{d0 =[string] d1} writes to \texttt{d0} a clone of the string stored at \texttt{d1}, while \texttt{d1 <-[string] d2} moves to \texttt{d1} the string stored at \texttt{d2} without cloning it.
+
+\begin{figure}[H]
+    \centering
+    \begin{lstlisting}[language=IR]
+foo:
+    types: t0
+    sessions: s0
+    data d0: <[t0]>
+entry:
+    moveSlots(s0, d0, [t0]) // 4
+    finishSession(s0)       // 5
+
+main:
+    sessions: s0
+    data d0: <[int]>
+entry:
+    initializeSession(s0, d0, rhs)                                     // 1
+    writeExpression(s0, 42)                                            // 2
+    callProcess(foo, t0 <- [int] (value=yes), s0 <- s0, d0 <-[int] d0) // 3
+rhs:
+    printLine(move(d0, int)) // 6
+    ...
+    \end{lstlisting}
+    \caption{Calling a process with type, session and data arguments}
+    \label{fig:IRProcessCallExample}
+\end{figure}
+
+An example of calling a process with type, session and data arguments is shown in Figure~\ref{fig:IRProcessCallExample}. First, the session \texttt{s0} is initialized to have its remote end point be itself, its writing location be \texttt{d0} and its continuation be the block \texttt{rhs}. Then, the integer \texttt{42} is written to the remote data of \texttt{s0} (which is \texttt{d0}) Next, the process \texttt{foo} is called, with its type parameter \texttt{t0} being set to an integer with the 'is value' flag set, its session \texttt{s0} being set to the current session \texttt{s0}, and its data section \texttt{d0} being initialized by a move of the local data section \texttt{d0}. Inside \texttt{foo}, the integer stored at its local data section \texttt{d0} (received from \texttt{main}) is moved to the remote data of its session \texttt{s0} (which is still \texttt{d0} from the \texttt{main} process), and then, the session is finished, passing control back to the block \texttt{rhs} of the calling process. Finally, the integer stored at \texttt{d0} is printed.
 
 \subsection{Exponentials}
+
+Exponentials in \ac{CLASS} can be modeled through the \texttt{exponential} slot, which stores the necessary data to dynamically call a process closure, taking care of any captured data. Exponentials are created through the \texttt{writeExponential} instruction, which takes the same arguments as \texttt{callProcess}, with the exception that session arguments are not allowed, and that passed data must be cloneable. Additionally, the referenced process is expected to follow the exponential process convention.
+
+The exponential process convention is as follows. The process \todo{} 
 
 The exponential sessions in \ac{CLASS} are modeled in the unoptimized \ac{IR} through the \texttt{exponential} slot. This slot holds a reference to an exponential process closure and any captured data. \todo{explain better}
 
