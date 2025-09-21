@@ -149,7 +149,7 @@ Sometimes it is necessary to simply move data from one location to another. This
 
 The \texttt{cloneSlots} instruction is used to clone data from one location to another, taking the same arguments. This instruction is only defined for cloneable slots, which are \texttt{int}, \texttt{bool}, \texttt{string}, \texttt{tag} and \texttt{exponential}. In addition to copying the memory, it also increments reference counts for exponentials and allocates new strings as necessary. It used to model the exponential part of \ac{CLASS}.
 
-\subsection{Dropping data}
+\subsection{Dropping data} \label{subsection:IRDroppingData}
 
 Although \ac{CLASS} is a linear language, it also supports both affine and exponential types. Thus, it is necessary to be able to drop some types of data if they are no longer needed. To this end, two instructions are provided: \texttt{dropSlots} and \texttt{deferDrop}.
 
@@ -207,7 +207,7 @@ entry:
 References to sessions (\texttt{session} slots) can be written to and read from data locations using the \texttt{writeSession} and \texttt{bindSession} instructions, respectively. The first instruction takes a data location and a session identifier as arguments. The second takes a data location to read from, a session identifier to bind to, and a data location to set as the writing location of the session's remote end point.
 \end{sloppypar}
 
-An example of writing a session to local data and then binding it to another session is shown in Figure~\ref{fig:IRSessionDataExample}. First, a session \texttt{s1} is initialized with its remote end point being itself, its writing location being \texttt{d1} and its continuation being the block \texttt{s1\_cont}. Then, a reference to session \texttt{s1} is written to the local data section \texttt{d0}. Next, the reference stored at \texttt{d0} is read and bound to the session \texttt{s2}, with its remote writing location being modified to \texttt{d2}. At this point, the remote session of \texttt{s2} is \texttt{s1}, and vice-versa. Finally, \texttt{s2} is continued, jumping to \texttt{s1\_cont}, and setting the continuation of \texttt{s1} to the current block. Thus, when executing \texttt{finishSession(s1)}, control will jump to \texttt{s2\_cont}.
+An example of writing a session to local data and then binding it to another session is shown in Figure~\ref{fig:IRSessionDataExample}. First, a session \texttt{s1} is initialized with its remote end point being itself, its writing location being \texttt{d1} and its continuation being the block \texttt{s1\_cont}. Then, a reference to the remote counterpart of session \texttt{s1} is written to the local data section \texttt{d0}. Next, the reference stored at \texttt{d0} is read and bound to the session \texttt{s2}, with its remote writing location being modified to \texttt{d2}. At this point, the remote session of \texttt{s2} is \texttt{s1}, and vice-versa. Finally, \texttt{s2} is continued, jumping to \texttt{s1\_cont}, and setting the continuation of \texttt{s1} to the current block. Thus, when executing \texttt{finishSession(s1)}, control will jump to \texttt{s2\_cont}.
 
 \begin{figure}[H]
     \centering
@@ -353,9 +353,53 @@ An example of calling a process with type, session and data arguments is shown i
 
 Exponentials in \ac{CLASS} can be modeled through the \texttt{exponential} slot, which stores the necessary data to dynamically call a process closure, taking care of any captured data. Exponentials are created through the \texttt{writeExponential} instruction, which takes the same arguments as \texttt{callProcess}, with the exception that session arguments are not allowed, and that passed data must be cloneable. Additionally, the referenced process is expected to follow the exponential process convention.
 
-The exponential process convention is as follows. The process \todo{} 
+The convention for exponential processes is simply that they must take a single session argument, \texttt{s0}, which will be used to communicate with the caller. This session is initialized by the caller when the \texttt{callExponential} instruction is called. This instruction takes as arguments a data location containing an \texttt{exponential} slot, a session identifier to bind the exponential process session to, and a data location to set as the writing location on the exponential process. See Figure~\ref{fig:IRExponentialCallExample} for an example of creating and calling an exponential.
 
-The exponential sessions in \ac{CLASS} are modeled in the unoptimized \ac{IR} through the \texttt{exponential} slot. This slot holds a reference to an exponential process closure and any captured data. \todo{explain better}
+One important detail is that exponentials are reference counted data, and the \texttt{exponential} slot must be dropped when no longer needed, or at the end of the process, if it was not moved. This is done through the \texttt{dropSlots} or \texttt{deferDrop} instructions, as explained in the \ref{subsection:IRDroppingData} section. Drops of exponentials decrement this reference count, and clones increment it.
+
+\begin{figure}[H]
+    \centering
+    \begin{lstlisting}[language=IR]
+foo:
+    types: t0
+    sessions: s0
+    data d0: <[t0]>
+entry:
+    moveSlots(s0, d0, [t0]) // 6, 10
+    finishSession(s0)       // 7, 11
+
+main:
+    sessions: s0 s1
+    data d0: <[string]>
+    data d1: <[exponential]>
+    data d2: <[string]>
+    data d3: <[string]>
+    drop e0: [exponential] at d1
+entry:
+    writeExpression(d0, "Hello, World!")                                    // 1
+    writeExponential(d1, foo, t0 <- [string] (value=yes), d0 <-[string] d0) // 2
+    deferDrop(e0)               // 3
+    callExponential(d1, s0, d2) // 4
+    callExponential(d1, s1, d3) // 4
+    continueSession(s0, rhs0)   // 5
+rhs0:
+    printLine(move(d2, string)) // 8
+    continueSession(s1, rhs1)   // 9
+rhs1:
+    printLine(move(d3, string)) // 12
+    ...
+    \end{lstlisting}
+    \caption{Calling an exponential with type and data arguments}
+    \label{fig:IRExponentialCallExample}
+\end{figure}
+
+In Figure~\ref{fig:IRExponentialCallExample}, the process \texttt{foo} is a simple polymorphic process which takes a type parameter \texttt{t0}, a session \texttt{s0} and a data section \texttt{d0}. It moves data of type \texttt{t0} from its local data section \texttt{d0} to the remote data of its session \texttt{s0}, and then finishes the session, passing control back to the caller. When called as an exponential, \texttt{s0} will be initialized by the caller.
+
+The \texttt{main} process first stores a new string at \texttt{d0}, and then creates a new exponential at \texttt{d1} for the process \texttt{foo}, moving the created string to it. This string will be cloned every time the exponential is called, and dropped when the exponential is freed. The exponential will be dropped at the end of the process through the drop bit \texttt{e0}, which is set by the \texttt{deferDrop(e0)} instruction.
+
+The exponential is then called twice, first binding its session to \texttt{s0} and its writing location to \texttt{d2}, and then binding its session to \texttt{s1} and its writing location to \texttt{d3}. Each call will clone the string stored at \texttt{d0} and pass it to the exponential process. Control is not immediately passed to the exponential process. Instead, the caller only passes control to the exponential process when it continues either \texttt{s0} or \texttt{s1}. This is done through the \texttt{continueSession} instructions, which jump to the continuation of the respective session, which was set to the entry block of the exponential process by the \texttt{callExponential} instructions.
+
+Finally, within the exponential process, the string is moved from the local data section \texttt{d0} to the remote data of the session \texttt{s0} (which is either \texttt{d2} or \texttt{d3} of the caller, depending on which call was continued), and then, the session is finished, passing control back to the caller. The caller then prints the received string.
 
 \subsection{End points} \label{subsection:EndPoints}
 
