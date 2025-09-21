@@ -403,12 +403,45 @@ Finally, within the exponential process, the string is moved from the local data
 
 \subsection{End points} \label{subsection:EndPoints}
 
-\todo{this was copied over from the old environment section, needs rewriting}
-The first section in the environment contains the number of remaining end points of the process. Instructions which terminate a block might be marked as end points, in which case the environment's end point count is decremented. When it reaches zero, the environment is deallocated. The \ac{IR} generation phase is responsible for ensuring that the number of end points can only be zero when there's no more code left to execute within the environment.
+One important aspect of the \ac{IR} which hasn't been explained yet is the concept of end points. These are used to ensure proper deallocation of the process environment when there's no more code left to execute within it. Each environment maintains a count of the number of remaining end points, which is specified in the process header (omitted in previous examples for brevity).
 
-\todo{make sure the \ac{IR} gen phase explains properly why this is safe}
+Each instruction which passes control to another block without a continuation might be marked as an end point. These instructions are \texttt{finishSession}, \texttt{forwardSessions}, \texttt{popTask} and \texttt{callProcess}. When such an instruction is executed, the environment's end point count is decremented. When it reaches zero, the environment is deallocated, and any remaining data is dropped according to the drop bits defined in the process header. A simple example of this mechanism is shown in Figure~\ref{fig:IREndPointsExample1}.
 
-\todo{Mention and list instructions which may decrement the end point count}
+\begin{figure}[H]
+    \centering
+    \begin{lstlisting}[language=IR]
+main:
+    end points: 2
+    sessions: s0
+    data d0: <[]>
+entry:
+    initializeSession(s0, d0, rhs)
+    finishSession(s0, end point) // end points decremented to 1
+rhs:
+    popTask(end point) // end points decremented to 0, environment is freed
+    \end{lstlisting}
+    \caption{Decrementing the end point count and deallocating the environment}
+    \label{fig:IREndPointsExample1}
+\end{figure}
+
+The only other instructions which interact with the end point mechanism are the branching instructions, as mentioned in \ref{subsection:Branching}. Each possible branch of a branching instruction is marked with the number of end points that will be behind that branch. When a given branch is taken, the environment's end point count is decremented by the difference between the maximum end point count across all branches and by end point count of the chosen branch. An example of this mechanism is shown in Figure~\ref{fig:IREndPointsExample2}.
+
+\begin{figure}[H]
+    \centering
+    \begin{lstlisting}[language=IR]
+foo:
+    end points: 2
+    data d0: <[int]>
+entry:
+    branchExpression(move(d0, int) > 0, if_true:2, if_false:1) // max = 2
+if_true:
+    ... // end points remains 2 (max - curr = 2 - 2 = 0)
+if_false:
+    ... // end points decremented by 1 (max - curr = 2 - 1 = 1)
+    \end{lstlisting}
+    \caption{Modifying the end point count through branching}
+    \label{fig:IREndPointsExample2}
+\end{figure}
 
 \section{Generating IR programs from CLASS}
 
