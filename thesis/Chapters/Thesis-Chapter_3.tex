@@ -10,9 +10,9 @@
 The solution we developed on this thesis to the problem of compiling \ac{CLASS} programs to native code is a compilation scheme heavily based on the \ac{SAM} interpreter. Execution is done sequentially and deterministically, with the compiler generating code that closely resembles the execution of the \ac{SAM}, implementing continuation-based coroutining.
 Associated to each process is a block of data called an environment, similar to a stack frame of traditional imperative languages. This environment stores the continuations of each session, as well as any data received through them. Whenever a process finishes writing data to a session, a jump is made to its other end point, which will read the data and continue execution.
 
-At a high-level, the compilation scheme is divided into four phases. First, the source \ac{CLASS} program is parsed and type-checked. This phase is not discussed in this report, as the implementation of it has been reused from the previous work on the \ac{SAM} and \ac{CLASS} interpreters. Then, the program is compiled to an intermediate representation (\ac{IR}) which abstracts some details of the target language. Next, the \ac{IR} is analyzed and optimized by a series of passes. Finally, the optimized \ac{IR} is translated to C code, which is then compiled to native code using the GNU Compiler Collection (GCC).
+At a high-level, the compilation scheme is divided into four phases. First, the source \ac{CLASS} program is parsed and type-checked. This phase is not discussed in this report, as its implementation has been reused from the previous work \cite{Rocha:2023, Caires:2024} on the \ac{SAM} and \ac{CLASS} interpreters. Then, the program is compiled to an intermediate representation (\ac{IR}) which abstracts some details of the target language. Next, the \ac{IR} is analyzed and optimized by a series of passes. Finally, the optimized \ac{IR} is translated to C code, which is then compiled to native code using the GNU Compiler Collection (GCC).
 
-This chapter is divided into four sections. In the first section, we describe the \ac{IR}'s constructs and its abstract machine. In the second section, we delve into the compilation of \ac{CLASS} to the \ac{IR}. In the third section, we define how the \ac{IR} is translated to C code. Finally, in the fourth section, we list open problems and future work.
+This chapter is divided into four sections. In the first section, we describe the \ac{IR}'s constructs and its abstract machine. In the second section, we delve into the compilation of \ac{CLASS} to the \ac{IR}. In the third section, we given an overview on how the \ac{IR} is translated to C code. Finally, in the fourth section, we list open problems and future work. \todo{Where to fit the optimizations? In another section within this chapter? Or on a new chapter?}
 
 \section{Intermediate Representation}
 
@@ -28,24 +28,28 @@ An \ac{IR} program is a set of named processes, each consisting of a header and 
 
 \begin{figure}[H]
     \begin{lstlisting}[language=IR]
-main_poly2_n: // process name and header
+foo:
     end points: 1
-    types: t0
-    sessions: s0 s1
-    data d0: <[exponential]> (arg s0)
-    data d1: <[exponential]>
-    drop e0: [exponential] at d1
-entry: // process body, entry block
-    continueSession(s0, continue_0)
-continue_0: // another block
-    moveSlots(d1, d0, [exponential])
-    jump(recv_rhs_1)
-recv_rhs_1: // another block
-    deferDrop(e0)
-    writeExponential(s0, main_poly2_n_exp6, t0 <- t0, d1 =[exponential] d1)
+    types: none
+    sessions: s0
+    data d0: <[]> (s0)
+entry:
+    printLine("close")
     finishSession(s0, end point)
+
+main:
+    end points: 2
+    types: none
+    sessions: s0
+    data d0: <[]> (s0)
+entry:
+    initializeSession(s0, cut_lhs_0, d0)
+    callProcess(foo, end point, s0 <- s0)
+cut_lhs_0:
+    printLine("wait")
+    popTask(end point)
     \end{lstlisting}
-    \caption{An example \ac{IR} process}
+    \caption{An example \ac{IR} program with two processes}
     \label{fig:IRProcessExample}
 \end{figure}
 
@@ -135,7 +139,7 @@ type<t0.isValue>[[] | [session]]
     \label{fig:IRSlotTreeExample}
 \end{figure}
 
-Local data sections are described by their identifier and by a sum of slot trees describing the possible layouts of data that can be stored on them. For example, \texttt{data d0:\ <[int, bool] + [string]>} describes a local data section \texttt{d0} which can either store an integer followed by a boolean, or a string.
+Local data sections are described by their identifier and by a sum of slot trees describing the possible layouts of data that can be stored on them. For example, \texttt{data d0:\ <[int, bool] + [string]>} describes a local data section \texttt{d0} which can either store an integer followed by a boolean, or a string. Additionally, data sections may be associated to a session, indicating that a session passed to a process invocation should receive data from that data section (e.g., \texttt{data d0:\ <[int]> (s0)}).
 
 \subsubsection{Addressing Data} \label{subsection:DataAddressing}
 
