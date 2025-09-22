@@ -53,6 +53,12 @@
 \newcommand{\classt}[1]{\textbf{\textcolor{forestgreen}{#1}}}
 \newcommand{\closet}{\classt{close}}
 \newcommand{\waitt}{\classt{wait}}
+\newcommand{\lintt}{\classt{lint}}
+\newcommand{\colintt}{\classt{colint}}
+\newcommand{\lboolt}{\classt{lbool}}
+\newcommand{\colboolt}{\classt{colbool}}
+\newcommand{\lstringt}{\classt{lstring}}
+\newcommand{\colstringt}{\classt{colstring}}
 \newcommand{\choicet}[1]{\classt{choice of}\,\{#1\}}
 \newcommand{\offert}[1]{\classt{offer of}\,\{#1\}}
 \newcommand{\labelt}[2]{\classt{$|$\##1}:#2}
@@ -143,6 +149,22 @@
 % IR Data Locations
 \newcommand{\slotoffset}[2]{\texttt{[#1]\textasciitilde[#2]}}
 \newcommand{\dataloc}[3]{\texttt{#1.[#2]\textasciitilde[#3]}}
+
+% CLASS definitions
+\newcommand{\valueset}{\mathcal{V}}
+\newcommand{\droppableset}{\mathcal{D}}
+\newcommand{\cloneableset}{\mathcal{C}}
+\newcommand{\isvalue}[2]{\mathcal{V}^{#1}(#2)}
+\newcommand{\isdroppable}[2]{\mathcal{D}^{#1}(#2)}
+\newcommand{\iscloneable}[2]{\mathcal{C}^{#1}(#2)}
+\newcommand{\slots}[1]{\mathcal{S}(#1)}
+\newcommand{\activelocalslots}[1]{\mathcal{A}^l(#1)}
+\newcommand{\activeremoteslots}[1]{\mathcal{A}^r(#1)}
+\newcommand{\totallocalslots}[1]{\mathcal{T}^l(#1)}
+\newcommand{\totalremoteslots}[1]{\mathcal{T}^r(#1)}
+\newcommand{\impossible}{\mathbf{\textcolor{red}{impossible}}}
+\newcommand{\guaranteed}{\mathbf{\textcolor{forestgreen}{guaranteed}}}
+\newcommand{\dependent}[1]{\mathbf{\textcolor{orange}{dependent}}(#1)}
 
 % Session modes
 \newcommand{\writemode}{\texttt{write}}

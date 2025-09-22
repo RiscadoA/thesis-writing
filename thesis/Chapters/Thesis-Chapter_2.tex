@@ -343,7 +343,7 @@ The syntax of \ac{CLASS} we'll be using on this thesis differs slightly from $\m
 \begin{align*}
     A, B ::=\  & X \text{ (type variable)}                 &  & |\ \sim X \text{ (dual type variable)}        \\
     |\         & \closet                                   &  & |\ \waitt                                     \\
-    |\         & \offert{\labelt{inl}{A}\ \labelt{inr}{B}} &  & |\ \choicet{\labelt{inl}{A}\ \labelt{inr}{B}} \\
+    |\         & \choicet{\labelt{inl}{A}\ \labelt{inr}{B}}&  & |\ \offert{\labelt{inl}{A}\ \labelt{inr}{B}} \\
     |\         & \sendt{A}{B}                              &  & |\ \recvt{A}{B}                               \\
     |\         & \bangt{A}                                 &  & |\ \whynott{A}                                \\
     |\         & \sendtyt{X}{A}                            &  & |\ \recvtyt{X}{A}                             \\
@@ -376,7 +376,7 @@ The syntax of \ac{CLASS} we'll be using on this thesis differs slightly from $\m
     \end{tabular}
 \end{table}
 
-The $\classt{affine}$, $\classt{coaffine}$, $\classt{state}$, $\classt{usage}$, $\classt{statel}$ and $\classt{usagel}$ types are not present in $\mu$CLL and are used to define affine sessions and reference cells, which we won't be diving into in this report. Note that recursive types are defined indirectly, through the \texttt{rec} keyword in definitions, as will be shown below. A \ac{CLASS} program is composed of a collection of type definitions and process definitions, with the following BNF grammar:
+The $\classt{affine}$, $\classt{coaffine}$, $\classt{state}$, $\classt{usage}$, $\classt{statel}$ and $\classt{usagel}$ types are not present in $\mu$CLL and are used to define affine sessions and reference cells, which we won't be diving into in this report. \todo{now in the thesis we must talk about them!} Note that recursive types are defined indirectly, through the \texttt{rec} keyword in definitions, as will be shown below. A \ac{CLASS} program is composed of a collection of type definitions and process definitions, with the following BNF grammar:
 
 \begin{align*}
     \text{Program} ::=\  & \text{ProcDef}\ \text{Program} &  & |\ \text{ProcDef} \\

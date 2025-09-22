@@ -115,7 +115,7 @@ On the block \texttt{rhs}, the instruction \texttt{finishSession(s1)} is execute
 
 All data in \ac{IR} programs (excluding meta data such as sessions and type information) is stored in one of two places: within a local data section on an environment, or within a cell. Local data sections are referenced by identifiers such as \texttt{d0} and \texttt{d1}, similarly to sessions, while cells are referenced through cell slots (see Section~\ref{subsection:Cells}).
 
-\subsubsection{Slots}
+\subsubsection{Slots} \label{subsection:IRSlots}
 
 \ac{IR} programs are completely platform agnostic, and thus, data types and addresses are described through their composition of \textit{slots}, instead of concrete byte sizes and offsets. A \textit{slot} is a unit of data in the \ac{IR}. There are many types of slots, from primitive types such as \texttt{int} and \texttt{string} to more domain-specific types such as \texttt{session} and \texttt{exponential} (see Appendix~\ref{chapter:appendixIR} for a complete list).
 
@@ -449,9 +449,70 @@ if_false:
 
 \section{Generating IR programs from CLASS}
 
-\todo{Rewrite this section}
+In this section formally define the translation from \ac{CLASS} to the \ac{IR} we defined in the previous section. We start by defining the concept of \textit{value}, \textit{droppable} and \textit{cloneable} session types. Then, we describe how session types are mapped to the slot trees introduced in \ref{subsection:IRSlots}. Finally, we incrementally define the translation from \ac{CLASS} processes to \ac{IR} programs, starting from simple processes and adding more constructs until we cover the whole language.
 
-In this section we sketch a formal definition of the translation from \ac{CLASS} to the \ac{IR} we defined in the previous section. We hope to build on specifications such as this to provide a formal correction proof of at least of a fragment of our compiler. We denote $\phi(A)$ to be the buffer size, in bytes, that a session of type $A$ requires. For brevity, we omit its definition here.
+\subsection{Value, Droppable and Cloneable Types}
+
+To manage the data of sessions in an efficient manner, we define three subsets of session types: value types $\valueset$, droppable types $\droppableset$ and cloneable types $\cloneableset$, such that $\cloneableset \subset \droppableset \subset \valueset$
+. Thus all cloneable types are droppable, and all droppable types are value types.
+
+A session type $A$ is a value type, $A \in \valueset$, if and only if it is strictly positive or strictly negative. This means that a session of a negative value type is finished (has no continuation), and is only used to received already written data, while a session of a positive value type will be finished after writing data to it, i.e., flow of control will never return to the process which wrote to it. This includes types such as $\recvt{A}{\waitt}$ and $\sendt{A}{\closet}$, but not $\recvt{A}{\closet}$ or $\sendt{A}{\waitt}$.
+
+A session type $A$ is considered a \textit{droppable type}, $A \in \droppableset$, if and only if it is a value type, and if the data sent over it can be dropped, effectively making the type affine. This includes types such as $\closet$, $\lintt$, $\lstringt$, $\bangt{A}$, $\affinet{A}$ and, as long as $A, B \in \droppableset$, $\sendt{A}{B}$.
+
+Finally, a session type $A$ is considered a \textit{cloneable type}, $A \in \cloneableset$, if and only if it is a droppable type, and if the data sent over it can be cloned. This includes types such as $\closet$, $\lintt$, $\lstringt$ and $\bangt{A}$, but not, for example, $\affinet{A}$.
+
+We denote $\isvalue{P}{A}$ as whether $A \in \valueset$ and having polarity $P$ (positive $+$ or negative $-$) is $\impossible$, $\guaranteed$ or $\dependent{p_1,\,\dots,\,p_n}$ on whether all type flag requisites $p_i,\,\dots,\,p_n$ are met. A type flag requisite $p_i$ is defined as a test of whether a given polymorphic type variable $t_i$ belongs to either $\valueset$, $\droppableset$ or $\cloneableset$ (e.g, $t_2 \in \droppableset$ is a type flag requisite).
+
+
+This function is defined below through pattern matching on session types. For brevity, we omit the definition of $\isvalue{-}{A}$, as it can be defined through duality: $\isvalue{-}{A} = \isvalue{+}{\dual A}$. Additionally, we omit the cases of $\isvalue{+}{A}$ where $A$ is a negative type, as they are all $\impossible$.
+
+\begin{align*}
+    &\isvalue{+}{\lintt A} &&= \guaranteed \\
+    &\isvalue{+}{\lboolt A} &&= \guaranteed \\
+    &\isvalue{+}{\lstringt A} &&= \guaranteed \\
+    &\isvalue{+}{\closet{}} &&= \guaranteed \\
+    &\isvalue{+}{\sendt{A}{B}} &&= \isvalue{+}{B} \\
+    &\isvalue{+}{\sendtyt{X}{B}} &&= \guaranteed \\
+    &\isvalue{+}{\bangt A} &&= \guaranteed \\
+    &\isvalue{+}{\affinet A} &&= \isdroppable{+}{A} \\
+    &\isvalue{+}{\statet A} &&= \guaranteed \\
+    &\isvalue{+}{\statelt A} &&= \guaranteed \\
+    &\isvalue{+}{\choicet{\labelt a A\ (\dots)\ \labelt z Z}} &&= \bigcup\,(\isvalue{+}{A},\,\dots,\,\isvalue{+}{Z}) \\
+    &\isvalue{+}{X} &&= \dependent{t_x \in \valueset} \text{ where } X \text{ is identified by } t_x \\
+\end{align*}
+
+\todo{Find a way to define with a single function which set a type belongs to, instead of having to define three separate very similar functions}
+
+\subsection{Mapping Session Types to Slot Trees}
+
+To translate \ac{CLASS} processes to \ac{IR} programs, we need to define which data is sent and received over sessions. As explained in \ref{subsection:IRSlots}, in the \ac{IR} data types are represented through slot trees. Thus, we need to define how session types are mapped to slot trees.
+
+We start by defining this mapping for session types $A$ which are strictly positive or negative (i.e., value types, $A \in \valueset$). Let $\slots{A}$ be the slot tree corresponding to the data exchanged over a value type $A$. This function is defined through pattern matching on session types in Figure~\ref{fig:SessionTypeToSlotTree}.
+
+\begin{figure}[H]
+    \centering
+    \begin{align*}
+        &\slots{\closet} = \texttt{[]} && \slots{\lintt} = \texttt{[int]} \\
+        &\slots{\lboolt} = \texttt{[bool]} && \slots{\lstringt} = \texttt{[string]} \\
+        &\slots{\sendt{A}{B}} = \texttt{[session; }\slots{B}\texttt{]} && \slots{\bangt{A}} = \texttt{[exponential]} \\
+        &\slots{\sendtyt{X}{A}} = \texttt{[type]} && \slots{\affinet A} = \texttt{[session]} \\
+        &\slots{\statet A} = \texttt{[cell]} && \slots{\statelt A} = \texttt{[cell]} \\
+        &\slots{\choicet{\labelt a A\ (\dots)\ \labelt z Z}} = \texttt{tag[}\slots{A} \texttt{|}\ \dots\ \texttt{|}\slots{Z}\texttt{]} && \slots{\dualt{A}} = \slots{A}
+    \end{align*}
+    \caption{Mapping from value session types to slot trees}
+    \label{fig:SessionTypeToSlotTree}
+\end{figure}
+
+\todo{In the optimizations section, explain the exponential value, send value and affine value optimizations effect on the slot tree mapping}
+
+To exemplify, consider the session type $\sendt{\lintt}{\sendt{\closet}{\choicet{\labelt a \lstringt\ \labelt b \lboolt}}}$. Its slot tree is \texttt{[session; session; tag[[string] | [bool]]]}, as first a session is sent, then another session is sent, and finally, a tag is sent followed by either a string or a boolean, depending on the sent tag.
+
+To extend this concept to non-value types, we must consider that session types may have multiple segments of data exchange, separated by changes in polarity. We can separate a session type into its segments by replacing every continuation of a different polarity with the unit type of that polarity ($\closet$ or $\waitt$) on the current segment and starting a new segment with the continuation.
+
+For example, we can split $\sendt{\lintt}{\recvt{\lstringt}{\closet}}$ into three segments: first $\sendt{\lintt}{\closet}$, then $\recvt{\lstringt}{\waitt}$ and finally  $\closet$. Each segment is either strictly positive or strictly negative (a value), and thus, we can map each segment to a slot tree through the $\slots{A}$ function defined above.
+
+We designate the slot tree corresponding to the first segment of a session type $A$ as its \textit{active slot tree}, and the slot trees corresponding to the remaining segments as its \textit{remainder slot trees}. Additionally, we denote positive segments as \textit{remote slot trees} and negative segments as \textit{local slot trees}, as positive segments correspond to data which is sent (and thus stored remotely), while negative segments correspond to data which is received (and thus stored locally).
 
 % \subsection{Buffer Size Calculation}
 
