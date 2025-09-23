@@ -185,7 +185,7 @@
 \newcommand{\printlnc}[2]{\printlnp(#1);\,#2}
 
 % IR Data Locations
-\newcommand{\slotoffset}[2]{\texttt{#1}\sim\texttt{#2}}
+\newcommand{\slotoffset}[2]{#1\sim#2}
 \newcommand{\offsetpast}[1]{\text{past}(#1)}
 \newcommand{\offsetfuture}[1]{\text{future}(#1)}
 
@@ -300,6 +300,7 @@
     \mktwoargir{\continueifneg}{continueIfNegative}
     \mkthreeargir{\moveslots}{moveSlots}
     \mkthreeargir{\cloneslots}{cloneSlots}
+    \mktwoargir{\dropslots}{dropSlots}
     \mkthreeargir{\callprocess}{callProcess}
 
     \mkoneargir{\newtask}{newTask}

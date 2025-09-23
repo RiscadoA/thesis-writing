@@ -157,7 +157,9 @@ The \texttt{cloneSlots} instruction is used to clone data from one location to a
 
 Although \ac{CLASS} is a linear language, it also supports both affine and exponential types. Thus, it is necessary to be able to drop some types of data if they are no longer needed. To this end, two instructions are provided: \texttt{dropSlots} and \texttt{deferDrop}.
 
-The \texttt{dropSlots} instruction takes as arguments a data location and a slot tree, and immediately drops the passed data. This instruction is only defined for droppable slots, which are \texttt{string}, \texttt{session}, \texttt{cell} and \texttt{exponential}.
+The \texttt{dropSlots} instruction takes as arguments a data location and a slot tree, and immediately drops the passed data. This instruction is only defined for droppable slots, which are $\ints$, $\bools$, $\strings$, $\tags$, $\sessions$, $\cells$ and $\exponentials$. 
+
+When a $\sessions$ slot is dropped, the session is expected to follow the affine protocol, defined is as follows: when the session is to be deallocated, a tag with value $0$ is written to indicate the session will not be used, and control is passed to it with a continue instruction. Then, the session should finish, passing control back to the cell deallocator.
 
 The \texttt{deferDrop} instruction takes as argument a drop bit identifier, and sets the respective bit. Drop bits are defined in the process header, and indicate a data location and a slot tree to be dropped when the process terminates, if their respective bit is set. Drop bit identifiers start with \texttt{e} followed by a number, such as \texttt{e0} and \texttt{e1}.
 
@@ -551,7 +553,7 @@ One other necessary operation is advancing the offset of the channel's state in 
 
 Additionally, whenever the polarity of $A$ is different from the polarity $p$, of the previous type of channel $x$, the offset must be reset to zero. This is done because whenever the polarity changes, a new segment of the session type starts. If the polarity was positive and became negative, then the process will start receiving data at the start of the local data section. If the polarity was negative and became positive, then the process will start writing data at the start of the remote data section.
 
-This function produces a new environment $\varepsilon[x \mapsto (s, d, o)]$ where $s = s(\varepsilon, x)$, $d = d(\varepsilon, x)$ and, if $A$ has polarity $p$, $o = \slotoffset{$\concatst{\offsetpast{o(\varepsilon, x)}}{t}$}{$\slots{r(\tau)}$}$, otherwise, $o = 0$.
+This function produces a new environment $\varepsilon[x \mapsto (s, d, o)]$ where $s = s(\varepsilon, x)$, $d = d(\varepsilon, x)$ and, if $A$ has polarity $p$, $o = \slotoffset{\concatst{\offsetpast{o(\varepsilon, x)}}{t}}{\slots{r(\tau)}}$, otherwise, $o = 0$.
 
 For example, $\advancech{+}{\varepsilon}{x}{\seqst{\sessions}}{\sendt{\lintt}{\lintt}}$ where $x$ previously had offset $\slotoffset{\seqst{\sessions}}{\seqst{\sessions; \ints}}$ will produce an environment where the offset of $x$ is $\slotoffset{\seqst{\sessions; \sessions}}{\ints}$.
 
@@ -840,9 +842,44 @@ The right-hand-side $P$ is compiled on the new block \texttt{cont}, with a new e
     \recurse{P}{\varepsilon[x \mapsto (s, d, 0)]}
 \end{compilation}
 
-\subsection{Affine sessions}
+\subsection{Affine, use and discard}
 
-\todo{explain affine, use and discard}
+The compilation of the $\affinec{x}P$ process, shown below, implements the affine protocol described in \Cref{subsection:IRDroppingData}: a tag is received from $x$ (with an offset of 0) indicating whether the channel is being used or discarded. If it's being used, the process continues with an environment where $x$ has an offset $o = 0$ if the type $A$ of $x$ in $P$ is positive, or $o = \slotoffset{\seqst{\tags}}{\slots{A}}$ if it is negative. If the tag indicates the session is being discarded, any co-affine data free in $P$ is discarded and the affine session is finished.
+
+One important aspect to note is that although $\affinet{A}$ is a positive type, its process starts by reading a tag, while the dual type $\coaffinet{\dualt{A}}$, which is negative, starts by writing a tag. The rest of the compilation scheme guarantees that the positive side always executes first, which in this case is the reading side. Thus, the $\affinep$ process must always pass control to the negative side before continuing.
+
+An alternative solution would be to change the definition of $\affinet{A}$ to be negative and $\coaffinet{\dualt{A}}$ to be positive, but this would add a lot of complexity the important affine value optimization described in \Cref{subsection:AffineValueOptimizations}.
+
+\begin{compilation}{\affinec{x}{P}}{\varepsilon}
+{\getendpoints{P}{\varepsilon}}
+    \continuesession{s(\varepsilon, x),\,\texttt{cont}}
+    \labelir{cont}
+    \branchtag{d(\varepsilon, x)}{\texttt{use:}\getendpoints{P}{\varepsilon},\,\texttt{discard:1}}
+    \labelir{use}
+    \recurse{P}{\varepsilon[x \mapsto (s(\varepsilon, x), d(\varepsilon, x), o)]}
+    \labelir{discard}
+    \recurse{\discardc{y_i}}{\varepsilon} \comment \text{for each free co-affine name }y_i\text{ in }P
+    \finishsession{s(\varepsilon, x)}{\hasendpoint}
+\end{compilation}
+
+To compile a $\discardc{x}$ process, as seen below, a tag is written to the remote data of channel $x$ indicating that the session is being discarded. Then, control is passed to the continuation of the session. When it returns, the current task is finished, unless the $\discardp$ process was generate as part of the discard branch of an affine process, in which case the execution of the current task continues.
+
+\begin{compilation}{\discardc{x}}{\varepsilon}
+{1}
+    \writetag{r(\varepsilon, x)}{1} \comment \text{indicating discard}
+    \continuesession{s(\varepsilon, x),\,\texttt{cont}}
+    \labelir{cont}
+    \poptask{\hasendpoint} \comment \text{unless part of an affine discard branch}
+\end{compilation}
+
+Finally, the $\usec{x}{P}$ process is compiled as shown below. A tag is written to the remote data of channel $x$ indicating that the session is being used. Then, if the continuation is negative, the control is passed to the other side of the session. Otherwise, the process continues executing immediately.
+
+\begin{compilation}{\usec{x}{P}}{\varepsilon}
+{\getendpoints{P}{\varepsilon}}
+    \writetag{r(\varepsilon, x)}{0} \comment \text{indicating use}
+    \continueifneg{x}{A} \comment \text{where } x:A \text{ in }P
+    \recurse{P}{\advancech{+}{\varepsilon}{x}{\seqst{\tags}}{A}}
+\end{compilation}
 
 \subsection{Shared state}
 
