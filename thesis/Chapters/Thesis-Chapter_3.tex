@@ -7,12 +7,12 @@
 % The following line allows to ref this chapter
 \label{chap:architecture}
 
-The solution we developed on this thesis to the problem of compiling \ac{CLASS} programs to native code is a compilation scheme heavily based on the \ac{SAM} interpreter. Execution is done sequentially and deterministically, with the compiler generating code that closely resembles the execution of the \ac{SAM}, implementing continuation-based coroutining.
+The solution developed on this thesis to the problem of compiling \ac{CLASS} programs to native code is a compilation scheme heavily based on the \ac{SAM} interpreter. Execution is done sequentially and deterministically, with the compiler generating code that closely resembles the execution of the \ac{SAM}, implementing continuation-based coroutining.
 Associated to each process is a block of data called an environment, similar to a stack frame of traditional imperative languages. This environment stores the continuations of each session, as well as any data received through them. Whenever a process finishes writing data to a session, a jump is made to its other end point, which will read the data and continue execution.
 
 At a high-level, the compilation scheme is divided into four phases. First, the source \ac{CLASS} program is parsed and type-checked. This phase is not discussed in this report, as its implementation has been reused from the previous work \cite{Rocha:2023, Caires:2024} on the \ac{SAM} and \ac{CLASS} interpreters. Then, the program is compiled to an intermediate representation (\ac{IR}) which abstracts some details of the target language. Next, the \ac{IR} is analyzed and optimized by a series of passes. Finally, the optimized \ac{IR} is translated to C code, which is then compiled to native code using the GNU Compiler Collection (GCC).
 
-This chapter is divided into four sections. In the first section, we describe the \ac{IR}'s constructs and its abstract machine. In the second section, we delve into the compilation of \ac{CLASS} to the \ac{IR}. In the third section, we given an overview on how the \ac{IR} is translated to C code. Finally, in the fourth section, we list open problems and future work. \todo{Where to fit the optimizations? In another section within this chapter? Or on a new chapter?}
+This chapter is divided into four sections. In the first section, the \ac{IR}'s constructs and its abstract machine are defined. In the second section, the compilation of \ac{CLASS} to the \ac{IR} is described. In the third section, an overview is given on how the \ac{IR} is translated to C code. Finally, in the fourth section, open problems and future work and listed. \todo{Where to fit the optimizations? In another section within this chapter? Or on a new chapter?}
 
 \section{Intermediate Representation}
 
@@ -113,11 +113,11 @@ On the block \texttt{rhs}, the instruction \texttt{finishSession(s1)} is execute
 
 \subsection{Data Storage}
 
-All data in \ac{IR} programs (excluding meta data such as sessions and type information) is stored in one of two places: within a local data section on an environment, or within a cell. Local data sections are referenced by identifiers such as \texttt{d0} and \texttt{d1}, similarly to sessions, while cells are referenced through cell slots (see Section~\ref{subsection:Cells}).
+All data in \ac{IR} programs (excluding meta data such as sessions and type information) is stored in one of two places: within a local data section on an environment, or within a cell. Local data sections are referenced by identifiers such as $d0$ and $d1$, similarly to sessions, while cells are referenced through cell slots (see Section~\ref{subsection:Cells}).
 
 \subsubsection{Slots} \label{subsection:IRSlots}
 
-\ac{IR} programs are completely platform agnostic, and thus, data types and addresses are described through their composition of \textit{slots}, instead of concrete byte sizes and offsets. A \textit{slot} is a unit of data in the \ac{IR}. There are many types of slots, from primitive types such as \texttt{int} and \texttt{string} to more domain-specific types such as \texttt{session} and \texttt{exponential} (see Appendix~\ref{chapter:appendixIR} for a complete list).
+\ac{IR} programs are completely platform agnostic, and thus, data types and addresses are described through their composition of \textit{slots}, instead of concrete byte sizes and offsets. A \textit{slot} is a unit of data in the \ac{IR}. There are many types of slots, from primitive types such as $\ints$ and $\strings$ to more domain-specific types such as $\sessions$ and $\exponentials$ (see Appendix~\ref{chapter:appendixIR} for a complete list).
 
 In order to model branching data types (such as choices from \ac{CLASS}) and polymorphic data types, data layouts are described through trees of slots, instead of plain sequences. These trees branch on the choices taken or on the properties of polymorphic types (see Figure~\ref{fig:IRSlotTreeExample} for some examples).
 
@@ -139,19 +139,19 @@ type<t0.isValue>[[] | [session]]
     \label{fig:IRSlotTreeExample}
 \end{figure}
 
-Local data sections are described by their identifier and by a sum of slot trees describing the possible layouts of data that can be stored on them. For example, \texttt{data d0:\ <[int, bool] + [string]>} describes a local data section \texttt{d0} which can either store an integer followed by a boolean, or a string. Additionally, data sections may be associated to a session, indicating that a session passed to a process invocation should receive data from that data section (e.g., \texttt{data d0:\ <[int]> (s0)}).
+Local data sections are described by their identifier and by a sum of slot trees describing the possible layouts of data that can be stored on them. For example, $data\ d0:\ \combst{\seqst{\ints; \bools} + \seqst{\strings}}$ describes a local data section $d0$ which can either store an integer followed by an $\ints$, or a $\strings$. Additionally, data sections may be associated to a session, indicating that a session passed to a process invocation should receive data from that data section (e.g., $data\ d0:\ \combst{\seqst{\ints}}\ (s0)$).
 
 \subsubsection{Addressing Data} \label{subsection:DataAddressing}
 
-A \textit{data location} is defined by a base address and an offset. The base address can be either a local data section (e.g., \texttt{d0}), remote data referenced by a session (e.g., \texttt{s0}), or a cell location (e.g., \texttt{c(d0)}). The offset is defined by two slot trees, one describing the data being skipped (named \textit{past}), and another describing the data that may come next (named \textit{future}). The future slot tree is necessary to determine the alignment of the data being accessed.
+A \textit{data location} is defined by a base address and an offset. The base address can be either a local data section (e.g., $d0$), remote data referenced by a session (e.g., $s0$), or a cell location (e.g., $c(d0)$). The offset is defined by two slot trees, written as $\offs{P}{F}$, $P$ describing the data being skipped (named \textit{past}), and $F$ describing the data that may come next (named \textit{future}). The future slot tree is necessary to determine the alignment of the data being accessed. For example, $\offs{\seqst{\ints; \bools}}{\seqst{\strings}}$ is an offset which skips an integer followed by a boolean, and expects a string to come next. When the past slot tree is empty, the future slot tree is unnecessary, and the offset is simply written as $0$. 
 
-For example, the location \dataloc{d0}{int}{int} refers to the second integer stored in the local data section \texttt{d0}, while the location \dataloc{s0}{bool}{string} refers to a string stored in the remote data of the session \texttt{s0}, after a boolean. When the offset is zero, it is omitted for brevity. For example, \texttt{d0} as a data location refers to the start of the local data section \texttt{d0}.
+Locations are written as $\datal{B}{P}{F}$, where $B$ is the base address, and $\offs{P}{F}$ is the offset. For example, the location $\datal{d0}{\seqst{\ints}}{\seqst{\ints}}$ refers to the second integer stored in the local data section $d0$, while the location $\datal{s0}{\seqst{\bools}}{\seqst{\strings}}$ refers to a string stored in the remote data of the session $s0$, after a boolean. When the offset is zero, it is omitted for brevity. For example, $d0$ as a data location is equivalent to $\datal{d0}{\nilst}{\nilst}$ or just $d0.0$ - the future slot trees are unnecessary for empty past slot trees.
 
 \subsection{Moving data}
 
-Sometimes it is necessary to simply move data from one location to another. This is done through the \texttt{moveSlots} instruction, which takes as arguments a destination location, a source location and a slot tree describing the data to be moved. To exemplify, \texttt{moveSlots(s1, \dataloc{d0}{bool}{string, int}, [string, int])} moves a string followed by an integer from the local data section \texttt{d0} after a boolean to the start of the remote data section of session \texttt{s1}.
+Sometimes it is necessary to simply move data from one location to another. This is done through the \texttt{moveSlots} instruction, which takes as arguments a destination location, a source location and a slot tree describing the data to be moved. To exemplify, \texttt{moveSlots(s1, $\datal{d0}{\seqst{\bools}}{\seqst{\strings; \ints}}, \seqst{\strings, \ints}$)} moves a string followed by an integer from the local data section \texttt{d0} after a boolean to the start of the remote data section of session \texttt{s1}.
 
-The \texttt{cloneSlots} instruction is used to clone data from one location to another, taking the same arguments. This instruction is only defined for cloneable slots, which are \texttt{int}, \texttt{bool}, \texttt{string}, \texttt{tag} and \texttt{exponential}. In addition to copying the memory, it also increments reference counts for exponentials and allocates new strings as necessary. It used to model the exponential part of \ac{CLASS}.
+The \texttt{cloneSlots} instruction is used to clone data from one location to another, taking the same arguments. This instruction is only defined for cloneable slots, which are $\ints$, $\bools$, $\strings$, $\tags$ and $\exponentials$. In addition to copying the memory, it also increments reference counts for exponentials and allocates new strings as necessary. It used to model the exponential part of \ac{CLASS}.
 
 \subsection{Dropping data} \label{subsection:IRDroppingData}
 
@@ -321,7 +321,7 @@ Processes can be invoked through the \texttt{callProcess} instruction, which tak
 
 A type argument is described by the target type identifier on the new process, and by either a data location containing a \texttt{type} slot, or by a slot tree and flags describing the type directly. For example, \texttt{t0 <- [int] (value=yes)} initializes the type parameter \texttt{t0} of the new process to be a type which stores an integer, and has the 'is value' flag set, while \texttt{t1 <- d3.[int]~[type]} initializes \texttt{t1} to the type stored at \texttt{d3} after an integer.
 
-A session argument is described by the target session identifier on the new process, by either a source session identifier or a data location containing a \texttt{session} slot, and finally, by a data offset to apply to the writing location of the session. For example, \texttt{s0 <- s1+[int]~[int]} initializes the session parameter \texttt{s0} of the new process to be the same as session \texttt{s1} of the current process, but with its writing location pointing at \dataloc{s1}{int}{int}. If the offset is zero, it is omitted for brevity.
+A session argument is described by the target session identifier on the new process, by either a source session identifier or a data location containing a \texttt{session} slot, and finally, by a data offset to apply to the writing location of the session. For example, \texttt{s0 <- s1+[int]~[int]} initializes the session parameter \texttt{s0} of the new process to be the same as session \texttt{s1} of the current process, but with its writing location pointing at $\datal{s1}{\seqst{\ints}}{\seqst{\ints}}$. If the offset is zero, it is omitted for brevity.
 
 Finally, a data argument is described by the target data identifier on the new process, by a source data location, by a slot tree describing the data, and by a flag indicating whether to clone the data or not. For example, \texttt{d0 =[string] d1} writes to \texttt{d0} a clone of the string stored at \texttt{d1}, while \texttt{d1 <-[string] d2} moves to \texttt{d1} the string stored at \texttt{d2} without cloning it.
 
@@ -451,7 +451,7 @@ if_false:
 
 In this section formally define the translation from \ac{CLASS} to the \ac{IR} we defined in the previous section. We start by defining the concept of \textit{value}, \textit{droppable} and \textit{cloneable} session types. Then, we describe how session types are mapped to the slot trees introduced in \ref{subsection:IRSlots}. Finally, we incrementally define the translation from \ac{CLASS} processes to \ac{IR} programs, starting from simple processes and adding more constructs until we cover the whole language.
 
-\subsection{Value, Droppable and Cloneable Types}
+\subsection{Value, droppable and cloneable types}
 
 To manage the data of sessions in an efficient manner, we define three subsets of session types: value types $\valueset$, droppable types $\droppableset$ and cloneable types $\cloneableset$, such that $\cloneableset \subset \droppableset \subset \valueset$
 . Thus all cloneable types are droppable, and all droppable types are value types.
@@ -484,11 +484,13 @@ This function is defined below through pattern matching on session types. For br
 
 \todo{Find a way to define with a single function which set a type belongs to, instead of having to define three separate very similar functions}
 
-\subsection{Mapping Session Types to Slot Trees}
+\subsection{Mapping session types to slot trees}
 
 To translate \ac{CLASS} processes to \ac{IR} programs, we need to define which data is sent and received over sessions. As explained in \ref{subsection:IRSlots}, in the \ac{IR} data types are represented through slot trees. Thus, we need to define how session types are mapped to slot trees.
 
 We start by defining this mapping for session types $A$ which are strictly positive or negative (i.e., value types, $A \in \valueset$). Let $\slots{A}$ be the slot tree corresponding to the data exchanged over a value type $A$. This function is defined through pattern matching on session types in Figure~\ref{fig:SessionTypeToSlotTree}.
+
+\todo{Might be a good idea to explain type variables first, and that their polarities are always known}
 
 \begin{figure}[H]
     \centering
@@ -498,7 +500,8 @@ We start by defining this mapping for session types $A$ which are strictly posit
         &\slots{\sendt{A}{B}} = \texttt{[session; }\slots{B}\texttt{]} && \slots{\bangt{A}} = \texttt{[exponential]} \\
         &\slots{\sendtyt{X}{A}} = \texttt{[type]} && \slots{\affinet A} = \texttt{[session]} \\
         &\slots{\statet A} = \texttt{[cell]} && \slots{\statelt A} = \texttt{[cell]} \\
-        &\slots{\choicet{\labelt a A\ (\dots)\ \labelt z Z}} = \texttt{tag[}\slots{A} \texttt{|}\ \dots\ \texttt{|}\slots{Z}\texttt{]} && \slots{\dualt{A}} = \slots{A}
+        &\slots{\choicet{\labelt a A\ (\dots)\ \labelt z Z}} = \texttt{tag[}\slots{A} \texttt{|}\ \dots\ \texttt{|}\slots{Z}\texttt{]} && \slots{\dualt{A}} = \slots{A} \\
+        &\slots{X} = \texttt{[tx]} \text{ where } X \text{ is identified by the type variable } t_x &&
     \end{align*}
     \caption{Mapping from value session types to slot trees}
     \label{fig:SessionTypeToSlotTree}
@@ -512,224 +515,256 @@ To extend this concept to non-value types, we must consider that session types m
 
 For example, we can split $\sendt{\lintt}{\recvt{\lstringt}{\closet}}$ into three segments: first $\sendt{\lintt}{\closet}$, then $\recvt{\lstringt}{\waitt}$ and finally  $\closet$. Each segment is either strictly positive or strictly negative (a value), and thus, we can map each segment to a slot tree through the $\slots{A}$ function defined above.
 
-We designate the slot tree corresponding to the first segment of a session type $A$ as its \textit{active slot tree}, and the slot trees corresponding to the remaining segments as its \textit{remainder slot trees}. Additionally, we denote positive segments as \textit{remote slot trees} and negative segments as \textit{local slot trees}, as positive segments correspond to data which is sent (and thus stored remotely), while negative segments correspond to data which is received (and thus stored locally).
-
-% \subsection{Buffer Size Calculation}
-
-% \todo{Optimize buffers to have the minimum size possible; E.g., $\sendt{A}{\recvt{A}{\sendt{A}{\closet{}}}}$ should have size $S$, not $3S$.}
-
-% We denote the size, in bytes, of the buffer necessary for the full execution of a session of type $A$, as $\sizeof A$. This size is computed through pattern matching on the session type, through the rules introduced below.
-
-% For an type, its size must be equal to its dual type, as any value written by one end point must be read by the other. Thus, we omit the dual types for simplicity.
-
-% $$
-%     \sizeof{\dual A} = \sizeof A
-% $$
-
-% The unit types, $\closet{}$ and $\waitt{}$, have size $0$, as they do not require any data to be exchanged. They're only there to signal the end of a session.
-
-% $$
-%     \sizeof{\closet{}} = 0
-% $$
-
-% The sum types, $\offert{\dots}$ and $\choicet{\dots}$ have size equal to the maximum size of their components, plus $1$ byte to store the tag of the chosen branch.
-
-% $$
-%     \sizeof{\offert{\labelt a A\ (\dots)\ \labelt z Z}} =
-%     1 + \max(\sizeof A,\ \dots, \sizeof Z)
-% $$
-
-% The multiplicative types, $\sendt{A}{B}$ and $\recvt{A}{B}$, have size equal to the size of $B$, plus $S$ bytes to store a pointer to the sent session record, where $S$ is the size of a pointer to a session record in the compilation target architecture.
-
-% $$
-%     \sizeof{\sendt A B} = S + \sizeof B
-% $$
-
-% The exponential types, $\bangt A$ and $\whynott A$, have size $E + C + 1$, where $E$ and $C$ are, respectively, the size of pointers to an environment and to a program address in the compilation target architecture.
-
-% $$
-%     \sizeof{\bangt A} = E + C + 1
-% $$
-
-% Finally, if the type is a recursive type, any occurrence of recursive variable $X$ has a size of $0$. When a recursive type is unfolded, the session buffer is reused its beginning, and thus, there's no need to allocate more space.
-
-% $$
-%     \sizeof{X} = 0
-% $$
+The slot tree corresponding to the first segment of a session type $A$ is designated as its \textit{active slot tree}  (denoted simply by $\slots{A}$), and the slot trees corresponding to the remaining segments as its \textit{remainder slot trees}. Additionally, we denote positive segments as \textit{remote slot trees} and negative segments as \textit{local slot trees}, as positive segments correspond to data which is sent (and thus stored remotely), while negative segments correspond to data which is received (and thus stored locally). The local set of slot trees of a session type $A$ is denoted by $\alllocalslots{A}$, the remote set of slot trees by $\allremoteslots{A}$, and the total set of slot trees by $\allslots{A}$. 
 
 \subsection{Environment}
 
-First we introduce notation to represent the state of the compiler, which we refer to as the environment. An environment $\varepsilon$ is a mapping from session names to their session record indices in the current environment.
+This section introduces notation to represent the compilation state, which is referred to as the environment. An environment $\varepsilon$ is a tuple $(N, T)$ where $N$ is a mapping from channel names to channel states, and $T$ is a mapping from type variables to a tuple $(p, t)$ where $p$ is its polarity and $t$ its identifier within the process.
 
-We define $\varepsilon[x \mapsto n]$ to be the environment $\varepsilon$ where the session record index of session $x$ is updated to $n$. Additionally, $\varepsilon(x)$ denotes the session record index of $x$, and $\#\varepsilon$ the number of mappings in $\varepsilon$.
-The session record index mapping can be determined for a given process through the function $n(\varepsilon, P)$. This function expands $\varepsilon$ to include space for new bindings in $P$, and is defined by pattern matching on the process $P$.
+A channel state is a tuple $(s, d, o)$ where $s$ is the session identifier corresponding to the channel, $d$ is the local data section identifier corresponding to the channel, and $o$ is the data offset (as described in \ref{subsection:DataAddressing}) to apply to the location of the next write or read operation on the channel.
 
-For the $\cutp$ process, we reserve a new binding for $x$ in $\varepsilon$.
+$\varepsilon[x \mapsto (s, d, o)]$ is defined as the environment $\varepsilon$ where channel $x$ is mapped to the channel state $(s, d, o)$. Additionally $s(\varepsilon, x)$ denotes the session identifier of channel $x$ in the environment $\varepsilon$, $d(\varepsilon, x)$ the data section identifier of channel $x$ in the environment $\varepsilon$, and $o(\varepsilon, x)$ the data offset of channel $x$ in the environment $\varepsilon$.
 
-$$
-    n(\varepsilon, \cutc{P}{x}{Q}) = n(n(\varepsilon[x \mapsto \#\varepsilon], P), Q)
-$$
+To simplify data access, we additionally define $l(\varepsilon, x) = d(\varepsilon, x).o(\varepsilon, x)$, i.e., the local data location corresponding to channel $x$ in the environment $\varepsilon$, and $r(\varepsilon, x) = s(\varepsilon, x).o(\varepsilon, x)$, i.e., the remote data location corresponding to channel $x$ in the environment $\varepsilon$.
 
-For the $\sendp$ process, we reserve a new binding for $y$ in $\varepsilon$.
+\subsection{Instruction generation}
 
-$$
-    n(\varepsilon, \sendc{x}{y}{P}{Q}) = n(n(\varepsilon[y \mapsto \#\varepsilon], P), Q)
-$$
+The \ac{IR} instructions generated from a \ac{CLASS} process $P$ on a given environment $\varepsilon$ are denoted by $\getinstructions{P}{\varepsilon}$. This function produces a sequence of \ac{IR} instructions, optionally followed by blocks with more instructions, and will be defined incrementally in the following sections.
 
-Similarly, we define $n$ for the $\recvp$ process.
+As instructions are generated, the process header is modified incrementally to include any new sessions, local data sections or drop bits which are necessary for the generated code to work.
 
-$$
-    n(\varepsilon, \recvc{x}{y}{P}) = n(\varepsilon[y \mapsto \#\varepsilon], P)
-$$
+In the subsections below, some important concepts used throughout the instruction generation rules are defined.
 
-For the $\parp$ process, we simply join the mappings of the two processes.
+\subsubsection{Remainder type}
 
-$$
-    n(\varepsilon, \parc{P}{Q}) = n(n(\varepsilon, P), Q)
-$$
+The remainder $r(\tau)$ of a type $\tau$ is defined as the type which is left after executing the next possible action on a session of type $\tau$. For example, $r(\sendt{A}{B}) = B$. The remainder is not defined for types without continuation, such as $\closet{}$ and $\waitt{}$
 
-We do the same for all branches of $\casep$.
+\subsubsection{Continue if negative}
 
-$$
-    n(\varepsilon, \casec{x}{\labelc{a}{A},\,\dots,\,\labelc{z}{Z}}) = n(n(\dots n(\varepsilon, A), \dots), Z)
-$$
+To simplify the definition of the generation rules, a pseudo-instruction \texttt{continueIfNegative(x)} is defined, where $x$ is the channel name. This instruction is replaced by a \texttt{continueSession} instruction and a new block for its proceeding instructions if $r(\tau)$ is a negative type, where $\tau$ is the type of channel $x$.
 
-For all other processes of the form $\alpha; P$, we simply recurse on $P$.
+This is used to achieve the same effect as the write-to-read adjustment of the \ac{SAM}, ensuring that whenever a read operation is performed, its writing counterpart must have already executed, and thus, written the data to the local data section we'll be reading from.
 
-$$
-    n(\varepsilon, \alpha; P) = n(\varepsilon, P)
-$$
+\subsubsection{Advancing a channel} \label{subsubsection:AdvancingChannel}
 
-Finally, for processes $\emptyp$, $\closep$, $\fwdp$ and $\bangp$, we return just $\varepsilon$:
+One other necessary operation is advancing the offset of the channel's state in the environment after a write or read operation. To perform this update, the function $\advancech{\varepsilon}{x}{t}$ is used, where $\varepsilon$ is the current environment, $x$ is the channel name, and $t$ is the slot tree corresponding to the data to skip over in the offset.
 
-$$
-    n(\varepsilon, \emptyc) = n(\varepsilon, \closec{x}) = n(\varepsilon, \fwdc{x}{y}) = n(\varepsilon, \bangc{x}{y}{P}) = \varepsilon
-$$
+This function produces a new environment $\varepsilon[x \mapsto (s, d, o)]$ where $s = s(\varepsilon, x)$, $d = d(\varepsilon, x)$ and, if $r(\tau)$ has the same polarity $\tau$ (where $\tau$ is the type of channel $x$), $o = \slotoffset{$\concatst{\offsetpast{o(\varepsilon, x)}}{t}$}{$\slots{r(\tau)}$}$, otherwise, $o = 0$.
 
-Notice that the right-hand side of $\bangp$ isn't considered when computing $\varepsilon$. This is due to $P$ operating on a completely separate environment.
+For example, $\advancech{\varepsilon}{x}{[session]}$ where $x$ is of type $\sendt{\lintt}{\lintt}$ and previously had offset $\slotoffset{session}{session; int}$ will produce an environment where the offset of $x$ is $\slotoffset{session; session}{int}$.
 
-\subsection{Compilation and Flips}
+\subsection{Expression generation}
 
-The compilation of a \ac{CLASS} process $P$ to the \ac{IR} on a given environment $\varepsilon$ is represented by $\compiled{P}_\varepsilon$. We define the concept of an action $\mathcal{A}$, as a process which performs some operation on a session's buffer.
+Apart from generating instructions for processes, \ac{IR} expressions must be generated from \ac{CLASS} expressions when generating instructions for processes such as $\printp$, $\letp$ and $\ifp$. To achieve this, the function $\getexpression{E}{\varepsilon}$ is defined, which takes a \ac{CLASS} expression $E$ and an environment $\varepsilon$, and produces equivalent an \ac{IR} expression.
 
-Actions are typically processes of the form $\alpha; P$, with the exception of the $\closep$ action, which has no continuation $P$. We denote the subject $s(\mathcal{A})$ of an action $\mathcal{A}$ as the leftmost name occurrence in $\mathcal{A}$. For example, $s(\waitc{x}{P}) = x$.
+This function is defined through pattern matching on \ac{CLASS} expression, as shown below.
 
-The remainder $r(\tau)$ of a type $\tau$ is defined as the type which is left after executing the next possible action on a session of type $\tau$. For example, $r(\sendt{A}{B}) = B$. The remainder is not defined for types $\closet{}$ and $\waitt{}$.
+\begin{align*}
+    &\getexpression{E_1 + E_2}{\varepsilon} = \getexpression{E_1}{\varepsilon} + \getexpression{E_2}{\varepsilon} & & |\ & & \getexpression{E_1 - E_2}{\varepsilon} = \getexpression{E_1}{\varepsilon} - \getexpression{E_2}{\varepsilon} \\
+    &\getexpression{E_1 * E_2}{\varepsilon} = \getexpression{E_1}{\varepsilon} * \getexpression{E_2}{\varepsilon} & & |\ & & \getexpression{E_1 / E_2}{\varepsilon} = \getexpression{E_1}{\varepsilon} / \getexpression{E_2}{\varepsilon} \\
+    &\getexpression{E_1 \% E_2}{\varepsilon} = \getexpression{E_1}{\varepsilon}\,\%\,\getexpression{E_2}{\varepsilon} & & |\ & & \getexpression{-E}{\varepsilon} = -\getexpression{E}{\varepsilon} \\
+    &\getexpression{E_1\,\texttt{and}\,E_2}{\varepsilon} = \getexpression{E_1}{\varepsilon}\ \texttt{and}\ \getexpression{E_2}{\varepsilon} & & |\ & & \getexpression{E_1\,\texttt{or}\,E_2}{\varepsilon} = \getexpression{E_1}{\varepsilon}\ \texttt{or}\ \getexpression{E_2}{\varepsilon} \\
+    &\getexpression{\texttt{not}\,E}{\varepsilon} = \texttt{not}\ \getexpression{E}{\varepsilon} & & |\ & & \getexpression{E_1 < E_2}{\varepsilon} = \getexpression{E_1}{\varepsilon} < \getexpression{E_2}{\varepsilon} \\
+    &\getexpression{E_1 \leq E_2}{\varepsilon} = \getexpression{E_1}{\varepsilon} \leq \getexpression{E_2}{\varepsilon} & & |\ & & \getexpression{E_1 > E_2}{\varepsilon} = \getexpression{E_1}{\varepsilon} > \getexpression{E_2}{\varepsilon} \\
+    &\getexpression{E_1 \geq E_2}{\varepsilon} = \getexpression{E_1}{\varepsilon} \geq \getexpression{E_2}{\varepsilon} & & |\ & & \getexpression{E_1 == E_2}{\varepsilon} = \getexpression{E_1}{\varepsilon} == \getexpression{E_2}{\varepsilon} \\
+    &\getexpression{n}{\varepsilon} = n \text{ where } n \text{ is an integer literal} & & |\ & & \getexpression{b}{\varepsilon} = b \text{ where } b \text{ is a boolean literal} \\
+    &\getexpression{s}{\varepsilon} = s \text{ where } s \text{ is a string literal} & & |\ & & \getexpression{x}{\varepsilon} = \texttt{move}(l(\varepsilon, x)) \text{ where } x \text{ is linear}\\
+    &\getexpression{x}{\varepsilon} = \texttt{clone}(l(\varepsilon, x)) \text{ where } x \text{ is exponential}
+\end{align*}
 
-Whenever an action $\mathcal{A}$ with subject $s$ of type $\tau$ is compiled, if $\tau$ is a positive type and $r(\tau)$ is a negative type, a flip is generated immediately after it, before compiling the continuation $P$. For simplicity, this is done implicitly in the compilation rules introduced in the following sections.
+\subsection{End point counting}
 
-This closely resembles the behavior of the \ac{SAM}, specifically, its write-to-read adjustment. By jumping to the other end point of the session, which will be writing, we ensure that whenever a read operation is performed, its writing counterpart must have already executed, and thus, written the data to the session buffer.
+One other important aspect of the compilation is counting the number of end points of the generated \ac{IR} code for a given \ac{CLASS} process. This is necessary to ensure that the generated code properly deallocates the process environment when there's no more code left to execute within it, as explained in \ref{subsection:EndPoints}.
+
+The number of end points in a process $P$ is denoted by $\getendpoints{P}{\varepsilon}$, which is defined by pattern matching on processes. It will be incrementally defined along with the instruction generation rules in the following sections.
+
+\subsection{Process Definitions}
+
+A \ac{CLASS} program is a set of process definitions, each with a unique name. For each process definition, a set of resulting \ac{IR} processes is generated, one for each possible combination of polarities of its type parameters. This is necessary to ensure that the polarities of type parameters are always known at compile time, as they greatly affect the flow of control of the generated code.
+
+For each resulting \ac{IR} process, an environment $\varepsilon = (N, T)$ is created. The mapping $N$ initially maps each argument channel name to a channel state $(s, d, 0)$, where $s$ and $d$ are respectively a unique session identifier and a unique data section identifier for the channel. Both $s$ and $d$ are added to the process header, $d$ being defined to have the layout $\alllocalslots{\tau}$, where $\tau$ is the type of the argument channel. This effectively reserves space for the data which will be received over the channel.
+
+The mapping $T$ of the environment maps each type parameter name to a tuple $(p, t)$ such that $p$ is the polarity of the type parameter in the current combination, and $t$ is a unique identifier for the type parameter, which is also added to the process header.
+
+Finally, we generate the instructions for the process body $P$ (starting by the entry block) through $\getinstructions{P}{\varepsilon}$, and set the number of end points of the process to $\getendpoints{P}{\varepsilon}$.
 
 \subsection{Cut, Parallel and Empty}
 
-We start by defining the compilation of a $\cutp$ process, which can be seen below. We assume, without loss of generality, that $A$ is a positive type, and thus, that $P$ will be writing to $x$ before $Q$ executes - if $A$ were negative, we could simply swap $P$ and $Q$. The process initializes a session record in the environment with a new label \texttt{rhs} as continuation, and then recursively compiles $P$. Finally, it compiles $Q$ in front of the label \texttt{rhs}.
+We start by defining the compilation of a $\cutp$ process, which can be seen below. We assume, without loss of generality, that $A$ is a positive type, and thus, that $P$ will be writing to $x$ before $Q$ executes - if $A$ were negative, we could simply swap $P$ and $Q$. The number of end points of the generated code is the sum of the number of end points of both $P$ and $Q$.
+
+First, a fresh session identifier $s$ is generated and added to the process header. Additionally, a data section with unique identifier $d$ is added to the header, with a layout given by $\allslots{A}$. In other words, $d$ reserves space for all data which will be both sent and received over the session of type $A$. This is necessary as both sides of the cut share the same data section.
+
+The process initializes the session $s$ with a new block \texttt{rhs} as continuation, and $d$ as a writing location. Then, it recursively compiles both $P$ and $Q$ with a new environment where the name $x$ is bound to $(s, d, 0)$. $P$ is placed on the original block, and $Q$ placed on the new block \texttt{rhs}.
 
 \begin{compilation}{\cutc{P}{x: A}{Q}}{\varepsilon}
-    \initsession{\varepsilon(x)}{\phi(A)}{\texttt{rhs}}
-    \recurse{P}{\varepsilon}
+{\getendpoints{P}{\varepsilon} + \getendpoints{Q}{\varepsilon}}
+    \initsession{s}{\texttt{rhs}}{d}
+    \recurse{P}{\varepsilon[x \mapsto (s, d, 0)]}
     \labelir{rhs}
-    \recurse{Q}{\varepsilon}
+    \recurse{Q}{\varepsilon[x \mapsto (s, d, 0)]}
 \end{compilation}
 
-The compilation of a $\parp$ process is shown below. The process starts by generating code to insert a new task for executing $Q$ into the task linked list. Then, it compiles $P$, which will be executed immediately.
+The compilation of a $\parp$ process is shown below. The process starts by generating code to insert a new task for executing $Q$ into the task linked list. Then, it compiles $P$, which will be executed immediately. AS with the $\cutp$ process, the number of end points of the generated code is the sum of the number of end points of both $P$ and $Q$.
 
 \begin{compilation}{\parc{P}{Q}}{\varepsilon}
-    \newtask{rhs}
+{\getendpoints{P}{\varepsilon} + \getendpoints{Q}{\varepsilon}}
+    \pushtask{rhs}
     \recurse{P}{\varepsilon}
     \labelir{rhs}
     \recurse{Q}{\varepsilon}
 \end{compilation}
 
-The $\emptyp$ process is compiled as shown below. The process marks the end of the current task, as it has no continuation. The flow of control is thus simply passed to the next task in the linked list.
+The $\emptyp$ process is compiled as shown below. The process marks the end of the current task, as it has no continuation. The flow of control is thus simply passed to the next task in the linked list. Additionally, we mark this instruction as an end point. 
 
-\begin{compilation}{\emptyc}{\varepsilon}
-    \nexttask
-\end{compilation}
-
-\subsection{Forwarding}
-
-The $\fwdp$ process is compiled directly to \ac{IR} - we simply translate the names to the record indices.
-
-\begin{compilation}{\fwdc{x}{y}}{\varepsilon}
-    \fwd{\varepsilon(x)}{\varepsilon(y)}
+\begin{compilation}{\emptyc}{\varepsilon}{1}
+    \poptask{\hasendpoint}
 \end{compilation}
 
 \subsection{Close and Wait}
 
-The compilation of a $\closep$ process can be seen below. The process pushes a close token to the session buffer of record $\varepsilon(x)$, and then flips back to the other end point of the session. This action doesn't have a continuation, as the session is closed and no more writing operations can be performed on it. The flow of control is passed to the other end point of the session, and won't return.
+The compilation of a $\closep$ process can be seen below. The session identifier is fetched from the current environment $\varepsilon$. This action doesn't have a continuation, as the session is closed and no more operations can be performed on it. The flow of control is simply passed to the continuation of the session, and won't return. Additionally, since there's no continuation, the instruction is marked as an end point.
 
-\begin{compilation}{\closec{x}}{\varepsilon}
-    \pushclose{\varepsilon(x)}
-    \flip{\varepsilon(x)}
+\begin{compilation}{\closec{x}}{\varepsilon}{1}
+    \finishsession{s(\varepsilon, x)}{\hasendpoint}
 \end{compilation}
 
-The $\waitp$ process is compiled as shown below. The close token is popped from the buffer of the session record $\varepsilon(x)$, the session's resources are freed, and the continuation $P$ is compiled in the environment $\varepsilon$, where $x$ is no longer bound.
+The $\waitp$ process is compiled simply by recursing on its continuation, i.e., $\getendpoints{\waitc{x}{P}}{\varepsilon} \equiv \getendpoints{P}{\varepsilon}$, $\getinstructions{\waitc{x}{P}}{\varepsilon} \equiv \getinstructions{P}{\varepsilon}$. There's no actual code generated for the wait action, as the action of waiting for the other side of the channel is already performed implicitly by the \ac{SAM} execution scheme, closely mirrored by the continue mechanism we defined earlier.
 
-\begin{compilation}{\waitc{x}{P}}{\varepsilon}
-    \popclose{\varepsilon(x)}
-    \freesession{\varepsilon(x)}
-    \recurse{P}{\varepsilon}
+\subsection{Linear let, scan and print}
+
+The compilation of a $\letp$ process is shown below. The compiler generates the \ac{IR} expression corresponding to the \ac{CLASS} expression $E$, and writes the result to the remote data of the channel $x$. Then, since this process has no continuation, the session is finished, similarly to the $\closep$ process.
+
+\begin{compilation}{\letc{x}{E}}{\varepsilon}
+{1}
+    \writeexpr{r(\varepsilon, x)}{\getexpression{E}{\varepsilon}}
+    \finishsession{s(\varepsilon, x)}{\hasendpoint}
 \end{compilation}
 
-\subsection{Offer and Choice}
+The compilation of a $\scanp$ process is near identical except that instead of computing an expression, we use the \texttt{writeScan} instruction to read from the standard input.
 
-The compilation of a $\casep$ process is shown below. The compiler generates code which reads a tag from the session buffer of record $\varepsilon(x)$, jumps to the corresponding label and then recurses, generating code for each possible branch, preceded by the respective label. We define $i(\#a)$ as the index of the tag \texttt{a} in the alphabetically sorted list of tags in the offer process.
+\begin{compilation}{\scanc{x}}{\varepsilon}
+{1}
+    \writescan{r(\varepsilon, x)}{\slots{\tau}} \comment \text{where } x:\tau
+    \finishsession{s(\varepsilon, x)}{\hasendpoint}
+\end{compilation}
 
-\begin{compilation}{\casec{x}{\labelc{a}{A},\,\dots,\,\labelc{z}{Z}}}{\varepsilon}
-    \poptag{\varepsilon(x)}{\{(i(\#a),\texttt{a}),\,\dots,\,(i(\#z),\texttt{z})\}}
+To compile the $\printp$ and $\printlnp$ processes, a single instruction is generated to print the result of the expression $E$ to the standard output. Then, the process continues by recursing on its continuation $P$.
+
+\begin{figure}[H]
+    \begin{minipage}{0.45\textwidth}
+    \begin{compilationembed}{\printc{E}{P}}{\varepsilon}
+    {\getendpoints{P}{\varepsilon}}
+        \print{\getexpression{E}{\varepsilon}}
+        \recurse{P}{\varepsilon}
+    \end{compilationembed}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.45\textwidth}
+    \begin{compilationembed}{\printlnc{E}{P}}{\varepsilon}
+    {\getendpoints{P}{\varepsilon}}
+        \printline{\getexpression{E}{\varepsilon}}
+        \recurse{P}{\varepsilon}
+    \end{compilationembed}
+    \end{minipage}
+\end{figure}
+
+\subsection{Choice and branching}
+
+The compilation of choice processes is shown below. Code is generated which writes a tag to the remote data of the channel $x$. We define $i(\#a)$ as the index of the tag \texttt{a} in the alphabetically sorted list of tags in the offer process. Then, the pseudo-instruction \texttt{continueIfNegative} is inserted, which adds a \texttt{continueSession} instruction if the remainder type of $x$ is negative. Finally, the process recurses on its continuation $P$, advancing the offset of channel $x$ to skip over the written tag, taking into account the remainder type of the channel, as explained in \ref{subsubsection:AdvancingChannel}.
+
+\begin{compilation}{\choosec{a}{x}{P}}{\varepsilon}{\getendpoints{\varepsilon}{P}}
+    \writetag{r(\varepsilon, x)}{i(\#a)}
+    \continueifneg{x}
+    \recurse{P}{\advancech{\varepsilon}{x}{\seqst{\tags}}}
+\end{compilation}
+
+The compilation of a $\casep$ process is shown below. The compiler generates code which reads a tag from the local data of channel $x$, jumps to the corresponding label and then recurses, generating code for each possible branch, preceded by the respective label. The labels are generated by their alphabetical order, so that their index matches the one written by the \texttt{writeTag} instruction. As before, the offset of channel $x$ is advanced to skip over the read tag. Here, the remainder type of $x$ depends on the chosen branch.
+
+\begin{compilation}{\casec{x}{\labelc{a}{A},\,\dots,\,\labelc{z}{Z}}}{\varepsilon}{\max(\getendpoints{A}{\varepsilon},\,\dots,\,\getendpoints{Z}{\varepsilon})}
+    \branchtag{l(\varepsilon, x)}{\texttt{a}:\getendpoints{A}{\varepsilon},\,\dots,\,\texttt{z}:\getendpoints{Z}{\varepsilon}}
     \labelir{a}
-    \recurse{A}{\varepsilon}
+    \recurse{A}{\advancech{\varepsilon}{x}{\seqst{\tags}}}
     \beginir\dots
     \labelir{z}
-    \recurse{Z}{\varepsilon}
+    \recurse{Z}{\advancech{\varepsilon}{x}{\seqst{\tags}}}
 \end{compilation}
 
-The compilation of choice processes is shown below. Code is generated which writes a tag to the session buffer of record $\varepsilon(x)$ and then recurses on the continuation.
-
-\begin{compilation}{\choosec{a}{x}{P}}{\varepsilon}
-    \pushtag{\varepsilon(x)}{i(\#a)}
-    \recurse{P}{\varepsilon}
-\end{compilation}
 
 \subsection{Send and Receive}
 
-The compilation of a $\sendp$ process is shown below. The process initializes a session record with a new label \texttt{lhs} as continuation, and generates an instruction to push that new session record, $\varepsilon(y)$, to the buffer of $\varepsilon(x)$. Then, it compiles $Q$. Finally, it compiles $P$ in front of the label \texttt{lhs}. This means that $P$ will only be executed after its session record is received by the other end point, and a flip to it is performed.
+\todo{explain}
 
-\begin{compilation}{\sendc{x}{y:A}{P}{Q}}{\varepsilon}
-    \initsession{\varepsilon(y)}{\phi(A)}{\texttt{lhs}}
-    \pushsession{\varepsilon(x)}{\varepsilon(y)}
-    \recurse{Q}{\varepsilon}
-    \labelir{lhs}
-    \recurse{P}{\varepsilon}
-\end{compilation}
+\subsection{Forwarding}
 
-The $\recvp$ process is compiled as shown below. The process generates code to pop a session record from the buffer of $\varepsilon(x)$. If $y$ is of a negative type, then we will be reading from it in $P$. Thus, we must guarantee that it executes first, and thus, we immediately pass control to it by generating a flip.
+\todo{explain forwarding}
 
-\begin{compilation}{\recvc{x}{y}{P}}{\varepsilon}
-    \popsession{\varepsilon(x)}{\varepsilon(y)}
-    \flip{\varepsilon(y)} \comment{\text{only if }y\text{ has a negative type}}
-    \recurse{P}{\varepsilon}
-\end{compilation}
+\subsection{Creating and calling exponentials}
 
-\subsection{Process Definitions and Calls}
+\todo{explain that a separate IR process is generated for the bang right hand side}
 
-The compilation of a process definition is shown below. A label is generated for the definition and code is generated for the process $P$ within it, with the environment $\varepsilon$, which is generated from $P$, using the function described earlier, and additionally including session records for the arguments $x_1,\,\dots,\,x_n$.
+\subsection{Recursion}
 
-\begin{compilation}{\procdefc{foo}{x_1:A_1,\,\dots,\,x_n:A_n}{P}}{\emptyset}
-    \labelir{proc\_foo}
-    \recurse{P}{n(\emptyset[x_1 \mapsto 0,\,\dots,\,x_n\mapsto n - 1], P)}
-\end{compilation}
+\todo{explain recursion}
 
-To call a process from another process, we simply use the call \ac{IR} construct we previously defined, which initializes a new environment with the required number of session records, and with passed arguments bound to their respective slots.
+\subsection{Receiving and sending types}
 
-\begin{figure}[H]
-    \centering
-    \begin{compilation}{\proccallc{foo}{x_1,\,\dots,\,x_n}}{\varepsilon}
-        \call{\texttt{proc\_foo}}{n + \#n(\emptyset, P)}{\{0 \mapsto \varepsilon(x_1),\,\dots,\, n-1 \mapsto \varepsilon(x_n)\}}
-    \end{compilation}
-    \caption{Compilation of a process call}
-    \label{fig:ProcessCallCompilation}
-\end{figure}
+\todo{explain sendty, recvty}
+
+\subsection{Affine sessions}
+
+\todo{explain affine, use and discard}
+
+\subsection{Shared state}
+
+\todo{explain cell, put, take, share and release}
+
+% \subsection{Send and Receive}
+
+% The compilation of a $\sendp$ process is shown below. The process initializes a session record with a new label \texttt{lhs} as continuation, and generates an instruction to push that new session record, $\varepsilon(y)$, to the buffer of $\varepsilon(x)$. Then, it compiles $Q$. Finally, it compiles $P$ in front of the label \texttt{lhs}. This means that $P$ will only be executed after its session record is received by the other end point, and a flip to it is performed.
+
+% \begin{compilation}{\sendc{x}{y:A}{P}{Q}}{\varepsilon}
+%     \initsession{\varepsilon(y)}{\phi(A)}{\texttt{lhs}}
+%     \pushsession{\varepsilon(x)}{\varepsilon(y)}
+%     \recurse{Q}{\varepsilon}
+%     \labelir{lhs}
+%     \recurse{P}{\varepsilon}
+% \end{compilation}
+
+% The $\recvp$ process is compiled as shown below. The process generates code to pop a session record from the buffer of $\varepsilon(x)$. If $y$ is of a negative type, then we will be reading from it in $P$. Thus, we must guarantee that it executes first, and thus, we immediately pass control to it by generating a flip.
+
+% \begin{compilation}{\recvc{x}{y}{P}}{\varepsilon}
+%     \popsession{\varepsilon(x)}{\varepsilon(y)}
+%     \flip{\varepsilon(y)} \comment{\text{only if }y\text{ has a negative type}}
+%     \recurse{P}{\varepsilon}
+% \end{compilation}
+
+% \subsection{Forwarding}
+
+% The $\fwdp$ process is compiled directly to \ac{IR} - we simply translate the names to the record indices.
+
+% \begin{compilation}{\fwdc{x}{y}}{\varepsilon}
+%     \fwd{\varepsilon(x)}{\varepsilon(y)}
+% \end{compilation}
+
+% \subsection{Process Definitions and Calls}
+
+% The compilation of a process definition is shown below. A label is generated for the definition and code is generated for the process $P$ within it, with the environment $\varepsilon$, which is generated from $P$, using the function described earlier, and additionally including session records for the arguments $x_1,\,\dots,\,x_n$.
+
+% \begin{compilation}{\procdefc{foo}{x_1:A_1,\,\dots,\,x_n:A_n}{P}}{\emptyset}
+%     \labelir{proc\_foo}
+%     \recurse{P}{n(\emptyset[x_1 \mapsto 0,\,\dots,\,x_n\mapsto n - 1], P)}
+% \end{compilation}
+
+% To call a process from another process, we simply use the call \ac{IR} construct we previously defined, which initializes a new environment with the required number of session records, and with passed arguments bound to their respective slots.
+
+% \begin{figure}[H]
+%     \centering
+%     \begin{compilation}{\proccallc{foo}{x_1,\,\dots,\,x_n}}{\varepsilon}
+%         \call{\texttt{proc\_foo}}{n + \#n(\emptyset, P)}{\{0 \mapsto \varepsilon(x_1),\,\dots,\, n-1 \mapsto \varepsilon(x_n)\}}
+%     \end{compilation}
+%     \caption{Compilation of a process call}
+%     \label{fig:ProcessCallCompilation}
+% \end{figure}
 
 \section{Generating C code from IR programs}
 

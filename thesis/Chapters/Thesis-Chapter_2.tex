@@ -399,7 +399,7 @@ A process definition associates a name $\texttt{proc\_id}$ to a process $P$, whi
     |\                   & \recprocdefgc{proc\_id}{X_1,\ \dots,\ X_n}{x_1: A_1,\ \dots,\ x_n: A_n}{P}
 \end{align*}
 
-Finally, processes in \ac{CLASS} are defined by the following BNF grammar, where $x$ and $y$ are session end points:
+Processes in \ac{CLASS} are defined by the following BNF grammar, where $x$ and $y$ are session end points and $E$ is an expression.
 
 \begin{align*}
     P, Q ::=\  & \cutc{P}{x: A}{Q}                                          &  & |\ \parc{P}{Q}                                                 \\
@@ -411,14 +411,26 @@ Finally, processes in \ac{CLASS} are defined by the following BNF grammar, where
     |\         & \sendtyc{x}{B}{P}                                          &  & |\ \recvtyc{x}{X}{P}                                           \\
     |\         & \unfoldmuc{x}{P}                                           &  & |\ \unfoldnuc{x}{P}                                            \\
     |\         & \proccallc{proc\_id}{x_1,\,\dots\,,x_n}                    &  & |\ \proccallgc{proc\_id}{X_1,\,\dots,\,X_n}{x_1,\,\dots,\,x_m} \\
-    |\         & \printc{some\_string}{P}                                   &  & |\ \printlnc{some\_string}{P}                                  \\
     |\         & \affinec{x}P                                               &  & |\ \discardc{x}                                                \\
     |\         & \usec{x}P                                                  &  & |\ \cellc{x}{y}{P}                                             \\
     |\         & \releasec{x}                                               &  & |\ \takec{x}{y}{P}                                             \\
-    |\         & \putc{x}{y}{P}Q
+    |\         & \putc{x}{y}{P}Q                                            &  & |\ \scanc{x}                                                   \\
+    |\         & \printc{E}{P}                                              &  & |\ \printlnc{E}{P}                                             \\
+    |\         & \letc{x}{E}                                                &  & |\ \ifc{E}{P}{Q} \\
+    |\         & \callc{x}{y}
 \end{align*}
 
-These have a direct correspondence to the process composition constructs in $\mu$CLL and the actions shown in Table \ref{tab:muCLLActions}, with the exception of the process definition calling, print, affine and reference cell constructs. Note that in \ac{CLASS} the sum/choice type is expanded to allow for an arbitrary number of choices, as opposed to $\mu$CLL, where the sum type is binary. This simplifies the syntax of the language, and all arbitrary sized sums can be trivially encoded as binary sums. Additionally, we have print constructs, and the process definition call construct, similar to a function call in an imperative language, which allows for reducing code duplication.
+These have a direct correspondence to the process composition constructs in $\mu$CLL and the actions shown in Table \ref{tab:muCLLActions}, with the exception of the process definition calling, affine, reference cells, scan, print, let and if constructs. Note that in \ac{CLASS} the sum/choice type is expanded to allow for an arbitrary number of choices, as opposed to $\mu$CLL, where the sum type is binary. This simplifies the syntax of the language, and all arbitrary sized sums can be trivially encoded as binary sums. Additionally, we have scan and print constructs, used for input and output, support for basic types such as integers, booleans and integers through the let and if constructs, and the process definition call construct, similar to a function call in an imperative language, which allows for reducing code duplication.
+
+With the introduction of basic types, along with the print, if and let processes, there's a need to define expressions in \ac{CLASS}. Expressions $E$ are defined as follows, where $i$ is an integer literal, $s$ is a string literal, and $x$ is a session name:
+
+\begin{align*}
+    E, E_1, E_2 ::=\ & E_1 + E_2    & & |\ E_1 - E_2 & & |\ E_1 * E_2  & & |\ E_1 / E_2 \\
+                  |\ & E_1 \% E_2   & & |\ -E        & & |\ (E)        & & |\ x \\
+                  |\ & \texttt{true} & & |\ \texttt{false} & & |\ s          & & |\ i \\
+                  |\ & E_1\,\texttt{and}\,E_2 & & |\ E_1\,\texttt{or}\,E_2 & & |\ \texttt{not}\,E & & |\ E_1 == E_2 \\
+                    |\ & E_1 < E_2   & & |\ E_1 > E_2 & & |\ E_1 <= E_2 & & |\ E_1 >= E_2 \\ 
+\end{align*}
 
 \subsection{Example Programs}
 

@@ -44,10 +44,38 @@
     sensitive=true,
 }
 
+% Slot names
+\newcommand{\irs}[1]{\text{\textcolor{lightblue}{#1}}}
+\newcommand{\ints}{\irs{int}}
+\newcommand{\bools}{\irs{bool}}
+\newcommand{\strings}{\irs{string}}
+\newcommand{\tags}{\irs{tag}}
+\newcommand{\sessions}{\irs{session}}
+\newcommand{\exponentials}{\irs{exponential}}
+\newcommand{\types}{\irs{type}}
+\newcommand{\cells}{\irs{cell}}
+\newcommand{\vars}[1]{\irs{t#1}}
+
+% Slot trees
+\newcommand{\nilst}{[]}
+\newcommand{\seqst}[1]{[#1]}
+\newcommand{\tagst}[1]{\irs{tag}[#1]}
+\newcommand{\combst}[1]{\text{$<$}#1\text{$>$}}
+
+% Slot tree operations
+\newcommand{\concatst}[2]{\text{concat}(#1, #2)}
+
+% Slot offset and data location
+\newcommand{\offs}[2]{#1\text{$\sim$}#2}
+\newcommand{\datal}[3]{#1.\offs{#2}{#3}}
+
 % Some notation commands
 \newcommand{\sizeof}[1]{\phi\bigl(#1\bigr)}
 \newcommand{\dual}[1]{\overline{#1}}
-\newcommand{\compiled}[1]{\llbracket#1\rrbracket}
+\newcommand{\getinstructions}[2]{\mathcal{C}_I(#2,\,#1)}
+\newcommand{\getendpoints}[2]{\mathcal{C}_F(#2,\,#1)}
+\newcommand{\getexpression}[2]{\mathcal{C}_E(#2,\,#1)}
+\newcommand{\advancech}[3]{\text{advance}(#1,\,#2,\,\texttt{#3})}
 
 % Type names
 \newcommand{\classt}[1]{\textbf{\textcolor{forestgreen}{#1}}}
@@ -104,6 +132,12 @@
 \newcommand{\releasep}{\classp{release}}
 \newcommand{\takep}{\classp{take}}
 \newcommand{\putp}{\classp{put}}
+\newcommand{\ifp}{\classp{if}}
+\newcommand{\elsep}{\classp{else}}
+\newcommand{\letp}{\classp{let}}
+\newcommand{\scanp}{\classp{scan}}
+\newcommand{\printp}{\classp{print}}
+\newcommand{\printlnp}{\classp{println}}
 
 % CLASS
 \newcommand{\fwdc}[2]{\fwdp\,#1\,#2}
@@ -135,8 +169,6 @@
 \newcommand{\recprocdefgc}[4]{\classp{rec}\ \procdefgc{#1}{#2}{#3}{#4}}
 \newcommand{\proccallc}[2]{\texttt{#1}(#2)}
 \newcommand{\proccallgc}[3]{\texttt{#1}\langle#2\rangle(#3)}
-\newcommand{\printc}[1]{\texttt{print("#1")};}
-\newcommand{\printlnc}[1]{\texttt{println("#1")};}
 \newcommand{\sharec}[3]{\sharep\,#1\,\{#2\,\classp{$||$}\,#3\}}
 \newcommand{\affinec}[1]{\affinep\,#1;}
 \newcommand{\discardc}[1]{\discardp\,#1}
@@ -145,10 +177,16 @@
 \newcommand{\releasec}[1]{\releasep\,#1}
 \newcommand{\takec}[2]{\takep\,#1(#2);}
 \newcommand{\putc}[3]{\putp\,#1(#2.\,#3);}
+\newcommand{\ifc}[3]{\ifp\,#1\,\{#2\}\,\elsep\,\{#3\}}
+\newcommand{\letc}[2]{\letp\,#1\,#2}
+\newcommand{\scanc}[1]{\scanp(#1)}
+\newcommand{\printc}[2]{\printp(#1);\,#2}
+\newcommand{\printlnc}[2]{\printlnp(#1);\,#2}
 
 % IR Data Locations
-\newcommand{\slotoffset}[2]{\texttt{[#1]\textasciitilde[#2]}}
-\newcommand{\dataloc}[3]{\texttt{#1.[#2]\textasciitilde[#3]}}
+\newcommand{\slotoffset}[2]{\texttt{[#1]}\sim\texttt{[#2]}}
+\newcommand{\offsetpast}[1]{\text{past}(#1)}
+\newcommand{\offsetfuture}[1]{\text{future}(#1)}
 
 % CLASS definitions
 \newcommand{\valueset}{\mathcal{V}}
@@ -158,10 +196,9 @@
 \newcommand{\isdroppable}[2]{\mathcal{D}^{#1}(#2)}
 \newcommand{\iscloneable}[2]{\mathcal{C}^{#1}(#2)}
 \newcommand{\slots}[1]{\mathcal{S}(#1)}
-\newcommand{\activelocalslots}[1]{\mathcal{A}^l(#1)}
-\newcommand{\activeremoteslots}[1]{\mathcal{A}^r(#1)}
-\newcommand{\totallocalslots}[1]{\mathcal{T}^l(#1)}
-\newcommand{\totalremoteslots}[1]{\mathcal{T}^r(#1)}
+\newcommand{\allslots}[1]{\mathcal{S}_T(#1)}
+\newcommand{\alllocalslots}[1]{\mathcal{S}_T^L(#1)}
+\newcommand{\allremoteslots}[1]{\mathcal{S}_T^R(#1)}
 \newcommand{\impossible}{\mathbf{\textcolor{red}{impossible}}}
 \newcommand{\guaranteed}{\mathbf{\textcolor{forestgreen}{guaranteed}}}
 \newcommand{\dependent}[1]{\mathbf{\textcolor{orange}{dependent}}(#1)}
@@ -231,23 +268,34 @@
     \endgroup
 }
 
-% Compilation environment 
-\newenvironment{compilation}[2]
+% Compilation environment
+\newenvironment{compilationembed}[3]
 {
     \begingroup
-
     % IR
     \newcommand{\beginir}{\\&\hspace{2.5em}}
-    \newcommand{\mkzeroargir}[2]{\newcommand{##1}{\beginir\texttt{##2}();}}
-    \newcommand{\mkoneargir}[2]{\newcommand{##1}[1]{\beginir\texttt{##2}(####1);}}
-    \newcommand{\mktwoargir}[2]{\newcommand{##1}[2]{\beginir\texttt{##2}(####1, ####2);}}
-    \newcommand{\mkthreeargir}[2]{\newcommand{##1}[3]{\beginir\texttt{##2}(####1, ####2, ####3);}}
+    \newcommand{\mkzeroargir}[2]{\newcommand{##1}{\beginir\texttt{##2}()}}
+    \newcommand{\mkoneargir}[2]{\newcommand{##1}[1]{\beginir\texttt{##2}(####1)}}
+    \newcommand{\mktwoargir}[2]{\newcommand{##1}[2]{\beginir\texttt{##2}(####1, ####2)}}
+    \newcommand{\mkthreeargir}[2]{\newcommand{##1}[3]{\beginir\texttt{##2}(####1, ####2, ####3)}}
     \newcommand{\labelir}[1]{\\&\hspace{1.25em}\texttt{##1:}}
     \renewcommand{\comment}{\quad\%\ }
 
+    \mkoneargir{\pushtask}{pushTask}
+    \mkoneargir{\poptask}{popTask}
+    \mktwoargir{\finishsession}{finishSession}
+    \mkoneargir{\continuesession}{continueSession}
+    \mktwoargir{\branchtag}{branchTag}
+    \mktwoargir{\writetag}{writeTag}
+    \mktwoargir{\writeexpr}{writeExpression}
+    \mktwoargir{\writescan}{writeScan}
+    \mkoneargir{\print}{print}
+    \mkoneargir{\printline}{printLine}
+    \mkoneargir{\continueifneg}{continueIfNegative}
+
     \mkoneargir{\newtask}{newTask}
     \mkzeroargir{\nexttask}{nextTask}
-    \mkthreeargir{\initsession}{initSession}
+    \mkthreeargir{\initsession}{initializeSession}
     \mkoneargir{\freesession}{freeSession}
     \mkthreeargir{\call}{call}
     \mkoneargir{\flip}{flip}
@@ -258,15 +306,27 @@
     \mktwoargir{\poptag}{popTag}
     \mktwoargir{\pushsession}{pushSession}
     \mktwoargir{\popsession}{popSession}
-    \newcommand{\recurse}[2]{\beginir\compiled{##1}_{##2}}
+    \newcommand{\hasendpoint}{\texttt{end point}}
+    \newcommand{\recurse}[2]{\beginir\getinstructions{##1}{##2}}
 
     $$
         \begin{aligned}
-             & \compiled{#1}_{#2} \equiv
+             & \getendpoints{#1}{#2} \equiv #3 \\
+             & \getinstructions{#1}{#2} \equiv
             }
             {
         \end{aligned}
     $$
+    \endgroup
+}
+\newenvironment{compilation}[3]
+{
+    \begingroup
+    \setlength{\jot}{-3pt}
+    \begin{compilationembed}{#1}{#2}{#3}
+}
+{
+    \end{compilationembed}
     \endgroup
 }
 
