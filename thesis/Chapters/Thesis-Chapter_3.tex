@@ -233,7 +233,7 @@ s2_cont:
 
 \subsection{Tags and branching} \label{subsection:Branching}
 
-Branching is done through the \texttt{branchTag}, \texttt{branchExpression} and \texttt{branchTypeFlags} instructions. The first instruction branches on a tag stored a data location, similarly to a switch statement in C. The second instruction branches on the result a boolean expression, similarly to an if statement in C. Finally, the third instruction branches on whether a set of polymorphic types has a set of flag set.
+Branching is done through the \texttt{branchTag}, \texttt{branchExpression} and \texttt{branchTypeFlags} instructions. The first instruction branches on a tag stored a data location, similarly to a switch statement in C. The second instruction branches on the result a boolean expression, similarly to an if statement in C. Finally, the third instruction branches on whether a set of polymorphic types has a set of flags set.
 
 Each possible branch is defined by a code location (block label) and an integer indicating how many end points are behind that branch. This is used to keep track of the number of remaining end points in the environment, and is explained in more detail in \Cref{subsection:EndPoints}.
 
@@ -307,15 +307,15 @@ Accesses to the environment are not synchronized except for reference and end po
 
 Processes in the \ac{IR} may be parametrized by polymorphic types. These types are identified by names which start with \texttt{t} followed by a number, such as \texttt{t0} and \texttt{t1}. Types may be used directly as slots in slot trees. Additionally, they may also be used in \texttt{branchTypeFlags} instructions, as mentioned in \Cref{subsection:Branching}.
 
-Types can be written to data locations through the \texttt{writeType} instruction, producing a \texttt{type} slot. This slot can then be read by a process invocation instruction, such as \texttt{callProcess}. The \texttt{writeType} instructions takes as arguments a data location to write to, a slot tree describing the type's layout, and a set of types which must have the 'is value' flag set for the type to also have it set.
+Types can be written to data locations through the \texttt{writeType} instruction, producing a \texttt{type} slot. This slot can then be read by a process invocation instruction, such as \texttt{callProcess}. The \texttt{writeType} instructions takes as arguments a data location to write to, a slot tree describing the type's layout, and a set of flags along with the flag requisites for them to be set.
 
-For example, \texttt{writeType(d0, [int; t1], value=if(t1))} writes a type to \texttt{d0} which stores first an integer, and then data of type \texttt{t1}, which is a polymorphic type in the current environment. Additionally, the written type will have the 'is value' flag set if and only if \texttt{t1} also has it set.
+For example, \texttt{writeType(d0, [int; t1], value=if(t1))} writes a type to \texttt{d0} which stores first an integer, and then data of type \texttt{t1}, which is a polymorphic type in the current environment. Additionally, the written type will have the value flag set if and only if \texttt{t1} also has it set.
 
 \subsection{Process calls}
 
 Processes can be invoked through the \texttt{callProcess} instruction, which takes as arguments the name of the process to invoke (might be the same process), and a list of type, session and data arguments to initialize the new process environment.
 
-A type argument is described by the target type identifier on the new process, and by either a data location containing a \texttt{type} slot, or by a slot tree and flags describing the type directly. For example, \texttt{t0 <- [int] (value=yes)} initializes the type parameter \texttt{t0} of the new process to be a type which stores an integer, and has the 'is value' flag set, while \texttt{t1 <- d3.[int]~[type]} initializes \texttt{t1} to the type stored at \texttt{d3} after an integer.
+A type argument is described by the target type identifier on the new process, and by either a data location containing a \texttt{type} slot, or by a slot tree and flag requisites describing the type directly. For example, \texttt{t0 <- [int] (value=yes)} initializes the type parameter \texttt{t0} of the new process to be a type which stores an integer, and has the value flag set, while \texttt{t1 <- d3.[int]~[type]} initializes \texttt{t1} to the type stored at \texttt{d3} after an integer.
 
 A session argument is described by the target session identifier on the new process, by either a source session identifier or a data location containing a \texttt{session} slot, and finally, by a data offset to apply to the writing location of the session. For example, \texttt{s0 <- s1+[int]~[int]} initializes the session parameter \texttt{s0} of the new process to be the same as session \texttt{s1} of the current process, but with its writing location pointing at $\datal{s1}{\seqst{\ints}}{\seqst{\ints}}$. If the offset is zero, it is omitted for brevity.
 

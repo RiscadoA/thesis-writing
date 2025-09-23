@@ -7,20 +7,31 @@
 % The following line allows to ref this chapter
 \label{chap:optimizations}
 
-This chapter describes the various optimizations implemented during this project. The first section goes over the transformations made to the \ac{IR} generation phase to produce more efficient \ac{IR} code. The second section describes optimizations specific to the C code generation phase. The third section introduces a new compilation phase which applies a series of transformations to the generated \ac{IR} code before passing it to the C code generation phase. Finally, the last section discusses some possible future optimizations which could be implemented in the compiler.
+This chapter describes the various optimizations implemented during this project. The first section goes over the transformations made to the compiler to produce more efficient code when handling \textit{value} types. The second section describes optimizations specific to the C code generation phase. The third section introduces a new compilation phase which applies a series of transformations to the generated \ac{IR} code before passing it to the C code generation phase. Finally, the last section discusses some possible future optimizations which could be implemented in the compiler.
 
-\section{Improving the IR generator}
+\section{Handling value types more efficiently}
+
+The compiler presented in \Cref{chap:architecture} does not take any advantage of the fact that many types in the language can be handled more efficiently than the general case. For example, the type $\sendt{\lintt}{\lintt}$ is stored as a pointer to a session (essentially a closure) followed by an integer, while it could be stored as just a pair of integers. This change would save both memory and time, as the pointer indirection would be removed, along with some unnecessary jumps.
+
+This section describes the implemented optimizations which take advantage of properties such as these to generate more efficient code. In the first subsection, types are categorized into four levels, which determine which optimizations can be applied to them. Then, the second subsection describes the necessary compiler adaptations to be able to categorize types. The last three subsections describe the optimizations applied to the multiplicative, exponential and affine types, respectively.
+
+\subsection{Categorizing types into levels}
+
+In the optimizations described in this section, we categorize types into four levels: \textit{normal}, \textit{value}, \textit{droppable} and \textit{cloneable}. \todo{WRITE}
+
+\subsection{Adapting the compiler to categorize types}
+
+\todo{WRITE}
+
+\subsection{Sending and receiving values} \label{subsection:SendValueOptimizations}
+
+\todo{TODO: show changes made to the slot tree functions}
+\todo{TODO: show changes made to the send / recv compilation rules}
 
 \subsection{Exponential values} \label{subsection:ExponentialValueOptimizations}
 
 \todo{TODO: show changes made to the slot tree functions}
 \todo{TODO: show changes made to the bang / why / call compilation rules}
-
-\subsection{Sending and receiving values} \label{subsection:SendValueOptimizations}
-
-
-\todo{TODO: show changes made to the slot tree functions}
-\todo{TODO: show changes made to the send / recv compilation rules}
 
 \subsection{Affine and cell values} \label{subsection:AffineValueOptimizations}
 
