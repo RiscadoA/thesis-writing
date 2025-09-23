@@ -3,6 +3,39 @@
 % !TEX root = ../main.tex
 % #############################################################################
 % Change the Name of the Chapter i the following line
-\fancychapter{This is the Fourth Chapter}
+\fancychapter{Optimizing the Compiler}
 % The following line allows to ref this chapter
-\label{chap:implement}
+\label{chap:optimizations}
+
+This chapter describes the various optimizations implemented during this project. The first section goes over the transformations made to the \ac{IR} generation phase to produce more efficient \ac{IR} code. The second section describes optimizations specific to the C code generation phase. The third section introduces a new compilation phase which applies a series of transformations to the generated \ac{IR} code before passing it to the C code generation phase. Finally, the last section discusses some possible future optimizations which could be implemented in the compiler.
+
+\section{Improving the IR generator}
+
+\subsection{Exponential values} \label{subsection:ExponentialValueOptimizations}
+
+\todo{TODO: show changes made to the slot tree functions}
+\todo{TODO: show changes made to the bang / why / call compilation rules}
+
+\subsection{Sending and receiving values} \label{subsection:SendValueOptimizations}
+
+
+\todo{TODO: show changes made to the slot tree functions}
+\todo{TODO: show changes made to the send / recv compilation rules}
+
+\subsection{Affine and cell values} \label{subsection:AffineValueOptimizations}
+
+\todo{TODO: show changes made to the slot tree functions}
+\todo{TODO: show changes made to the affine / use / discard compilation rules}
+\todo{TODO: show changes made to the cell / put / take / release compilation rules}
+
+\section{Improving the C generator}
+
+\todo{WRITE}
+
+\section{IR optimizations phase}
+
+\todo{WRITE}
+
+\section{Future work}
+
+\todo{WRITE}

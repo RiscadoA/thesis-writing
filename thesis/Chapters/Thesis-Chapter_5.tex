@@ -3,15 +3,33 @@
 % !TEX root = ../main.tex
 % #############################################################################
 % Change the Name of the Chapter i the following line
-\fancychapter{Evaluation}
+\fancychapter{Implementation and Evaluation}
 % The following line allows to ref this chapter
 \label{chap:evaluation}
 
-The proposed solution will be tested extensively through a bench of incremental unit tests written in the \ac{CLASS} language. This is already underway, with multiple existing tests for each of the implemented features.
+The compiler has been fully implemented in Java, within the existing \ac{CLASS} and \ac{SAM} interpreters code base. The implementation follows the architecture described in \Cref{chap:architecture}, and includes all the optimizations described in \Cref{chap:optimizations}.
 
-The solution will also be evaluated by comparing the performance of the compiled code with the original \ac{CLASS} interpreter and with the \ac{SAM} interpreter, on multiple examples of the \ac{CLASS} language. The impact on the performance gained by any implemented optimizations will also be measured.
+The implementation has extensively tested through a bench of more than 180 incremental unit tests written in the \ac{CLASS} language, which cover all features of the language. Additionally, many of the existing \ac{CLASS} programs used to test the \ac{CLASS} and \ac{SAM} interpreters have also been compiled and executed using the developed compiler, or incorporated into the test suite.
 
-Additionally, using the \ac{CLASS} and C interop features introduced by this project, it will be possible to write \ac{CLASS} programs that receive data and output data from and into the standard input and output pipes. This will allow measuring the performance of \ac{CLASS} programs which perform computation on input, such as computing the Fibonacci sequence, the factorial of a number, or sorting a list. The runtime and memory usage of these programs will then be compared with equivalent programs written in C, Haskell (GHC), and possibly other languages.
+In the first section of this chapter, an overview of the implementation is given, including the structure of the code and the main classes. The second section describes the testing testing strategy used to ensure the correctness of the generated code. The third section describes the performance evaluation strategy, including the benchmarks used and the metrics measured.
+
+\section{Implementation}
+
+\todo{TODO: describe the code structure, main classes, etc.}
+\todo{TODO: describe the compilation script, calling GCC, etc.}
+\todo{TODO: list at least some of the flags available in the compiler}
+
+\section{Testing the compiler}
+
+\todo{TODO: describe the testing directory structure}
+\todo{TODO: describe the testing script}
+
+\section{Performance evaluation}
+
+\todo{TODO: describe the profiling script}
+\todo{TODO: describe the sieve benchmark}
+\todo{TODO: show the results, compare with the haskell version}
+\todo{TODO: include bench mark source codes in the appendix}
 
 % Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Morbi commodo, ipsum sed pharetra gravida, orci magna rhoncus neque, id pulvinar odio lorem non turpis. Nullam sit amet enim. Suspendisse id velit vitae ligula volutpat condimentum. Aliquam erat volutpat. Sed quis velit. Nulla facilisi. Nulla libero. Vivamus pharetra posuere sapien. Nam consectetuer. Sed aliquam, nunc eget euismod ullamcorper, lectus nunc ullamcorper orci, fermentum bibendum enim nibh eget ipsum. Donec porttitor ligula eu dolor. Maecenas vitae nulla consequat libero cursus venenatis. Nam magna enim, accumsan eu, blandit sed, blandit a, eros. 
 % % #############################################################################
