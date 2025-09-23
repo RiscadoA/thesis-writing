@@ -75,7 +75,7 @@
 \newcommand{\getinstructions}[2]{\mathcal{C}_I(#2,\,#1)}
 \newcommand{\getendpoints}[2]{\mathcal{C}_F(#2,\,#1)}
 \newcommand{\getexpression}[2]{\mathcal{C}_E(#2,\,#1)}
-\newcommand{\advancech}[3]{\text{advance}(#1,\,#2,\,\texttt{#3})}
+\newcommand{\advancech}[5]{\text{advance}^{#1}(#2,\,#3,\,\texttt{#4},\,#5)}
 
 % Type names
 \newcommand{\classt}[1]{\textbf{\textcolor{forestgreen}{#1}}}
@@ -184,7 +184,7 @@
 \newcommand{\printlnc}[2]{\printlnp(#1);\,#2}
 
 % IR Data Locations
-\newcommand{\slotoffset}[2]{\texttt{[#1]}\sim\texttt{[#2]}}
+\newcommand{\slotoffset}[2]{\texttt{#1}\sim\texttt{#2}}
 \newcommand{\offsetpast}[1]{\text{past}(#1)}
 \newcommand{\offsetfuture}[1]{\text{future}(#1)}
 
@@ -285,13 +285,15 @@
     \mkoneargir{\poptask}{popTask}
     \mktwoargir{\finishsession}{finishSession}
     \mkoneargir{\continuesession}{continueSession}
+    \mkthreeargir{\bindsession}{bindSession}
     \mktwoargir{\branchtag}{branchTag}
     \mktwoargir{\writetag}{writeTag}
     \mktwoargir{\writeexpr}{writeExpression}
     \mktwoargir{\writescan}{writeScan}
+    \mktwoargir{\writesession}{writeSession}
     \mkoneargir{\print}{print}
     \mkoneargir{\printline}{printLine}
-    \mkoneargir{\continueifneg}{continueIfNegative}
+    \mktwoargir{\continueifneg}{continueIfNegative}
 
     \mkoneargir{\newtask}{newTask}
     \mkzeroargir{\nexttask}{nextTask}
