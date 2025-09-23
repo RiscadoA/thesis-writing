@@ -20,11 +20,11 @@ In this section, we introduce the intermediate representation (\ac{IR}) used by 
 
 We start by describing the syntax and layout of \ac{IR} programs. Then, we define the data structures and other necessary concepts used by the abstract machine, as we go through the semantics of each \ac{IR} instruction.
 
-A complete specification of the \ac{IR} can be found in Appendix~\ref{chapter:appendixIR}.
+A complete specification of the \ac{IR} can be found in \Cref{chapter:appendixIR}.
 
 \subsection{Program Structure}
 
-An \ac{IR} program is a set of named processes, each consisting of a header and a body. The header contains the number of end points of the process, the names of the type parameters, the names of the session parameters, the names of the data sections and their data layouts, and finally, the data to be dropped when the process finishes execution (see Figure~\ref{fig:IRProcessExample} for an example).
+An \ac{IR} program is a set of named processes, each consisting of a header and a body. The header contains the number of end points of the process, the names of the type parameters, the names of the session parameters, the names of the data sections and their data layouts, and finally, the data to be dropped when the process finishes execution (see \Cref{fig:IRProcessExample} for an example).
 
 \begin{figure}[H]
     \begin{lstlisting}[language=IR]
@@ -81,7 +81,7 @@ cont:
     \label{fig:IRSessionFlowControlSimple}
 \end{figure}
 
-Program flow through session is manipulated through three main instructions: \texttt{initializeSession}, \texttt{continueSession} and \texttt{finishSession}. An example flow of control through a session is shown in Figure~\ref{fig:IRSessionFlowControlSimple}.
+Program flow through session is manipulated through three main instructions: \texttt{initializeSession}, \texttt{continueSession} and \texttt{finishSession}. An example flow of control through a session is shown in \Cref{fig:IRSessionFlowControlSimple}.
 
 The \texttt{initializeSession(s0, rhs, d0)} instruction initializes the session \texttt{s0} in the current environment such that its remote counterpart (opposite end point) is itself, its writing data location is \texttt{d0} and its continuation is the block \texttt{rhs} on the current process.
 
@@ -105,7 +105,7 @@ rhs:
     \label{fig:IRSessionFlowControlForwarding}
 \end{figure}
 
-Additionally, the instruction \texttt{forwardSessions} is used to model forwarding of \ac{CLASS} channels. An example of its use is shown in Figure~\ref{fig:IRSessionFlowControlForwarding}.
+Additionally, the instruction \texttt{forwardSessions} is used to model forwarding of \ac{CLASS} channels. An example of its use is shown in \Cref{fig:IRSessionFlowControlForwarding}.
 
 In this example two sessions \texttt{s0} and \texttt{s1} are initialized as before. Then, the \texttt{forwardSessions(s0, s1)} instruction is executed, which makes the remote session of \texttt{s0} be the remote session of \texttt{s1}, and vice-versa. After linking the sessions, the instruction jumps to the continuation of its second argument (\texttt{s1} in this case, and thus, the block \texttt{rhs}).
 
@@ -113,13 +113,13 @@ On the block \texttt{rhs}, the instruction \texttt{finishSession(s1)} is execute
 
 \subsection{Data Storage}
 
-All data in \ac{IR} programs (excluding meta data such as sessions and type information) is stored in one of two places: within a local data section on an environment, or within a cell. Local data sections are referenced by identifiers such as $d0$ and $d1$, similarly to sessions, while cells are referenced through cell slots (see Section~\ref{subsection:Cells}).
+All data in \ac{IR} programs (excluding meta data such as sessions and type information) is stored in one of two places: within a local data section on an environment, or within a cell. Local data sections are referenced by identifiers such as $d0$ and $d1$, similarly to sessions, while cells are referenced through cell slots (see \Cref{subsection:Cells}).
 
 \subsubsection{Slots} \label{subsection:IRSlots}
 
-\ac{IR} programs are completely platform agnostic, and thus, data types and addresses are described through their composition of \textit{slots}, instead of concrete byte sizes and offsets. A \textit{slot} is a unit of data in the \ac{IR}. There are many types of slots, from primitive types such as $\ints$ and $\strings$ to more domain-specific types such as $\sessions$ and $\exponentials$ (see Appendix~\ref{chapter:appendixIR} for a complete list).
+\ac{IR} programs are completely platform agnostic, and thus, data types and addresses are described through their composition of \textit{slots}, instead of concrete byte sizes and offsets. A \textit{slot} is a unit of data in the \ac{IR}. There are many types of slots, from primitive types such as $\ints$ and $\strings$ to more domain-specific types such as $\sessions$ and $\exponentials$ (see \Cref{chapter:appendixIR} for a complete list).
 
-In order to model branching data types (such as choices from \ac{CLASS}) and polymorphic data types, data layouts are described through trees of slots, instead of plain sequences. These trees branch on the choices taken or on the properties of polymorphic types (see Figure~\ref{fig:IRSlotTreeExample} for some examples).
+In order to model branching data types (such as choices from \ac{CLASS}) and polymorphic data types, data layouts are described through trees of slots, instead of plain sequences. These trees branch on the choices taken or on the properties of polymorphic types (see \Cref{fig:IRSlotTreeExample} for some examples).
 
 \begin{figure}[H]
     \centering
@@ -177,7 +177,7 @@ entry:
 
 \subsection{Expressions}
 
-Expressions are tree-like structure which compute basic values (\texttt{int}, \texttt{bool} or \texttt{string}) without side effects. Examples of expressions include arithmetic operations, comparisons, boolean operations, string concatenation and data access. A full specification of expressions can be found in Appendix~\ref{chapter:appendixIR}.
+Expressions are tree-like structure which compute basic values (\texttt{int}, \texttt{bool} or \texttt{string}) without side effects. Examples of expressions include arithmetic operations, comparisons, boolean operations, string concatenation and data access. A full specification of expressions can be found in \Cref{chapter:appendixIR}.
 
 While expressions do not occur as instructions, they are used as arguments to some instructions, such as \texttt{writeExpression}, \texttt{branchExpression} and \texttt{print}.
 
@@ -211,7 +211,7 @@ entry:
 References to sessions (\texttt{session} slots) can be written to and read from data locations using the \texttt{writeSession} and \texttt{bindSession} instructions, respectively. The first instruction takes a data location and a session identifier as arguments. The second takes a data location to read from, a session identifier to bind to, and a data location to set as the writing location of the session's remote end point.
 \end{sloppypar}
 
-An example of writing a session to local data and then binding it to another session is shown in Figure~\ref{fig:IRSessionDataExample}. First, a session \texttt{s1} is initialized with its remote end point being itself, its writing location being \texttt{d1} and its continuation being the block \texttt{s1\_cont}. Then, a reference to the remote counterpart of session \texttt{s1} is written to the local data section \texttt{d0}. Next, the reference stored at \texttt{d0} is read and bound to the session \texttt{s2}, with its remote writing location being modified to \texttt{d2}. At this point, the remote session of \texttt{s2} is \texttt{s1}, and vice-versa. Finally, \texttt{s2} is continued, jumping to \texttt{s1\_cont}, and setting the continuation of \texttt{s1} to the current block. Thus, when executing \texttt{finishSession(s1)}, control will jump to \texttt{s2\_cont}.
+An example of writing a session to local data and then binding it to another session is shown in \Cref{fig:IRSessionDataExample}. First, a session \texttt{s1} is initialized with its remote end point being itself, its writing location being \texttt{d1} and its continuation being the block \texttt{s1\_cont}. Then, a reference to the remote counterpart of session \texttt{s1} is written to the local data section \texttt{d0}. Next, the reference stored at \texttt{d0} is read and bound to the session \texttt{s2}, with its remote writing location being modified to \texttt{d2}. At this point, the remote session of \texttt{s2} is \texttt{s1}, and vice-versa. Finally, \texttt{s2} is continued, jumping to \texttt{s1\_cont}, and setting the continuation of \texttt{s1} to the current block. Thus, when executing \texttt{finishSession(s1)}, control will jump to \texttt{s2\_cont}.
 
 \begin{figure}[H]
     \centering
@@ -233,7 +233,7 @@ s2_cont:
 
 Branching is done through the \texttt{branchTag}, \texttt{branchExpression} and \texttt{branchTypeFlags} instructions. The first instruction branches on a tag stored a data location, similarly to a switch statement in C. The second instruction branches on the result a boolean expression, similarly to an if statement in C. Finally, the third instruction branches on whether a set of polymorphic types has a set of flag set.
 
-Each possible branch is defined by a code location (block label) and an integer indicating how many end points are behind that branch. This is used to keep track of the number of remaining end points in the environment, and is explained in more detail in \ref{subsection:EndPoints}.
+Each possible branch is defined by a code location (block label) and an integer indicating how many end points are behind that branch. This is used to keep track of the number of remaining end points in the environment, and is explained in more detail in \Cref{subsection:EndPoints}.
 
 Tags are written to data locations through the \texttt{writeTag} instruction, which takes as arguments a data location and a constant tag value.
 
@@ -272,7 +272,7 @@ Cells are used to model the shared state part of \ac{CLASS}. They're mutable mem
 
 A new cell can be created through the \texttt{writeCell} instruction, which takes as arguments a data location to write the \texttt{cell} slot to, and a slot tree describing the data that will be stored in the cell. The reference count of a cell can be incremented and decremented through the \texttt{acquireCell} and \texttt{releaseCell} instructions, respectively. Finally, the mutex of a cell can be locked and unlocked through the \texttt{lockCell} and \texttt{unlockCell} instructions, respectively.
 
-The data stored in a cell can be accessed through any data location, by using a cell location as the base address, as explained in \ref{subsection:DataAddressing}.
+The data stored in a cell can be accessed through any data location, by using a cell location as the base address, as explained in \Cref{subsection:DataAddressing}.
 
 \begin{figure}[H]
     \centering
@@ -309,7 +309,7 @@ The list of locked cells is necessary to avoid undefined behavior on the generat
 
 \subsection{Polymorphism}
 
-Processes in the \ac{IR} may be parametrized by polymorphic types. These types are identified by names which start with \texttt{t} followed by a number, such as \texttt{t0} and \texttt{t1}. Types may be used directly as slots in slot trees. Additionally, they may also be used in \texttt{branchTypeFlags} instructions, as mentioned in \ref{subsection:Branching}.
+Processes in the \ac{IR} may be parametrized by polymorphic types. These types are identified by names which start with \texttt{t} followed by a number, such as \texttt{t0} and \texttt{t1}. Types may be used directly as slots in slot trees. Additionally, they may also be used in \texttt{branchTypeFlags} instructions, as mentioned in \Cref{subsection:Branching}.
 
 Types can be written to data locations through the \texttt{writeType} instruction, producing a \texttt{type} slot. This slot can then be read by a process invocation instruction, such as \texttt{callProcess}. The \texttt{writeType} instructions takes as arguments a data location to write to, a slot tree describing the type's layout, and a set of types which must have the 'is value' flag set for the type to also have it set.
 
@@ -351,15 +351,15 @@ rhs:
     \label{fig:IRProcessCallExample}
 \end{figure}
 
-An example of calling a process with type, session and data arguments is shown in Figure~\ref{fig:IRProcessCallExample}. First, the session \texttt{s0} is initialized to have its remote end point be itself, its writing location be \texttt{d0} and its continuation be the block \texttt{rhs}. Then, the integer \texttt{42} is written to the remote data of \texttt{s0} (which is \texttt{d0}) Next, the process \texttt{foo} is called, with its type parameter \texttt{t0} being set to an integer with the 'is value' flag set, its session \texttt{s0} being set to the current session \texttt{s0}, and its data section \texttt{d0} being initialized by a move of the local data section \texttt{d0}. Inside \texttt{foo}, the integer stored at its local data section \texttt{d0} (received from \texttt{main}) is moved to the remote data of its session \texttt{s0} (which is still \texttt{d0} from the \texttt{main} process), and then, the session is finished, passing control back to the block \texttt{rhs} of the calling process. Finally, the integer stored at \texttt{d0} is printed.
+An example of calling a process with type, session and data arguments is shown in \Cref{fig:IRProcessCallExample}. First, the session \texttt{s0} is initialized to have its remote end point be itself, its writing location be \texttt{d0} and its continuation be the block \texttt{rhs}. Then, the integer \texttt{42} is written to the remote data of \texttt{s0} (which is \texttt{d0}) Next, the process \texttt{foo} is called, with its type parameter \texttt{t0} being set to an integer with the 'is value' flag set, its session \texttt{s0} being set to the current session \texttt{s0}, and its data section \texttt{d0} being initialized by a move of the local data section \texttt{d0}. Inside \texttt{foo}, the integer stored at its local data section \texttt{d0} (received from \texttt{main}) is moved to the remote data of its session \texttt{s0} (which is still \texttt{d0} from the \texttt{main} process), and then, the session is finished, passing control back to the block \texttt{rhs} of the calling process. Finally, the integer stored at \texttt{d0} is printed.
 
 \subsection{Exponentials}
 
 Exponentials in \ac{CLASS} can be modeled through the \texttt{exponential} slot, which stores the necessary data to dynamically call a process closure, taking care of any captured data. Exponentials are created through the \texttt{writeExponential} instruction, which takes the same arguments as \texttt{callProcess}, with the exception that session arguments are not allowed, and that passed data must be cloneable. Additionally, the referenced process is expected to follow the exponential process convention.
 
-The convention for exponential processes is simply that they must take a single session argument, \texttt{s0}, which will be used to communicate with the caller. This session is initialized by the caller when the \texttt{callExponential} instruction is called. This instruction takes as arguments a data location containing an \texttt{exponential} slot, a session identifier to bind the exponential process session to, and a data location to set as the writing location on the exponential process. See Figure~\ref{fig:IRExponentialCallExample} for an example of creating and calling an exponential.
+The convention for exponential processes is simply that they must take a single session argument, \texttt{s0}, which will be used to communicate with the caller. This session is initialized by the caller when the \texttt{callExponential} instruction is called. This instruction takes as arguments a data location containing an \texttt{exponential} slot, a session identifier to bind the exponential process session to, and a data location to set as the writing location on the exponential process. See \Cref{fig:IRExponentialCallExample} for an example of creating and calling an exponential.
 
-One important detail is that exponentials are reference counted data, and the \texttt{exponential} slot must be dropped when no longer needed, or at the end of the process, if it was not moved. This is done through the \texttt{dropSlots} or \texttt{deferDrop} instructions, as explained in the \ref{subsection:IRDroppingData} section. Drops of exponentials decrement this reference count, and clones increment it.
+One important detail is that exponentials are reference counted data, and the \texttt{exponential} slot must be dropped when no longer needed, or at the end of the process, if it was not moved. This is done through the \texttt{dropSlots} or \texttt{deferDrop} instructions, as explained in the \Cref{subsection:IRDroppingData} section. Drops of exponentials decrement this reference count, and clones increment it.
 
 \begin{figure}[H]
     \centering
@@ -397,7 +397,7 @@ rhs1:
     \label{fig:IRExponentialCallExample}
 \end{figure}
 
-In Figure~\ref{fig:IRExponentialCallExample}, the process \texttt{foo} is a simple polymorphic process which takes a type parameter \texttt{t0}, a session \texttt{s0} and a data section \texttt{d0}. It moves data of type \texttt{t0} from its local data section \texttt{d0} to the remote data of its session \texttt{s0}, and then finishes the session, passing control back to the caller. When called as an exponential, \texttt{s0} will be initialized by the caller.
+In \Cref{fig:IRExponentialCallExample}, the process \texttt{foo} is a simple polymorphic process which takes a type parameter \texttt{t0}, a session \texttt{s0} and a data section \texttt{d0}. It moves data of type \texttt{t0} from its local data section \texttt{d0} to the remote data of its session \texttt{s0}, and then finishes the session, passing control back to the caller. When called as an exponential, \texttt{s0} will be initialized by the caller.
 
 The \texttt{main} process first stores a new string at \texttt{d0}, and then creates a new exponential at \texttt{d1} for the process \texttt{foo}, moving the created string to it. This string will be cloned every time the exponential is called, and dropped when the exponential is freed. The exponential will be dropped at the end of the process through the drop bit \texttt{e0}, which is set by the \texttt{deferDrop(e0)} instruction.
 
@@ -409,7 +409,7 @@ Finally, within the exponential process, the string is moved from the local data
 
 One important aspect of the \ac{IR} which hasn't been explained yet is the concept of end points. These are used to ensure proper deallocation of the process environment when there's no more code left to execute within it. Each environment maintains a count of the number of remaining end points, which is specified in the process header (omitted in previous examples for brevity).
 
-Each instruction which passes control to another block without a continuation might be marked as an end point. These instructions are \texttt{finishSession}, \texttt{forwardSessions}, \texttt{popTask} and \texttt{callProcess}. When such an instruction is executed, the environment's end point count is decremented. When it reaches zero, the environment is deallocated, and any remaining data is dropped according to the drop bits defined in the process header. A simple example of this mechanism is shown in Figure~\ref{fig:IREndPointsExample1}.
+Each instruction which passes control to another block without a continuation might be marked as an end point. These instructions are \texttt{finishSession}, \texttt{forwardSessions}, \texttt{popTask} and \texttt{callProcess}. When such an instruction is executed, the environment's end point count is decremented. When it reaches zero, the environment is deallocated, and any remaining data is dropped according to the drop bits defined in the process header. A simple example of this mechanism is shown in \Cref{fig:IREndPointsExample1}.
 
 \begin{figure}[H]
     \centering
@@ -428,7 +428,7 @@ rhs:
     \label{fig:IREndPointsExample1}
 \end{figure}
 
-The only other instructions which interact with the end point mechanism are the branching instructions, as mentioned in \ref{subsection:Branching}. Each possible branch of a branching instruction is marked with the number of end points that will be behind that branch. When a given branch is taken, the environment's end point count is decremented by the difference between the maximum end point count across all branches and by end point count of the chosen branch. An example of this mechanism is shown in Figure~\ref{fig:IREndPointsExample2}.
+The only other instructions which interact with the end point mechanism are the branching instructions, as mentioned in \Cref{subsection:Branching}. Each possible branch of a branching instruction is marked with the number of end points that will be behind that branch. When a given branch is taken, the environment's end point count is decremented by the difference between the maximum end point count across all branches and by end point count of the chosen branch. An example of this mechanism is shown in \Cref{fig:IREndPointsExample2}.
 
 \begin{figure}[H]
     \centering
@@ -449,7 +449,7 @@ if_false:
 
 \section{Generating IR programs from CLASS}
 
-In this section formally define the base translation from \ac{CLASS} to the \ac{IR} we defined in the previous section. It starts by defining the concept of \textit{value}, \textit{droppable} and \textit{cloneable} session types. Then, it describes how session types are mapped to the slot trees introduced in \ref{subsection:IRSlots}. Finally, the translation from \ac{CLASS} processes to \ac{IR} programs is incrementally defined, starting from simple processes and adding more constructs until we cover the whole language. Transformations applied to this scheme for optimization purposes are left to the next session.
+In this section formally define the base translation from \ac{CLASS} to the \ac{IR} we defined in the previous section. It starts by defining the concept of \textit{value}, \textit{droppable} and \textit{cloneable} session types. Then, it describes how session types are mapped to the slot trees introduced in \Cref{subsection:IRSlots}. Finally, the translation from \ac{CLASS} processes to \ac{IR} programs is incrementally defined, starting from simple processes and adding more constructs until we cover the whole language. Transformations applied to this scheme for optimization purposes are left to the next session.
 
 \subsection{Value, droppable and cloneable types}
 
@@ -486,9 +486,9 @@ This function is defined below through pattern matching on session types. For br
 
 \subsection{Mapping session types to slot trees}
 
-To translate \ac{CLASS} processes to \ac{IR} programs, we need to define which data is sent and received over sessions. As explained in \ref{subsection:IRSlots}, in the \ac{IR} data types are represented through slot trees. Thus, we need to define how session types are mapped to slot trees.
+To translate \ac{CLASS} processes to \ac{IR} programs, we need to define which data is sent and received over sessions. As explained in \Cref{subsection:IRSlots}, in the \ac{IR} data types are represented through slot trees. Thus, we need to define how session types are mapped to slot trees.
 
-We start by defining this mapping for session types $A$ which are strictly positive or negative (i.e., value types, $A \in \valueset$). Let $\slots{A}$ be the slot tree corresponding to the data exchanged over a value type $A$. This function is defined through pattern matching on session types in Figure~\ref{fig:SessionTypeToSlotTree}.
+We start by defining this mapping for session types $A$ which are strictly positive or negative (i.e., value types, $A \in \valueset$). Let $\slots{A}$ be the slot tree corresponding to the data exchanged over a value type $A$. This function is defined through pattern matching on session types in \Cref{fig:SessionTypeToSlotTree}.
 
 \todo{Might be a good idea to explain type variables first, and that their polarities are always known}
 
@@ -521,7 +521,7 @@ The slot tree corresponding to the first segment of a session type $A$ is design
 
 This section introduces notation to represent the compilation state, which is referred to as the environment. An environment $\varepsilon$ is a tuple $(N, T)$ where $N$ is a mapping from channel names to channel states, and $T$ is a mapping from type variables to a tuple $(p, t)$ where $p$ is its polarity and $t$ its identifier within the process.
 
-A channel state is a tuple $(s, d, o)$ where $s$ is the session identifier corresponding to the channel, $d$ is the local data section identifier corresponding to the channel, and $o$ is the data offset (as described in \ref{subsection:DataAddressing}) to apply to the location of the next write or read operation on the channel.
+A channel state is a tuple $(s, d, o)$ where $s$ is the session identifier corresponding to the channel, $d$ is the local data section identifier corresponding to the channel, and $o$ is the data offset (as described in \Cref{subsection:DataAddressing}) to apply to the location of the next write or read operation on the channel.
 
 $\varepsilon[x \mapsto (s, d, o)]$ is defined as the environment $\varepsilon$ where channel $x$ is mapped to the channel state $(s, d, o)$. Additionally $s(\varepsilon, x)$ denotes the session identifier of channel $x$ in the environment $\varepsilon$, $d(\varepsilon, x)$ the data section identifier of channel $x$ in the environment $\varepsilon$, and $o(\varepsilon, x)$ the data offset of channel $x$ in the environment $\varepsilon$.
 
@@ -578,11 +578,11 @@ This function is defined through pattern matching on \ac{CLASS} expression, as s
 
 \subsection{End point counting}
 
-One other important aspect of the compilation is counting the number of end points of the generated \ac{IR} code for a given \ac{CLASS} process. This is necessary to ensure that the generated code properly deallocates the process environment when there's no more code left to execute within it, as explained in \ref{subsection:EndPoints}.
+One other important aspect of the compilation is counting the number of end points of the generated \ac{IR} code for a given \ac{CLASS} process. This is necessary to ensure that the generated code properly deallocates the process environment when there's no more code left to execute within it, as explained in \Cref{subsection:EndPoints}.
 
 The number of end points in a process $P$ is denoted by $\getendpoints{P}{\varepsilon}$, which is defined by pattern matching on processes. It will be incrementally defined along with the instruction generation rules in the following sections.
 
-\subsection{Process Definitions}
+\subsection{Process Definitions} \label{subsection:ProcessDefinitions}
 
 A \ac{CLASS} program is a set of process definitions, each with a unique name. For each process definition, a set of resulting \ac{IR} processes is generated, one for each possible combination of polarities of its type parameters. This is necessary to ensure that the polarities of type parameters are always known at compile time, as they greatly affect the flow of control of the generated code.
 
@@ -674,7 +674,7 @@ To compile the $\printp$ and $\printlnp$ processes, a single instruction is gene
 
 \subsection{Choice and branching}
 
-The compilation of choice processes is shown below. Code is generated which writes a tag to the remote data of the channel $x$. We define $i(\#a)$ as the index of the tag \texttt{a} in the alphabetically sorted list of tags in the offer process. Then, the pseudo-instruction \texttt{continueIfNegative} is inserted, which adds a \texttt{continueSession} instruction if the remainder type of $x$ is negative. Finally, the process recurses on its continuation $P$, advancing the offset of channel $x$ to skip over the written tag, taking into account the remainder type of the channel, as explained in \ref{subsubsection:AdvancingChannel}.
+The compilation of choice processes is shown below. Code is generated which writes a tag to the remote data of the channel $x$. We define $i(\#a)$ as the index of the tag \texttt{a} in the alphabetically sorted list of tags in the offer process. Then, the pseudo-instruction \texttt{continueIfNegative} is inserted, which adds a \texttt{continueSession} instruction if the remainder type of $x$ is negative. Finally, the process recurses on its continuation $P$, advancing the offset of channel $x$ to skip over the written tag, taking into account the remainder type of the channel, as explained in \Cref{subsubsection:AdvancingChannel}.
 
 \begin{compilation}{\choosec{a}{x}{P}}{\varepsilon}{\getendpoints{\varepsilon}{P}}
     \writetag{r(\varepsilon, x)}{i(\#a)}
@@ -698,7 +698,7 @@ The compilation of a $\casep$ process is shown below. The compiler generates cod
 
 The compilation of a $\sendp$ process is shown below. The process initializes a session $s$ with a new block \texttt{lhs} as continuation and the local data section $d$ as a writing location. $s$ and $d$ are added to the process header, similarly to the $\cutp$ process. In this case, however, $d$ has a layout given by $\alllocalslots{A}$, i.e., it only reserves space for received data. This is because, unlike the $\cutp$ process, only this end point of the session will be using this data section to read data.
 
-The initialized session $s$ is then written the remote data of $x$, after which a \texttt{continueIfNegative} instruction is placed. This is necessary, as before, to implement the write-to-read adjustment of the \ac{SAM}. After this, the process recurses immediately on $Q$, advancing the offset of channel $x$ to skip over the sent data, as explained in \ref{subsubsection:AdvancingChannel}.
+The initialized session $s$ is then written the remote data of $x$, after which a \texttt{continueIfNegative} instruction is placed. This is necessary, as before, to implement the write-to-read adjustment of the \ac{SAM}. After this, the process recurses immediately on $Q$, advancing the offset of channel $x$ to skip over the sent data, as explained in \Cref{subsubsection:AdvancingChannel}.
 
 Finally, on the new block \texttt{lhs}, the process recurses on $P$, with a new environment where $y$ is bound to the channel state $(s, d, 0)$. This block will only be executed when the reader of the session we just wrote passes control to it.
 
@@ -725,19 +725,85 @@ The newly bound session must be continued if its type is negative, ensuring that
 
 \subsection{Forwarding}
 
-\todo{explain forwarding}
+Given a process $\fwdc{x}{y}$, it can be assumed without loss of generality that $x$ is of negative type and $y$ of positive type - if this is not the case, $x$ and $y$ can be swapped.
+
+Forwarding requires us to move any data which has been received (but not consumed) through $x$ on its local data section to the remote data of $y$, which is positive. This data is known be composed of the slots given by $\slots{A}$, where $A$ is the type being forwarded. For example, if $A = \lintt$, then $\seqst{\ints}$ must be moved from the local data of $x$ to the remote data of $y$. This is the first operation performed by the forwarding process, as shown below.
+
+\begin{compilation}{\fwdc{x}{y}}{\varepsilon}
+{1}
+    \moveslots{r(\varepsilon, y)}{l(\varepsilon, x)}{\slots{A}}
+    \forwardsessions{s(\varepsilon, x)}{s(\varepsilon, y)}{\hasendpoint}
+\end{compilation}
 
 \subsection{Process Calls}
 
-\todo{explain process calls}
+Process calls are compiled as shown below. The identifier $id$ of the \ac{IR} process to call is generated from the name of the process being called and the polarities of its type parameters, using the same scheme as when generating process definitions. This ensures that the correct variant of the process is being called, as explained in \Cref{subsection:ProcessDefinitions}.
+
+\begin{compilation}{\proccallgc{processId}{A_1,\,\dots,\,A_n}{x_1,\,\dots,\,x_m;\,y_1,\,\dots,y_k}}{\varepsilon}{1}
+    \callprocess{id}{\hasendpoint}{T, S, D}
+\end{compilation}
+
+The list of type arguments $T_1,\,\dots,\,T_n$ is generated from the type parameters $A_1,\,\dots,\,A_n$. Each $T_i$ is a tuple $(t, f)$, where $t$ is the active slot tree of type, computed as $\slots{A_i}$, and $f$ are the flags describing the type. \todo{explain these flags}
+
+The list of session arguments $S_1,\,\dots,\,S_m$ is generated from the linear arguments $x_1,\,\dots,\,x_m$. Each $S_i$ is a tuple $(s_t, s_s, o)$, where $s_t$ is the session identifier of the argument in the environment of the process being called, $s_s = s(\varepsilon, x)$ is the session identifier of channel $x_i$ in $\varepsilon$, and $o = o(\varepsilon, x)$ is the offset of channel $x_i$ in $\varepsilon$.
+
+The list of data arguments $D_1,\,\dots,\,D_{m+k+1}$ is generated similarly to the session arguments, but with extra entries for the exponential arguments. Each $D_i$ is a tuple $(d_t, d_s, t, c)$.
+
+For $i \leq m$ (the linear arguments), $d_t$ is the target data section identifier of the argument in the environment of the process being called, $d_s = l(\varepsilon, x)$ is the local data location of channel $x_i$ in $\varepsilon$. $t = \slots{\tau}$ is the slot tree corresponding to the type $\tau$, where $x_i: \tau$. $c$ is the flag indicating whether the argument data should be cloned or moved, which in this case is always \texttt{move}, as $x_i$ is linear.
+
+For $i > m$ (the exponential arguments), $d_t$ is once again the target data section identifier of the argument in the environment of the process being called, $d_s = l(\varepsilon, y)$ is the local data location of channel $y_i$ in $\varepsilon$. $t = \slots{\whynott{\tau}}$ is the slot tree corresponding to the type $\whynott{\tau}$, where $y_i: \tau$. In this case, $c$ is always \texttt{clone}, as $y_i$ is exponential.
+
+\todo{this is quite complex, maybe this could be written in a clearer way?}
+
+\todo{an example of a process call could be nice here}
 
 \subsection{Creating and calling exponentials}
 
-\todo{explain that a separate IR process is generated for the bang right hand side}
+The right-hand-side $P$ of a $\bangc{x}{y}{P}$ process is compiled as a separate \ac{IR} process, with a unique identifier generated from the identifier of the process definition being compiled. This new process inherits the same type variables as the current process. The argument session $y$ is bound to a new session identifier $s$ in the new process header, along with a new local data section $d$ with layout $\alllocalslots{A}$, where $A$ is the type of channel $y$. The number of end points of the new process' header is set to $\getendpoints{P}{\varepsilon}$.
+
+All free names in $P$ which are not $y$ are exponentials (guaranteed by the typing rules of \ac{CLASS}), and should be passed to the new process as arguments. For each of them, a data section is created in the new process header, with layout $\alllocalslots{\whynott{\tau}}$, where $\tau$ is the type of the free name. The environment used to compile $P$ is also updated to bind these names to their respective data sections, with offset $0$.
+
+On the original process, an exponential write instruction is generated referencing the new process identifier, along with all necessary type arguments (derived from the type parameters of the current process), and all data arguments for each of the free names in $P$. Finally, since the $\bangp$ process has no continuation, the session is finished, similarly to the $\closep$ process.
+
+\begin{compilation}{\bangc{x}{y}{P}}{\varepsilon}
+{1}
+    \writeexp{r(\varepsilon, x)}{id}{T, D}
+    \finishsession{s(\varepsilon, x)}{\hasendpoint}
+\end{compilation}
+
+The list of type arguments $T_1,\,\dots,\,T_n$ is generated similarly to the type arguments of a process call, but inheriting the same exact type parameters as the current process.
+
+The list of data arguments $D_1,\,\dots,\,D_m$ is generated from the free names in $P$, excluding $y$. Each $D_i$ is a tuple $(d_t, d_s, t, c)$, where $d_t$ is the target data section identifier of the argument in the environment of the process being called, $d_s = l(\varepsilon, x_i)$ is the local data location of channel $x_i$ in $\varepsilon$, $t = \slots{\whynott{\tau}}$ is the slot tree corresponding to the type $\whynott{\tau}$, where $x_i: \tau$ and $c$ is the flag indicating whether the argument data should be cloned or moved, which in this case is always \texttt{clone}, as all free names in $P$ are exponentials.
 
 \subsection{Unfolds}
 
-\todo{explain unfolds}
+Unfolded processes are compiled such that positive unfolds ($\unfoldmup$) always pass control to their continuation. If the remainder type is negative, i.e., the next action will read data from the channel, then we must pass control to the other side so that it can write the data before we read it. If the remainder type is positive, we cannot immediately continue as we must first give an opportunity for the other side to read any data we may have already written relative to the previous iteration of the unfold.
+
+Negative unfolds ($\unfoldnup$) only pass control to their continuation if the remainder type is negative, as in this case, the positive side must have already executed a positive unfold, and thus, given control to the negative side. If the remainder type is negative, the positive side must execute first, and thus we surrender control back to it. If the remainder type is positive, we can continue executing immediately.
+
+In both cases, the process finishes by recursing on the right-hand-side $P$ of the unfold, with a new environment where $x$ is bound to a new channel state equal to its previous state, but with offset $0$, as a new segment of the session type starts.
+
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \begin{compilationembed}{\unfoldmuc{x}{P}}{\varepsilon}
+        {\getendpoints{P}{\varepsilon}}
+            \continuesession{s(\varepsilon, x),\,\texttt{cont}}
+            \labelir{cont} 
+            \recurse{P}{\varepsilon[x \mapsto (s(\varepsilon, x), d(\varepsilon, x), 0)]}
+        \end{compilationembed}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.45\textwidth}
+        \begin{compilationembed}{\unfoldnuc{x}{P}}{\varepsilon}
+        {\getendpoints{P}{\varepsilon}}
+            \beginir\%\ \text{where } x:A \text{ in }P
+            \continueifneg{x}{A}
+            \recurse{P}{\varepsilon[x \mapsto (s(\varepsilon, x), d(\varepsilon, x), 0)]}
+        \end{compilationembed}
+    \end{minipage}
+\end{figure}
+
 
 \subsection{Receiving and sending types}
 
