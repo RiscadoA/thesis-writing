@@ -495,13 +495,13 @@ We start by defining this mapping for session types $A$ which are strictly posit
 \begin{figure}[H]
     \centering
     \begin{align*}
-        &\slots{\closet} = \texttt{[]} && \slots{\lintt} = \texttt{[int]} \\
-        &\slots{\lboolt} = \texttt{[bool]} && \slots{\lstringt} = \texttt{[string]} \\
-        &\slots{\sendt{A}{B}} = \texttt{[session; }\slots{B}\texttt{]} && \slots{\bangt{A}} = \texttt{[exponential]} \\
-        &\slots{\sendtyt{X}{A}} = \texttt{[type]} && \slots{\affinet A} = \texttt{[session]} \\
-        &\slots{\statet A} = \texttt{[cell]} && \slots{\statelt A} = \texttt{[cell]} \\
-        &\slots{\choicet{\labelt a A\ (\dots)\ \labelt z Z}} = \texttt{tag[}\slots{A} \texttt{|}\ \dots\ \texttt{|}\slots{Z}\texttt{]} && \slots{\dualt{A}} = \slots{A} \\
-        &\slots{X} = \texttt{[tx]} \text{ where } X \text{ is identified by the type variable } t_x &&
+        &\slots{\closet} = \nilst && \slots{\lintt} = \seqst{\ints} \\
+        &\slots{\lboolt} = \seqst{\bools} && \slots{\lstringt} = \seqst{\strings} \\
+        &\slots{\sendt{A}{B}} = \seqst{\sessions; \slots{B}} && \slots{\bangt{A}} = \seqst{\exponentials} \\
+        &\slots{\sendtyt{X}{A}} = \seqst{\types; \sessions; \tags} && \slots{\affinet A} = \seqst{\sessions} \\
+        &\slots{\statet A} = \seqst{\cells} && \slots{\statelt A} = \seqst{\cells} \\
+        &\slots{\choicet{\labelt a A\ (\dots)\ \labelt z Z}} = \tagst{\slots{A} \texttt{|}\ \dots\ \texttt{|}\slots{Z}} && \slots{\dualt{A}} = \slots{A} \\
+        &\slots{X} = \seqst{t_x} \text{ where } X \text{ is identified by the type variable } t_x &&
     \end{align*}
     \caption{Mapping from value session types to slot trees}
     \label{fig:SessionTypeToSlotTree}
@@ -509,7 +509,7 @@ We start by defining this mapping for session types $A$ which are strictly posit
 
 \todo{In the optimizations section, explain the exponential value, send value and affine value optimizations effect on the slot tree mapping}
 
-To exemplify, consider the session type $\sendt{\lintt}{\sendt{\closet}{\choicet{\labelt a \lstringt\ \labelt b \lboolt}}}$. Its slot tree is \texttt{[session; session; tag[[string] | [bool]]]}, as first a session is sent, then another session is sent, and finally, a tag is sent followed by either a string or a boolean, depending on the sent tag.
+To exemplify, consider the session type $\sendt{\lintt}{\sendt{\closet}{\choicet{\labelt a \lstringt\ \labelt b \lboolt}}}$. Its slot tree is $\seqst{\sessions; \sessions; \tagst{\seqst{\strings}\tagsepst \seqst{\bools}}}$, as first a session is sent, then another session is sent, and finally, a tag is sent followed by either a string or a boolean, depending on the sent tag.
 
 To extend this concept to non-value types, we must consider that session types may have multiple segments of data exchange, separated by changes in polarity. We can separate a session type into its segments by replacing every continuation of a different polarity with the unit type of that polarity ($\closet$ or $\waitt$) on the current segment and starting a new segment with the continuation.
 
@@ -807,7 +807,38 @@ In both cases, the process finishes by recursing on the right-hand-side $P$ of t
 
 \subsection{Receiving and sending types}
 
-\todo{explain sendty, recvty}
+The \ac{IR} only allows polymorphic data using type variables which are part of the process header. Thus, to implement the $\recvtyc{x}{X}P$ process, a new process must be called which has $X$ as a type parameter, and depending on $X$'s polarity. This mechanism is similar to the one used for exponentials, but in this case, the process is immediately called instead of writing an exponential, and it may have free linear names which must be passed as arguments. Additionally, two processes must be generated, one for each polarity of $X$.
+
+The compilation definition of the $\recvtyc{x}{X}P$ process is shown below. Two new process identifiers $id^-$ and $id^+$ are generated from the identifier of the current process. For each of them, a new process is generated with the same type parameters as the current process, plus a new type parameter $X$ with polarity negative for $id^-$ and positive for $id^+$. The number of end points of both new processes is set to $\getendpoints{P}{\varepsilon}$.
+
+First, a branch instruction is generated which reads a tag from the local data of channel $x$, which indicates the polarity of the type being received. Then, depending on the read tag, either $id^-$ or $id^+$ is called, passing all free names in $P$ as arguments, along with the new session which represents $x$ in $P$, stored in $l(\varepsilon, x) + \slotoffset{\seqst{\types}}{\seqst{\sessions; \tags}}$. Both $T^-$ and $T^+$ are generated from the type parameters of the current process, exactly as in a process call, but with an extra entry for $X$, which is read from $l(\varepsilon, x)$.
+
+All session arguments $S$ and data arguments $D$ are generated from the free names in $P$, simply forwarding their channel states from the current environment $\varepsilon$. \todo{do I need to clarify this?}
+
+\begin{compilation}{\recvtyc{x}{X}P}{\varepsilon}{1}
+    \branchtag{l(\varepsilon, x) + \slotoffset{\seqst{\types; \sessions}}{\seqst{\tags}}}{\texttt{neg:1},\,\texttt{pos:1}}
+    \labelir{neg}
+    \callprocess{id^-}{\hasendpoint}{T^-, S, D}
+    \labelir{pos}
+    \callprocess{id^+}{\hasendpoint}{T^+, S, D}
+\end{compilation}
+
+On the other hand, the $\sendtyc{x}{A}{P}$ process is compiled in a more direct manner, as shown below. This is possible because the type variable has a concrete type $A$ at the point of sending, known at compile time.
+
+First, a fresh session $s$ is initialized with a new block \texttt{cont} as continuation, and a fresh local data section $d$ with layout $\alllocalslots{B}$, where $B$ is the type of channel $x$ in $P$. Then, the type $A$ is written to the remote data of channel $x$, along with a $\sessions$ referencing a $s$ and a $\tags$ indicating $A$'s polarity ($0$ for negative types, $1$ for positive types). The session of channel $x$ is then finished.
+
+The right-hand-side $P$ is compiled on the new block \texttt{cont}, with a new environment where $x$ is rebound to the channel state $(s, d, 0)$. This block will be executed by the $\recvtyp$ process, similarly to how the right-hand-side of a $\sendp$ process is executed by $\recvp$.
+
+\begin{compilation}{\sendtyc{x}{A}{P}}{\varepsilon}
+{\getendpoints{P}{\varepsilon}}
+    \initsession{s}{\texttt{cont}}{d}
+    \writetype{r(\varepsilon, x)}{\slots{A}}{\todo{flags of A}}
+    \writesession{r(\varepsilon, x) + \slotoffset{\seqst{\types}}{\seqst{\sessions; \tags}}}{s}
+    \writetag{r(\varepsilon, x) + \slotoffset{\seqst{\types; \sessions}}{\seqst{\tags}}}{p} \comment \text{where } p = 0 \text{ if } A \text{ is negative, } 1 \text{ otherwise}
+    \finishsession{s(\varepsilon, x)}{\hasendpoint}
+    \labelir{cont}
+    \recurse{P}{\varepsilon[x \mapsto (s, d, 0)]}
+\end{compilation}
 
 \subsection{Affine sessions}
 

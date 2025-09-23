@@ -57,10 +57,11 @@
 \newcommand{\vars}[1]{\irs{t#1}}
 
 % Slot trees
-\newcommand{\nilst}{[]}
-\newcommand{\seqst}[1]{[#1]}
-\newcommand{\tagst}[1]{\irs{tag}[#1]}
+\newcommand{\nilst}{\text{[]}}
+\newcommand{\seqst}[1]{\text{[}#1\text{]}}
+\newcommand{\tagst}[1]{\irs{tag}\text{[}#1\text{]}}
 \newcommand{\combst}[1]{\text{$<$}#1\text{$>$}}
+\newcommand{\tagsepst}{\text{ | }}
 
 % Slot tree operations
 \newcommand{\concatst}[2]{\text{concat}(#1, #2)}
@@ -154,8 +155,8 @@
 \newcommand{\bangc}[2]{\bangp\,#1(#2);}
 \newcommand{\whynotc}[1]{\whynotp\,#1;}
 \newcommand{\callc}[2]{\callp\,#1(#2);}
-\newcommand{\sendtyc}[2]{\sendtyp\,#1\,#2;}
-\newcommand{\recvtyc}[2]{\recvtyp\,#1\,#2;}
+\newcommand{\sendtyc}[2]{\sendtyp\,#1(#2);}
+\newcommand{\recvtyc}[2]{\recvtyp\,#1(#2);}
 \newcommand{\unfoldmuc}[1]{\unfoldmup\,#1;}
 \newcommand{\unfoldnuc}[1]{\unfoldnup\,#1;}
 \newcommand{\corecc}[4]{\corecp\,#1(#2);\,#3\ [#4]}
@@ -288,6 +289,7 @@
     \mkthreeargir{\bindsession}{bindSession}
     \mkthreeargir{\forwardsessions}{forwardSessions}
     \mktwoargir{\branchtag}{branchTag}
+    \mkthreeargir{\writetype}{writeType}
     \mktwoargir{\writetag}{writeTag}
     \mktwoargir{\writeexpr}{writeExpression}
     \mktwoargir{\writescan}{writeScan}
