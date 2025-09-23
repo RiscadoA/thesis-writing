@@ -293,21 +293,15 @@ entry:
     \caption{Creating and using a cell}
 \end{figure}
 
-\subsubsection{Cell Slot Arguments}
+\subsubsection{Cell Slot Arguments} \label{subsubsection:CellSlotArguments}
 
-While other slots are represented solely by their type, \texttt{cell} slots come in two variants: one with a slot tree argument, and another without. The first variant is used to represent cells which store droppable data. The second variant is used to represent cells which store sessions.
+While other slots are represented solely by their type, \texttt{cell} require a slot tree argument. This slot tree describes the data that will be stored in the cell, and is necessary to properly drop the data when the cell is deallocated. This might involve invoking the affine protocol on sessions, deallocating strings, or even dropping other cells.
 
-The behavior differs only when a cell is deallocated, which happens when its reference count reaches zero. If the cell stores droppable data, the data is dropped according to the slot tree argument. If the cell stores sessions, the affine protocol is followed.
+\subsection{Threads} \label{subsection:IRThreads}
 
-The affine protocol for sessions in cells is as follows. When a cell is to be deallocated, a tag with value $0$ is written to indicate the session will not be used, and control is passed to it with a continue instruction. Then, the session should finish, passing control back to the cell deallocator.
-
-\subsection{Threads}
-
-New threads of execution can be launched through the \texttt{launchThread} instruction, which takes as arguments a code location to start executing at and a list of data locations of locked cells to pass to the new thread. The new thread starts with a single task responsible for terminating it, and shares the same environment as the parent thread, but a separate task stack.
+New threads of execution can be launched through the \texttt{launchThread} instruction, which takes as arguments a code location to start executing at. The new thread starts with a single task responsible for terminating it, and shares the same environment as the parent thread, but a separate task stack.
 
 Accesses to the environment are not synchronized except for reference and end point counting, and it is the responsibility of the \ac{IR} generator to ensure different threads do not access the same data concurrently.
-
-The list of locked cells is necessary to avoid undefined behavior on the generated C code, as explained further in \todo{reference the relevant C generation subsection here}. The list should contain all and only cells which are locked at the moment of launching the thread, and which will be owned and thus later unlocked by the new thread. 
 
 \subsection{Polymorphism}
 
@@ -883,35 +877,56 @@ Finally, the $\usec{x}{P}$ process is compiled as shown below. A tag is written 
 
 \subsection{Shared state}
 
-\todo{explain cell, put, take, share and release}
+The compilation of the $\cellc{x}{y}{P}$ process, which creates a new shared cell on $x$, is shown below. First, a new cell is written to the remote data of channel $x$, with space for a single $\sessions$ slot. Then, a new session $s$ is initialized with a new block \texttt{cont} as continuation, and a fresh local data section $d$ with layout $\alllocalslots{A}$, where $A$ is the type of channel $y$ in $P$. This session $s$ is written to the cell we just created, using the cell as a base address, and an offset of $0$. Finally, the process recurses on $P$, with a new environment where $y$ is bound to the channel state $(s, d, 0)$. This block will be executed by the process which takes the cell's content.
 
-% \subsection{Forwarding}
+\begin{compilation}{\cellc{x}{y}{P}}{\varepsilon}
+{\getendpoints{P}{\varepsilon}}
+    \writecell{r(\varepsilon, x)}{\seqst{\sessions}}
+    \initsession{s}{\texttt{cont}}{d}
+    \writesession{c(r(\varepsilon, x))}{s}
+    \labelir{cont}
+    \recurse{P}{\varepsilon[y \mapsto (s, d, 0)]}
+\end{compilation}
 
-% The $\fwdp$ process is compiled directly to \ac{IR} - we simply translate the names to the record indices.
+The $\takec{x}{y}P$ process is compiled as shown below. First, the cell's mutex is locked. Then, the session stored in the cell is bound to a fresh session identifier $s$, which is added to the process header, along with a fresh local data section $d$ with layout $\alllocalslots{A}$, where $A$ is the type of channel $y$ in $P$. If the type $A$ is negative, the session is continued, similarly to the $\recvp$ process. Finally, the process recurses on $P$, with a new environment where $y$ is bound to the channel state $(s, d, 0)$. The cell's mutex is unlocked when the session $s$ is released.
 
-% \begin{compilation}{\fwdc{x}{y}}{\varepsilon}
-%     \fwd{\varepsilon(x)}{\varepsilon(y)}
-% \end{compilation}
+\begin{compilation}{\takec{x}{y}{P}}{\varepsilon}
+{\getendpoints{P}{\varepsilon}}
+    \lockcell{l(\varepsilon, x)}
+    \bindsession{s}{c(l(\varepsilon, x))}{d}
+    \continueifneg{s}{A} \comment \text{where } x:A \text{ in }P
+    \recurse{P}{\varepsilon[y \mapsto (s, d, 0)]}
+\end{compilation}
 
-% \subsection{Process Definitions and Calls}
+The $\putc{x}{y}{P}Q$ process is compiled as shown below. First, a fresh session $s$ is initialized with a new block \texttt{lhs} as continuation, and a fresh local data section $d$ with layout $\alllocalslots{A}$, where $A$ is the type of channel $y$ in $P$. This session $s$ is written to the cell referenced by channel $x$. Then, the cell is unlocked and the process recurses immediately on $Q$. Finally, on the new block \texttt{lhs}, the process recurses on $P$, with a new environment where $y$ is bound to the channel state $(s, d, 0)$. This block will only be executed when the taker of the cell we just wrote passes control to it.
 
-% The compilation of a process definition is shown below. A label is generated for the definition and code is generated for the process $P$ within it, with the environment $\varepsilon$, which is generated from $P$, using the function described earlier, and additionally including session records for the arguments $x_1,\,\dots,\,x_n$.
+\begin{compilation}{\putc{x}{y}{P}{Q}}{\varepsilon}
+{\getendpoints{P}{\varepsilon} + \getendpoints{Q}{\varepsilon}}
+    \initsession{s}{\texttt{lhs}}{d}
+    \writesession{c(l(\varepsilon, x))}{s}
+    \unlockcell{l(\varepsilon, x)}
+    \recurse{Q}{\varepsilon}
+    \labelir{lhs}
+    \recurse{P}{\varepsilon[y \mapsto (s, d, 0)]}
+\end{compilation}
 
-% \begin{compilation}{\procdefc{foo}{x_1:A_1,\,\dots,\,x_n:A_n}{P}}{\emptyset}
-%     \labelir{proc\_foo}
-%     \recurse{P}{n(\emptyset[x_1 \mapsto 0,\,\dots,\,x_n\mapsto n - 1], P)}
-% \end{compilation}
+The process $\releasec{x}$ is compiled directly to the instruction which decrements the reference count of the cell referenced by channel $x$, as shown below. The responsibility of correctly dropping the cell's contents when the reference count is zero is left to the \ac{IR} implementation (the C code generation phase), as explained in \Cref{subsubsection:CellSlotArguments}.
 
-% To call a process from another process, we simply use the call \ac{IR} construct we previously defined, which initializes a new environment with the required number of session records, and with passed arguments bound to their respective slots.
+\begin{compilation}{\releasec{x}}{\varepsilon}{1}
+    \releasecell{l(\varepsilon, x)}
+    \poptask{\hasendpoint}
+\end{compilation}
 
-% \begin{figure}[H]
-%     \centering
-%     \begin{compilation}{\proccallc{foo}{x_1,\,\dots,\,x_n}}{\varepsilon}
-%         \call{\texttt{proc\_foo}}{n + \#n(\emptyset, P)}{\{0 \mapsto \varepsilon(x_1),\,\dots,\, n-1 \mapsto \varepsilon(x_n)\}}
-%     \end{compilation}
-%     \caption{Compilation of a process call}
-%     \label{fig:ProcessCallCompilation}
-% \end{figure}
+Finally, the $\sharec{x}{P}{Q}$ process is compiled as shown below. Since the cell is going to be shared between two processes, its reference count must be incremented. By default, with concurrency enabled, a new thread is launched to execute the right-hand-side $Q$ of the share process, as shown below. If it is disabled, the right-hand-side is instead added as a new task to the task queue, which will be executed when the current task finishes.
+
+\begin{compilation}{\sharec{x}{P}{Q}}{\varepsilon}
+{\getendpoints{P}{\varepsilon} + \getendpoints{Q}{\varepsilon}}
+    \acquirecell{l(\varepsilon, x)}
+    \launchthread{\texttt{rhs}}
+    \recurse{P}{\varepsilon}
+    \labelir{rhs}
+    \recurse{Q}{\varepsilon}
+\end{compilation}
 
 \section{Generating C code from IR programs}
 

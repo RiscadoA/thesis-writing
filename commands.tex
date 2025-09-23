@@ -282,6 +282,7 @@
     \newcommand{\labelir}[1]{\\&\hspace{1.25em}\texttt{##1:}}
     \renewcommand{\comment}{\quad\%\ }
 
+    \mktwoargir{\launchthread}{launchThread}
     \mkoneargir{\pushtask}{pushTask}
     \mkoneargir{\poptask}{popTask}
     \mktwoargir{\finishsession}{finishSession}
@@ -293,8 +294,13 @@
     \mktwoargir{\writetag}{writeTag}
     \mktwoargir{\writeexpr}{writeExpression}
     \mktwoargir{\writescan}{writeScan}
+    \mktwoargir{\writecell}{writeCell}
     \mkthreeargir{\writeexp}{writeExponential}
     \mktwoargir{\writesession}{writeSession}
+    \mkoneargir{\lockcell}{lockCell}
+    \mkoneargir{\unlockcell}{unlockCell}
+    \mkoneargir{\acquirecell}{acquireCell}
+    \mkoneargir{\releasecell}{releaseCell}
     \mkoneargir{\print}{print}
     \mkoneargir{\printline}{printLine}
     \mktwoargir{\continueifneg}{continueIfNegative}
