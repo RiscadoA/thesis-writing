@@ -19,6 +19,37 @@ This section describes the implemented optimizations which take advantage of pro
 
 In the optimizations described in this section, we categorize types into four levels: \textit{normal}, \textit{value}, \textit{droppable} and \textit{cloneable}. \todo{WRITE}
 
+% To manage the data of sessions in an efficient manner, we define three subsets of session types: value types $\valueset$, droppable types $\droppableset$ and cloneable types $\cloneableset$, such that $\cloneableset \subset \droppableset \subset \valueset$
+% . Thus all cloneable types are droppable, and all droppable types are value types.
+
+% A session type $A$ is a value type, $A \in \valueset$, if and only if it is strictly positive or strictly negative. This means that a session of a negative value type is finished (has no continuation), and is only used to received already written data, while a session of a positive value type will be finished after writing data to it, i.e., flow of control will never return to the process which wrote to it. This includes types such as $\recvt{A}{\waitt}$ and $\sendt{A}{\closet}$, but not $\recvt{A}{\closet}$ or $\sendt{A}{\waitt}$.
+
+% A session type $A$ is considered a \textit{droppable type}, $A \in \droppableset$, if and only if it is a value type, and if the data sent over it can be dropped, effectively making the type affine. This includes types such as $\closet$, $\lintt$, $\lstringt$, $\bangt{A}$, $\affinet{A}$ and, as long as $A, B \in \droppableset$, $\sendt{A}{B}$.
+
+% Finally, a session type $A$ is considered a \textit{cloneable type}, $A \in \cloneableset$, if and only if it is a droppable type, and if the data sent over it can be cloned. This includes types such as $\closet$, $\lintt$, $\lstringt$ and $\bangt{A}$, but not, for example, $\affinet{A}$.
+
+% We denote $\isvalue{P}{A}$ as whether $A \in \valueset$ and having polarity $P$ (positive $+$ or negative $-$) is $\impossible$, $\guaranteed$ or $\dependent{p_1,\,\dots,\,p_n}$ on whether all type flag requisites $p_i,\,\dots,\,p_n$ are met. A type flag requisite $p_i$ is defined as a test of whether a given polymorphic type variable $t_i$ belongs to either $\valueset$, $\droppableset$ or $\cloneableset$ (e.g, $t_2 \in \droppableset$ is a type flag requisite).
+
+
+% This function is defined below through pattern matching on session types. For brevity, we omit the definition of $\isvalue{-}{A}$, as it can be defined through duality: $\isvalue{-}{A} = \isvalue{+}{\dual A}$. Additionally, we omit the cases of $\isvalue{+}{A}$ where $A$ is a negative type, as they are all $\impossible$.
+
+\begin{align*}
+    &\isvalue{+}{\lintt A} &&= \guaranteed \\
+    &\isvalue{+}{\lboolt A} &&= \guaranteed \\
+    &\isvalue{+}{\lstringt A} &&= \guaranteed \\
+    &\isvalue{+}{\closet{}} &&= \guaranteed \\
+    &\isvalue{+}{\sendt{A}{B}} &&= \isvalue{+}{B} \\
+    &\isvalue{+}{\sendtyt{X}{B}} &&= \guaranteed \\
+    &\isvalue{+}{\bangt A} &&= \guaranteed \\
+    &\isvalue{+}{\affinet A} &&= \isdroppable{+}{A} \\
+    &\isvalue{+}{\statet A} &&= \guaranteed \\
+    &\isvalue{+}{\statelt A} &&= \guaranteed \\
+    &\isvalue{+}{\choicet{\labelt a A\ (\dots)\ \labelt z Z}} &&= \bigcup\,(\isvalue{+}{A},\,\dots,\,\isvalue{+}{Z}) \\
+    &\isvalue{+}{X} &&= \dependent{t_x \in \valueset} \text{ where } X \text{ is identified by } t_x \\
+\end{align*}
+
+\todo{Find a way to define with a single function which set a type belongs to, instead of having to define three separate very similar functions}
+
 \subsection{Adapting the compiler to categorize types}
 
 \todo{WRITE}

@@ -342,6 +342,9 @@ The syntax of \ac{CLASS} we'll be using on this thesis differs slightly from $\m
 
 \begin{align*}
     A, B ::=\  & X \text{ (type variable)}                 &  & |\ \sim X \text{ (dual type variable)}        \\
+    |\         & \lintt                             &  & |\ \colintt                                   \\
+    |\         & \lboolt                            &  & |\ \colboolt                                  \\
+    |\         & \lstringt                          &  & |\ \colstringt                                \\
     |\         & \closet                                   &  & |\ \waitt                                     \\
     |\         & \choicet{\labelt{inl}{A}\ \labelt{inr}{B}}&  & |\ \offert{\labelt{inl}{A}\ \labelt{inr}{B}} \\
     |\         & \sendt{A}{B}                              &  & |\ \recvt{A}{B}                               \\
@@ -350,6 +353,7 @@ The syntax of \ac{CLASS} we'll be using on this thesis differs slightly from $\m
     |\         & \affinet{A}                               &  & |\ \coaffinet{A}                              \\
     |\         & \statet{A}                                &  & |\ \usaget{A}                                 \\
     |\         & \statelt{A}                               &  & |\ \usagelt{A}                                \\
+    |\         & \rect{X}{A}                               &  & |\ \corect{X}{A}                              \\
 \end{align*}
 
 \begin{table}
@@ -370,13 +374,13 @@ The syntax of \ac{CLASS} we'll be using on this thesis differs slightly from $\m
         $\wn A$       & $\whynott{A}$                               \\
         $\exists X.A$ & $\sendtyt{X}{A}$                            \\
         $\forall X.A$ & $\recvtyt{X}{A}$                            \\
-        $\mu X.A$     & --                                          \\
-        $\nu X.A$     & --                                          \\
+        $\mu X.A$     & $\rect{X}{A}$                               \\
+        $\nu X.A$     & $\corect{X}{A}$                             \\
         \bottomrule
     \end{tabular}
 \end{table}
 
-The $\classt{affine}$, $\classt{coaffine}$, $\classt{state}$, $\classt{usage}$, $\classt{statel}$ and $\classt{usagel}$ types are not present in $\mu$CLL and are used to define affine sessions and reference cells, which we won't be diving into in this report. \todo{now in the thesis we must talk about them!} Note that recursive types are defined indirectly, through the \texttt{rec} keyword in definitions, as will be shown below. A \ac{CLASS} program is composed of a collection of type definitions and process definitions, with the following BNF grammar:
+The $\lintt$, $\colintt$, $\lboolt$, $\colboolt$, $\lstringt$, $\colstringt$, $\classt{affine}$, $\classt{coaffine}$, $\classt{state}$, $\classt{usage}$, $\classt{statel}$ and $\classt{usagel}$ types are not present in $\mu$CLL and are used for basic values, defining affine sessions and reference cells, which we won't be diving into in this report. \todo{now in the thesis we must talk about them!} A \ac{CLASS} program is composed of a collection of type definitions and process definitions, with the following BNF grammar:
 
 \begin{align*}
     \text{Program} ::=\  & \text{ProcDef}\ \text{Program} &  & |\ \text{ProcDef} \\

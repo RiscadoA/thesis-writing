@@ -62,21 +62,19 @@
 \newcommand{\tagst}[1]{\irs{tag}\text{[}#1\text{]}}
 \newcommand{\combst}[1]{\text{$<$}#1\text{$>$}}
 \newcommand{\tagsepst}{\text{ | }}
-
-% Slot tree operations
-\newcommand{\concatst}[2]{\text{concat}(#1, #2)}
+\newcommand{\concatst}[2]{#1\oplus#2}
 
 % Slot offset and data location
 \newcommand{\offs}[2]{#1\text{$\sim$}#2}
-\newcommand{\datal}[3]{#1.\offs{#2}{#3}}
+\newcommand{\dataol}[2]{#1.#2}
+\newcommand{\datal}[3]{\dataol{#1}{\offs{#2}{#3}}}
 
 % Some notation commands
 \newcommand{\sizeof}[1]{\phi\bigl(#1\bigr)}
 \newcommand{\dual}[1]{\overline{#1}}
-\newcommand{\getinstructions}[2]{\mathcal{C}_I(#2,\,#1)}
-\newcommand{\getendpoints}[2]{\mathcal{C}_F(#2,\,#1)}
-\newcommand{\getexpression}[2]{\mathcal{C}_E(#2,\,#1)}
-\newcommand{\advancech}[5]{\text{advance}^{#1}(#2,\,#3,\,\texttt{#4},\,#5)}
+\newcommand{\getinstructions}[3]{\mathcal{C}_I(#1,\,#2,\,#3)}
+\newcommand{\getendpoints}[2]{\mathcal{C}_F(#1,\,#2)}
+\newcommand{\getexpression}[2]{\mathcal{C}_E(#1,\,#2)}
 
 % Type names
 \newcommand{\classt}[1]{\textbf{\textcolor{forestgreen}{#1}}}
@@ -104,6 +102,8 @@
 \newcommand{\affinet}[1]{\classt{affine}\,#1}
 \newcommand{\coaffinet}[1]{\classt{coaffine}\,#1}
 \newcommand{\dualt}[1]{\classt{$\sim$}#1}
+\newcommand{\rect}[2]{\classt{rec}\ #1;\,#2}
+\newcommand{\corect}[2]{\classt{corec}\ #1;\,#2}
 
 % Process names
 \newcommand{\classp}[1]{\textbf{\textcolor{darkblue}{#1}}}
@@ -185,7 +185,7 @@
 \newcommand{\printlnc}[2]{\printlnp(#1);\,#2}
 
 % IR Data Locations
-\newcommand{\slotoffset}[2]{#1\sim#2}
+\newcommand{\slotoffset}[2]{#1\text{$\sim$}#2}
 \newcommand{\offsetpast}[1]{\text{past}(#1)}
 \newcommand{\offsetfuture}[1]{\text{future}(#1)}
 
@@ -196,13 +196,22 @@
 \newcommand{\isvalue}[2]{\mathcal{V}^{#1}(#2)}
 \newcommand{\isdroppable}[2]{\mathcal{D}^{#1}(#2)}
 \newcommand{\iscloneable}[2]{\mathcal{C}^{#1}(#2)}
-\newcommand{\slots}[1]{\mathcal{S}(#1)}
-\newcommand{\allslots}[1]{\mathcal{S}_T(#1)}
-\newcommand{\alllocalslots}[1]{\mathcal{S}_T^L(#1)}
-\newcommand{\allremoteslots}[1]{\mathcal{S}_T^R(#1)}
+\newcommand{\slots}[2]{\mathcal{S}(#1,\,#2)}
+\newcommand{\allslots}[2]{\mathcal{S}_T(#1,\,#2)}
+\newcommand{\alllocalslots}[2]{\mathcal{S}_L(#1,\,#2)}
 \newcommand{\impossible}{\mathbf{\textcolor{red}{impossible}}}
 \newcommand{\guaranteed}{\mathbf{\textcolor{forestgreen}{guaranteed}}}
 \newcommand{\dependent}[1]{\mathbf{\textcolor{orange}{dependent}}(#1)}
+
+% Compiler environment accessors
+\newcommand{\polarityof}[2]{#1_{p}(#2)}
+\newcommand{\typeidof}[2]{#1_{t}(#2)}
+\newcommand{\sessionof}[2]{#1_s(#2)}
+\newcommand{\localdataof}[2]{#1_d(#2)}
+\newcommand{\offsetof}[2]{#1_o(#2)}
+\newcommand{\readlocof}[2]{#1_r(#2)}
+\newcommand{\writelocof}[2]{#1_w(#2)}
+\newcommand{\advancech}[6]{#1[#2 \overset{#3,#4}{\oplus} (#5,\,#6)]}
 
 % Session modes
 \newcommand{\writemode}{\texttt{write}}
@@ -270,7 +279,7 @@
 }
 
 % Compilation environment
-\newenvironment{compilationembed}[3]
+\newenvironment{compilationembed}[4]
 {
     \begingroup
     % IR
@@ -282,7 +291,7 @@
     \newcommand{\labelir}[1]{\\&\hspace{1.25em}\texttt{##1:}}
     \renewcommand{\comment}{\quad\%\ }
 
-    \mktwoargir{\launchthread}{launchThread}
+    \mkoneargir{\launchthread}{launchThread}
     \mkoneargir{\pushtask}{pushTask}
     \mkoneargir{\poptask}{popTask}
     \mktwoargir{\finishsession}{finishSession}
@@ -290,7 +299,7 @@
     \mkthreeargir{\bindsession}{bindSession}
     \mkthreeargir{\forwardsessions}{forwardSessions}
     \mktwoargir{\branchtag}{branchTag}
-    \mkthreeargir{\writetype}{writeType}
+    \mktwoargir{\writetype}{writeType}
     \mktwoargir{\writetag}{writeTag}
     \mktwoargir{\writeexpr}{writeExpression}
     \mktwoargir{\writescan}{writeScan}
@@ -323,23 +332,23 @@
     \mktwoargir{\pushsession}{pushSession}
     \mktwoargir{\popsession}{popSession}
     \newcommand{\hasendpoint}{\texttt{end point}}
-    \newcommand{\recurse}[2]{\beginir\getinstructions{##1}{##2}}
+    \newcommand{\recurse}[3]{\beginir\getinstructions{##1}{##2}{##3}}
 
     $$
         \begin{aligned}
-             & \getendpoints{#1}{#2} \equiv #3 \\
-             & \getinstructions{#1}{#2} \equiv
+             & \getendpoints{#1}{#3} \equiv #4 \\
+             & \getinstructions{#1}{#2}{#3} \equiv
             }
             {
         \end{aligned}
     $$
     \endgroup
 }
-\newenvironment{compilation}[3]
+\newenvironment{compilation}[4]
 {
     \begingroup
     \setlength{\jot}{-3pt}
-    \begin{compilationembed}{#1}{#2}{#3}
+    \begin{compilationembed}{#1}{#2}{#3}{#4}
 }
 {
     \end{compilationembed}
