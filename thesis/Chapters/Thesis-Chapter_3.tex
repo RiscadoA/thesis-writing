@@ -444,11 +444,9 @@ if_false:
 
 \section{Generating IR programs from CLASS}
 
-This section formally defines the base (unoptimized) translation from \ac{CLASS} to the \ac{IR} defined in the previous section. It starts defining how session types are mapped to the slot trees introduced in \Cref{subsection:IRSlots}. Then, notation to represent the compilation state, which is referred to as the environment, is introduced. Next, an overview of the translation scheme is presented, and some important concepts are defined. Finally, the translation from \ac{CLASS} processes to \ac{IR} programs is incrementally defined, starting from simple processes and adding more constructs until the whole language is covered.
+This section formally defines the base (unoptimized) translation from \ac{CLASS} to the \ac{IR} defined in the previous section. It starts defining notation for representing and updating the state of the compiler. Then, it defines how session types are mapped to the slot trees introduced in \Cref{subsection:IRSlots}. Next, an overview of the instruction generation scheme is presented, and some important concepts are defined. Finally, the translation from \ac{CLASS} processes to \ac{IR} programs is incrementally defined, starting from simple processes and adding more constructs until the whole language is covered.
 
-\todo{Update this \^}
-
-\todo{explain that this work assumes well-typed processes, and takes output from a type checker which can list free names and their types in processes}
+This compilation scheme assumes well-typed \ac{CLASS} processes are given as input, along with the required type information of free names in all processes. The notation $x: A$ is used to indicate that the type checker has inferred that channel $x$ is a free name of type $A$ on some process.
 
 \subsection{Compiler state}
 
@@ -456,9 +454,9 @@ To compile \ac{CLASS} processes to \ac{IR} programs, the compiler must keep trac
 
 \subsubsection{Type environments}
 
-A type environment $\theta$ is a mapping from type variables to a tuple $(p, t)$ where $p$ is the polarity of the type variable and $t$ is its identifier (e.g, $t_0$, $t_1$) within the header of the process being compiled. $\polarityof{\theta}{X}$ and $\typeidof{\theta}{X}$ are defined as the polarity and identifier of type variable $X$ in the type environment $\theta$, respectively.
+A type environment $\theta$ is a mapping from type variables to a tuple $(p, t)$ where $p$ is the polarity of the type variable ($+$ or $-$) and $t$ is its identifier (e.g, $t_0$, $t_1$) within the header of the process being compiled. $\polarityof{\theta}{X}$ and $\typeidof{\theta}{X}$ are defined as the polarity and identifier of type variable $X$ in the type environment $\theta$, respectively.
 
-The function $\polarityof{\theta}{A}$ is further extended to all session types $A$ through pattern matching, as shown in \Cref{fig:TypePolarity}. For the base case of type variables, the polarity is looked up in the type environment.
+A type with positive polarity is one for which sessions of that type are used to write data, while a type with negative polarity is one for which sessions of that type are used to read data. The function $\polarityof{\theta}{A}$ is further extended to all session types $A$ through pattern matching, as shown in \Cref{fig:TypePolarity}. For the base case of type variables, the polarity is looked up in the type environment.
 
 \begin{figure}
     \centering
@@ -838,7 +836,7 @@ The right-hand-side $P$ is compiled on the new block \texttt{cont}, with a new e
 
 \subsection{Affine, use and discard}
 
-The compilation of the $\affinec{x}P$ process, shown below, implements the affine protocol described in \Cref{subsection:IRDroppingData}: a tag is received from $x$ (with an offset of 0) indicating whether the channel is being used or discarded. If it's being used, the process continues with an environment where $x$ has an offset $o = 0$ if the type $A$ of $x$ in $P$ is positive, or $o = \slotoffset{\seqst{\tags}}{\slots{\theta}{A}}$ if it is negative. If the tag indicates the session is being discarded, any co-affine data free in $P$ is discarded and the affine session is finished.
+The compilation of the $\affinec{x}P$ process, shown below, implements the affine protocol described in \Cref{subsection:IRDroppingData}: a tag is received from $x$ (with an offset of 0) indicating whether the channel is being used or discarded. If it's being used, the process continues with an environment where $x$ has been advanced by the read tag. If the tag indicates the session is being discarded, any co-affine data free in $P$ is discarded and the affine session is finished.
 
 One important aspect to note is that although $\affinet{A}$ is a positive type, its process starts by reading a tag, while the dual type $\coaffinet{\dualt{A}}$, which is negative, starts by writing a tag. The rest of the compilation scheme guarantees that the positive side always executes first, which in this case is the reading side. Thus, the $\affinep$ process must always pass control to the negative side before continuing.
 
@@ -850,7 +848,7 @@ An alternative solution would be to change the definition of $\affinet{A}$ to be
     \labelir{cont}
     \branchtag{\localdataof{\Delta}{x}}{\texttt{use:}\getendpoints{\theta}{P},\,\texttt{discard:1}}
     \labelir{use}
-    \recurse{\theta}{\Delta[x \mapsto (\sessionof{\Delta}{x}, \localdataof{\Delta}{x}, o)]}{P}
+    \recurse{\theta}{\advancech{\Delta}{x}{-}{\theta}{\seqst{\tags}}{A}}{P} \comment \text{where } x:A \text{ in }P
     \labelir{discard}
     \recurse{\theta}{\Delta}{\discardc{y_i}} \comment \text{for each free co-affine name }y_i\text{ in }P
     \finishsession{\sessionof{\Delta}{x}}{\hasendpoint}
