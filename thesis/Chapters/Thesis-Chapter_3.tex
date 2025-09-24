@@ -527,21 +527,17 @@ The slot tree corresponding to the first segment of a session type $A$ is design
 
 \subsection{Instruction generation}
 
-The \ac{IR} instructions generated from a \ac{CLASS} process $P$ on a given environment $(\theta, \Delta)$ are denoted by $\getinstructions{\theta}{\Delta}{P}$. This function produces a sequence of \ac{IR} instructions, optionally followed by blocks with more instructions, and will be defined incrementally in the following sections.
+The \ac{IR} instructions generated from a \ac{CLASS} process $P$ on a given environment $(\theta, \Delta)$ are denoted by $\getinstructions{\theta}{\Delta}{P}$. This function produces a sequence of \ac{IR}, optionally followed by blocks with more instructions, and is defined incrementally in the following sections.
 
-As instructions are generated, the process header is modified incrementally to include any new sessions, local data sections or drop bits which are necessary for the generated code to work.
+The generated code implements the write-to-read adjustment of the \ac{SAM}, by placing the instruction \texttt{continueSession} whenever the polarity of a session changes from positive to negative. To simplify the definition of the generation rules, a pseudo-instruction $\texttt{continueIfNegative}(\theta, x, A)$ is used, which is replaced by a \texttt{continueSession} instruction and a new block for its proceeding instructions if and only if $\polarityof{\theta}{A} = -$.
 
-In the subsections below, some important concepts used throughout the instruction generation rules are defined.
+All writing operations to a channel $x$ write to an offset within the remote data of the session, i.e.,  $\writelocof{\Delta}{x}$. All reading operations read from an offset within the local data of the session, i.e., $\readlocof{\Delta}{x}$. Through the mechanism above, whenever the writing side finishes writing data,, the session is continued, and the reading side reads from the same location the writing side wrote to.
 
-\subsubsection{Remainder type}
+For example, consider two processes communicating over a session of type $\sendt{A}{\recvt{B}{\waitt}}$, where the positive channel is named $x$ and the negative channel is named $y$. The writing process, with a channel environment $\Delta^1$ first writes a session of type $A$ to $\writelocof{\Delta^1}{x}$, which is equal to $\readlocof{\Delta^2}{y}$. Since $\recvt{B}{\waitt}$ is negative, a write-to-read adjustment is performed, and thus, a \texttt{continueSession} instruction is executed on $\sessionof{\Delta^1}{x}$.
 
-The remainder $r(\tau)$ of a type $\tau$ is defined as the type which is left after executing the next possible action on a session of type $\tau$. For example, $r(\sendt{A}{B}) = B$. The remainder is not defined for types without continuation, such as $\closet{}$ and $\waitt{}$
+The reading process, with a channel environment $\Delta^2$, reads a session of type $A$ from $\readlocof{\Delta^2}{y}$. Then, it will write to $\writelocof{\Delta^2}{y}$ a session of type $B$. The writing offset is zero, since we performed a read-to-write adjustment after reading $A$. Finally, it finishes the session $\sessionof{\Delta^2}{y}$, passing control back to the writing process.
 
-\subsubsection{Continue if negative}
-
-To simplify the definition of the generation rules, a pseudo-instruction \texttt{continueIfNegative(x)} is defined, where $x$ is the channel name. This instruction is replaced by a \texttt{continueSession} instruction and a new block for its proceeding instructions if $r(\tau)$ is a negative type, where $\tau$ is the type of channel $x$.
-
-This is used to achieve the same effect as the write-to-read adjustment of the \ac{SAM}, ensuring that whenever a read operation is performed, its writing counterpart must have already executed, and thus, written the data to the local data section we'll be reading from.
+The writing process now reads from $\readlocof{\Delta^1}{x}$ a session of type $B$, which is equal to $\writelocof{\Delta^2}{y}$, and the communication is complete.
 
 \subsection{Expression generation}
 
@@ -576,7 +572,9 @@ For each resulting \ac{IR} process, an environment $(\theta, \Delta)$ is initial
 
 The channel environment $\Delta$ maps each argument channel name to a channel state $(s, d, 0)$. If the argument is linear, $s$ is a fresh session identifier, inserted into the process header. Otherwise, $s = 0$, as exponential channels don't have an associated session. In both cases, $d$ is a fresh local data identifier inserted into the process header, with a layout given by $\alllocalslots{\theta}{A}$, where $A$ is the type of the argument channel. This reserves space for all the data which will be received over the channel. The offset is initialized to $0$, as no data has been read or written yet.
 
-Finally, we generate the instructions for the process body $P$ (starting by the entry block) through $\getinstructions{\theta}{\Delta}{P}$, and set the number of end points of the process to $\getendpoints{\theta}{P}$.
+For each of the exponential arguments of the process, an always set drop bit is also added to the process header, to ensure that the exponential data is dropped when the process ends.
+
+Finally, we generate the instructions for the process body $P$ (starting by the entry block) through $\getinstructions{\theta}{\Delta}{P}$, and set the number of end points of the process to $\getendpoints{\theta}{P}$. As instructions are generated, the process header is modified incrementally to include any new sessions, local data sections or drop bits which are necessary for the generated code to work.
 
 \subsection{Cut, Parallel and Empty}
 
@@ -719,7 +717,7 @@ Forwarding requires us to move any data which has been received (but not consume
 
 \begin{compilation}{\theta}{\Delta}{\fwdc{x}{y}}
 {1}
-    \moveslots{r(\varepsilon, y)}{\readlocof{\Delta}{x}}{\slots{\theta}{A}}
+    \moveslots{\writelocof{\Delta}{y}}{\readlocof{\Delta}{x}}{\slots{\theta}{A}}
     \forwardsessions{\sessionof{\Delta}{x}}{\sessionof{\Delta}{y}}{\hasendpoint}
 \end{compilation}
 
@@ -733,13 +731,13 @@ Process calls are compiled as shown below. The identifier $id$ of the \ac{IR} pr
 
 The list of type arguments $T_1,\,\dots,\,T_n$ is generated from the type parameters $A_1,\,\dots,\,A_n$. Each $T_i$ is the active slot tree of type, computed as $\slots{\theta}{A_i}$.
 
-The list of session arguments $S_1,\,\dots,\,S_m$ is generated from the linear arguments $x_1,\,\dots,\,x_m$. Each $S_i$ is a tuple $(s_t, s_s, o)$, where $s_t$ is the session identifier of the argument in the environment of the process being called, $s_s = \sessionof{\Delta}{x}$ is the session identifier of channel $x_i$ in $\varepsilon$, and $o = \offsetof{\Delta}{x}$ is the offset of channel $x_i$ in $\varepsilon$.
+The list of session arguments $S_1,\,\dots,\,S_m$ is generated from the linear arguments $x_1,\,\dots,\,x_m$. Each $S_i$ is a tuple $(s_t, s_s, o)$, where $s_t$ is the session identifier of the argument in the environment of the process being called, $s_s = \sessionof{\Delta}{x}$, and $o = \offsetof{\Delta}{x}$.
 
-The list of data arguments $D_1,\,\dots,\,D_{m+k+1}$ is generated similarly to the session arguments, but with extra entries for the exponential arguments. Each $D_i$ is a tuple $(d_t, d_s, t, c)$.
+The list of data arguments $D_1,\,\dots,\,D_{m+k}$ is generated similarly to the session arguments, but with extra entries for the exponential arguments. Each $D_i$ is a tuple $(d_t, d_s, t, c)$.
 
-For $i \leq m$ (the linear arguments), $d_t$ is the target data section identifier of the argument in the environment of the process being called, $d_s = \readlocof{\Delta}{x}$ is the local data location of channel $x_i$ in $\varepsilon$. $t = \slots{\theta}{\tau}$ is the slot tree corresponding to the type $\tau$, where $x_i: \tau$. $c$ is the flag indicating whether the argument data should be cloned or moved, which in this case is always \texttt{move}, as $x_i$ is linear.
+For $i \leq m$ (the linear arguments), $d_t$ is the target data section identifier of the argument in the environment of the process being called, $d_s = \readlocof{\Delta}{x}$, $t = \slots{\theta}{\tau}$ where $x_i: \tau$ and $c$ is the flag indicating whether the argument data should be cloned or moved, which in this case is always \texttt{move}, as $x_i$ is linear.
 
-For $i > m$ (the exponential arguments), $d_t$ is once again the target data section identifier of the argument in the environment of the process being called, $d_s = l(\varepsilon, y)$ is the local data location of channel $y_i$ in $\varepsilon$. $t = \slots{\theta}{\whynott{\tau}}$ is the slot tree corresponding to the type $\whynott{\tau}$, where $y_i: \tau$. In this case, $c$ is always \texttt{clone}, as $y_i$ is exponential.
+For $i > m$ (the exponential arguments), let $j = i - m + 1$. $d_t$ is once again the target data section identifier of the argument in the environment of the process being called, $d_s = \readlocof{\Delta}{y_j\textsc{}}$, $t = \slots{\theta}{\whynott{\tau}}$ where $y_j: \tau$. In this case, $c$ is always \texttt{clone}, as $y_j$ is exponential.
 
 \todo{this is quite complex, maybe this could be written in a clearer way?}
 
@@ -761,7 +759,17 @@ On the original process, an exponential write instruction is generated referenci
 
 The list of type arguments $T_1,\,\dots,\,T_n$ is generated similarly to the type arguments of a process call, but inheriting the same exact type parameters as the current process.
 
-The list of data arguments $D_1,\,\dots,\,D_m$ is generated from the free names in $P$, excluding $y$. Each $D_i$ is a tuple $(d_t, d_s, t, c)$, where $d_t$ is the target data section identifier of the argument in the environment of the process being called, $d_s = l(\varepsilon, x_i)$ is the local data location of channel $x_i$ in $\varepsilon$, $t = \slots{\theta}{\whynott{\tau}}$ is the slot tree corresponding to the type $\whynott{\tau}$, where $x_i: \tau$ and $c$ is the flag indicating whether the argument data should be cloned or moved, which in this case is always \texttt{clone}, as all free names in $P$ are exponentials.
+The list of data arguments $D_1,\,\dots,\,D_m$ is generated from the free names in $P$, excluding $y$. Each $D_i$ is a tuple $(d_t, d_s, t, c)$, where $d_t$ is the target data section identifier of the argument in the environment of the process being called, $d_s = \readlocof{\Delta}{x_i}$, $t = \slots{\theta}{\whynott{\tau}}$ where $x_i: \tau$ and $c$ is the flag indicating whether the argument data should be cloned or moved, which in this case is always \texttt{clone}, as all free names in $P$ are exponentials.
+
+The compilation of a $\whynotc{x}P$ process is shown below. A new drop bit $(S, d)$ identified by a fresh drop bit identifier $e$ is inserted into the process header, with slots $S = \slots{\theta}{A}$, where $A$ is the type of channel $x$, and $d = \readlocof{\Delta}{x}$, the local data location of channel $x$, where the exponential data with slots $S$ is stored.
+The compilation of a $\whynotc{x}P$ process is shown below. A new drop bit $(S, d)$ identified by a fresh drop bit identifier $e$ is inserted into the process header, with slots $S = \slots{\theta}{A}$, where $A$ is the type of channel $x$, and $d = \readlocof{\Delta}{x}$, the local data location of channel $x$, where the exponential data with slots $S$ is stored.
+
+Then, a defer drop instruction is generated, which sets the drop bit $e$ to true, ensuring that the exponential data associated to it is dropped when the process ends. Finally, the compilation recurses on $P$, with no changes to the environment, as no changes to the channel state are made.
+
+\begin{compilation}{\theta}{\Delta}{\whynotc{x}{P}}{\getendpoints{\theta}{P}}
+    \deferdrop{e}
+    \recurse{\theta}{\Delta}{P}
+\end{compilation}
 
 \subsection{Unfolds}
 
@@ -774,7 +782,7 @@ In both cases, the process finishes by recursing on the right-hand-side $P$ of t
 \begin{figure}[H]
     \centering
     \begin{minipage}{0.45\textwidth}
-        \begin{compilationembed}{\unfoldmuc{x}{P}}{\varepsilon}
+        \begin{compilationembed}{\theta}{\Delta}{\unfoldmuc{x}{P}}
         {\getendpoints{\theta}{P}}
             \continuesession{\sessionof{\Delta}{x},\,\texttt{cont}}
             \labelir{cont} 
@@ -783,7 +791,7 @@ In both cases, the process finishes by recursing on the right-hand-side $P$ of t
     \end{minipage}
     \hfill
     \begin{minipage}{0.45\textwidth}
-        \begin{compilationembed}{\unfoldnuc{x}{P}}{\varepsilon}
+        \begin{compilationembed}{\theta}{\Delta}{\unfoldnuc{x}{P}}
         {\getendpoints{\theta}{P}}
             \beginir\%\ \text{where } x:A \text{ in }P
             \continueifneg{x}{A}
@@ -801,7 +809,7 @@ The compilation definition of the $\recvtyc{x}{X}P$ process is shown below. Two 
 
 First, a branch instruction is generated which reads a tag from the local data of channel $x$, which indicates the polarity of the type being received. Then, depending on the read tag, either $id^-$ or $id^+$ is called, passing all free names in $P$ as arguments, along with the new session which represents $x$ in $P$, stored in $\readlocof{\Delta}{x} + \slotoffset{\seqst{\types}}{\seqst{\sessions; \tags}}$. Both $T^-$ and $T^+$ are generated from the type parameters of the current process, exactly as in a process call, but with an extra entry for $X$, which is read from $\readlocof{\Delta}{x}$.
 
-All session arguments $S$ and data arguments $D$ are generated from the free names in $P$, simply forwarding their channel states from the current environment $\varepsilon$. \todo{do I need to clarify this?}
+All session arguments $S$ and data arguments $D$ are generated from the free names in $P$, simply forwarding their channel states from the environment $\Delta$. \todo{do I need to clarify this?}
 
 \begin{compilation}{\theta}{\Delta}{\recvtyc{x}{X}P}{1}
     \branchtag{\concatst{\readlocof{\Delta}{x}}{\slotoffset{\seqst{\types; \sessions}}}{\seqst{\tags}}}{\texttt{neg:1},\,\texttt{pos:1}}
@@ -844,7 +852,7 @@ An alternative solution would be to change the definition of $\affinet{A}$ to be
     \labelir{use}
     \recurse{\theta}{\Delta[x \mapsto (\sessionof{\Delta}{x}, \localdataof{\Delta}{x}, o)]}{P}
     \labelir{discard}
-    \recurse{\discardc{y_i}}{\varepsilon} \comment \text{for each free co-affine name }y_i\text{ in }P
+    \recurse{\theta}{\Delta}{\discardc{y_i}} \comment \text{for each free co-affine name }y_i\text{ in }P
     \finishsession{\sessionof{\Delta}{x}}{\hasendpoint}
 \end{compilation}
 
