@@ -21,4 +21,20 @@ Nulla facilisi. In vel sem. Morbi id urna in diam dignissim feugiat. Proin moles
 Nunc auctor bibendum eros. Maecenas porta accumsan mauris. Etiam enim enim, elementum sed, bibendum quis, rhoncus non, metus. Fusce neque dolor, adipiscing sed, consectetuer et, lacinia sit amet, quam.
 % #############################################################################
 \section{System Limitations and Future Work}
-Aliquam aliquet, est a ullamcorper condimentum, tellus nulla fringilla elit, a iaculis nulla turpis sed wisi. Fusce volutpat. Etiam sodales ante id nunc. Proin ornare dignissim lacus. Nunc porttitor nunc a sem. Sed sollicitudin velit eu magna. Aliquam erat volutpat. Vivamus ornare est non wisi. Proin vel quam. Vivamus egestas. Nunc tempor diam vehicula mauris. Nullam sapien eros, facilisis vel, eleifend non, auctor dapibus, pede.
+
+\todo{needs rewriting}
+
+An implementation of the proposed solution, including some polymorphism functionality, recursion and exponentials, has already been developed, but still has to be profiled and optimized. In terms of language features, it still doesn't cover any of the shared state and reference cell constructs of \ac{CLASS}.
+
+One challenge brought up by polymorphism is that we no longer know at compile time whether on a given code section a type variable is positive or negative, and thus, whether we should generate a flip or not when encountering it as a remainder type. We expect to solve this problem by keeping track of the polarity of type variables in the environment, and branching on it when necessary.
+
+Memory management is currently very inefficient, as we allocate a new session record as sessions are created as needed and freed as they are closed, using the \texttt{malloc} and \texttt{free} functions provided by the C standard library. These functions are very slow, and we could improve performance by using a custom memory allocator, specially given that due to the linear nature of \ac{CLASS}, we have plenty of guarantees about the lifetime of session records. It would also be interesting to explore the possibility of reusing data by doing in-place updates on session buffers, instead of copying data around.
+
+One other issue also related to memory management is the deallocation of environments. Currently, environments are never deallocated, which means that we have at least one memory leak for each process call. Once again, due to the linearity of \ac{CLASS}, it's possible that we may be able to determine statically when an environment is no longer needed, and deallocate it. The challenge lies in determining when an environment is no longer needed, as it may be shared between multiple sessions, and sessions may be passed around dynamically. This is a problem that will be tackled in the full implementation. We're expecting to solve the problem through type driven compilation, and thus avoid the need for garbage collection. This can be achieved by using a reference counting mechanism, where an environment's reference count is decremented each time one of its sessions is closed, and deallocated when the count reaches zero.
+
+Adding support for native types such as integers and booleans is also something that will be addressed in the final implementation, as it will greatly increase the performance capabilities of the compiler.
+
+Although this work focuses on generating sequential code, it should still be useful to make use of the natural parallelism of the \ac{CLASS} language. One possibly solution would be to distribute the tasks in the task list to multiple threads, through a thread pool, for example.
+
+Finally, there are several other improvements and optimizations that could be made to the compiler that are not and won't be addressed in this work, but would be interesting to explore in the future. One such improvement would be to change the target language from C to LLVM IR, which is a low-level intermediate representation used by the LLVM compiler infrastructure. This would allow us to take advantage of the more advanced optimizations provided by the LLVM compiler.
+

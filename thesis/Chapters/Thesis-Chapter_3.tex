@@ -10,9 +10,9 @@
 The solution developed on this thesis to the problem of compiling \ac{CLASS} programs to native code is a compilation scheme heavily based on the \ac{SAM} interpreter. Execution is done sequentially and deterministically, with the compiler generating code that closely resembles the execution of the \ac{SAM}, implementing continuation-based coroutining.
 Associated to each process is a block of data called an environment, similar to a stack frame of traditional imperative languages. This environment stores the continuations of each session, as well as any data received through them. Whenever a process finishes writing data to a session, a jump is made to its other end point, which will read the data and continue execution.
 
-At a high-level, the compilation scheme is divided into four phases. First, the source \ac{CLASS} program is parsed and type-checked. This phase is not discussed in this report, as its implementation has been reused from the previous work \cite{Rocha:2023, Caires:2024} on the \ac{SAM} and \ac{CLASS} interpreters. Then, the program is compiled to an intermediate representation (\ac{IR}) which abstracts some details of the target language. Next, the \ac{IR} is analyzed and optimized by a series of passes. Finally, the optimized \ac{IR} is translated to C code, which is then compiled to native code using the GNU Compiler Collection (GCC).
+At a high-level, the compilation scheme is divided into four phases. First, the source \ac{CLASS} program is parsed and type-checked. This phase is not discussed in this report, as its implementation has been reused from the previous work \cite{Rocha:2023, Caires:2024} on the \ac{SAM} and \ac{CLASS} interpreters. Then, the program is compiled to an intermediate representation (\ac{IR}) which abstracts some details of the target language. Next, the \ac{IR} is analyzed and optimized by a series of passes. Finally, the optimized \ac{IR} is translated to C code, which is then compiled to native code using the \acf{GCC}.
 
-The \ac{IR} optimization phase is left for the next chapter, while this chapter focuses on presenting the base \ac{IR} and compilation scheme. This chapter is divided into five four. In the first section, the \ac{IR}'s constructs and its abstract machine are defined. In the second section, the compilation of \ac{CLASS} to the \ac{IR} is described. In the third section, an overview is given on how the \ac{IR} is translated to C code. Finally, in the fourth section, open problems and future work and listed.
+The \ac{IR} optimization phase is left for the next chapter, while this chapter focuses on presenting the base \ac{IR} and compilation scheme. This chapter is divided into five four. In the first section, the \ac{IR}'s constructs and its abstract machine are defined. In the second section, the compilation of \ac{CLASS} to the \ac{IR} is described. Finally, in the third section, an overview is given on how the \ac{IR} is translated to C code.
 
 \section{Intermediate Representation}
 
@@ -452,7 +452,7 @@ This compilation scheme assumes well-typed \ac{CLASS} processes are given as inp
 
 To compile \ac{CLASS} processes to \ac{IR} programs, the compiler must keep track of information regarding the state of each type and channel name within the process being compiled. This state is referred to as the environment, and is represented by a tuple $(\theta, \Delta)$, where $\theta$ is the type environment and $\Delta$ is the channel environment.
 
-\subsubsection{Type environments}
+\subsubsection{Type environments} \label{subsubsection:TypeEnvironments}
 
 A type environment $\theta$ is a mapping from type variables to a tuple $(p, t)$ where $p$ is the polarity of the type variable ($+$ or $-$) and $t$ is its identifier (e.g, $t_0$, $t_1$) within the header of the process being compiled. $\polarityof{\theta}{X}$ and $\typeidof{\theta}{X}$ are defined as the polarity and identifier of type variable $X$ in the type environment $\theta$, respectively.
 
@@ -590,7 +590,7 @@ The process initializes the session $s$ with a new block \texttt{rhs} as continu
     \recurse{\theta}{\Delta[x \mapsto (s, d, 0)]}{Q}
 \end{compilation}
 
-The compilation of a $\parp$ process is shown below. The process starts by generating code to insert a new task for executing $Q$ into the task linked list. Then, it compiles $P$, which will be executed immediately. AS with the $\cutp$ process, the number of end points of the generated code is the sum of the number of end points of both $P$ and $Q$.
+The compilation of a $\parp$ process is shown below. The process starts by generating code to push a new task for executing $Q$ into the task stack. Then, it compiles $P$, which will be executed immediately. AS with the $\cutp$ process, the number of end points of the generated code is the sum of the number of end points of both $P$ and $Q$. Since the task stack is a stack, task pop instructions always execute the most recently pushed task. Thus, it is guaranteed that $Q$ will only execute after $P$ has finished executing completely.
 
 \begin{compilation}{\theta}{\Delta}{\parc{P}{Q}}
 {\getendpoints{\theta}{P} + \getendpoints{\theta}{Q}}
@@ -928,241 +928,252 @@ Finally, the $\sharec{x}{P}{Q}$ process is compiled as shown below. Since the ce
 
 \section{Generating C code from IR programs}
 
-\todo{Rewrite this section}
+The last phase of the compilation pipeline is the C generation phase. This phase takes as input the \ac{IR} produced by the compilation scheme described in the previous section, and produces a C program which implements the semantics of the \ac{IR}.
 
-In this section we describe the C programs the compiler generates from the \acf{IR}, which is produced by the code generation phase.
+This C program can then be compiled with \ac{GCC} to produce an executable which runs a computation equivalent to the original \ac{CLASS} program. The generated code depends only on the standard C library and on \texttt{pthread}, if concurrency is enabled. Additionally, it makes extensive use of the \ac{GCC} extension for computed gotos, which allows for efficient implementation of continuations.
 
-The intermediate representation used by the compiler is an imperative stateful language which closely resembles an assembly language for an abstract machine. An \ac{IR} program is a list of blocks of instructions, which may be labeled. Each block corresponds to a process definition in the source \ac{CLASS} program.
+The first subsection of this section describes how the slot trees are translated to concrete data structures in C. The second subsection describes the environment data structure, which stores the state of a process invocation.  The third subsection shows how the main function and the generated code are laid out. Finally, the the last subsections give an overview of how the main instructions of the \ac{IR} abstract machine are implemented in C.
 
-We start by showing the C type definitions for the data structures generated by the compiler. Then, we give an overview of our intermediate representation, and show how these \ac{IR} constructs are translated to C code.
+\subsection{Slot tree memory layouts}
 
-\subsection{Data Types}
+In the \ac{IR} abstract machine, the concept of data is abstracted away into slots, covered in \Cref{subsection:IRSlots}. A slot tree describes the possible slots which may be stored in a data section in sequence, with branching. A set of slot trees describes the multiple possible slot trees which may be stored in a data section, with only one of them being active at any given time.
 
-Below, we show the C type which describes an execution environment, which is responsible for binding session records to session indices. At any time during the execution of a program, there exists an active environment, where the records accessible to the current process are stored. The environment is a struct which contains an array of pointers to session records, with at most $255$ elements.
-% and a pointer to the first exponential closure in the environment
+To generate C code, these slot trees must be translated to concrete, byte-addressed, memory layouts. To this end, a memory layout is defined as a tuple $L = (S, A)$, where $S$ is the size in bytes of the layout, and $A$ is the alignment in bytes the layout must have in memory. Both $S$ and $A$ are not constants, but C expressions which can be evaluated at runtime. This is necessary because polymorphic types have layouts which are only known at runtime.
 
-% missing struct exponential* exponential;
+In order to satisfy the alignment requirements of the various C types used to implement the \ac{IR} abstract machine, a C macro \texttt{ALIGN(s, a)} is defined, which rounds up the size \texttt{s} to the nearest multiple of the alignment \texttt{a}. This macro is used extensively when computing memory layouts. Additionally, a C macro \texttt{MAX(a, b)} is defined, which computes the maximum of two integers \texttt{a} and \texttt{b}.
+
+Two memory layouts $L_1 = (S_1, A_1), L_2 = (S_2, A_2)$ can be concatenated to form a new layout $L = L_1 + L_2$, where $L = (\texttt{ALIGN}(S_1, A_2) + S_2,\ \texttt{MAX}(A_1, A_2))$, such that $L_1$ is placed first in memory, followed by $L_2$, with padding added to ensure that $L_2$ starts at an address which is a multiple of $A_2$. Additionally, the maximum of two layouts $L = L_1 \vee L_2$ is defined as $L = (\texttt{MAX}(S_1, S_2),\ \texttt{MAX}(A_1, A_2))$.
+
+The memory layout of a slot $s$ on a given target architecture $\arch$ is given by the function $\slotlayout{\sigma}{s}$ (defined in \Cref{fig:CSlotLayout}), where $\sigma$ is a map between type variables and their layouts, and $\arch$ a target architecture. A target architecture $\arch$ is a mapping from C types to their memory layouts, such that $\archlayout{type} = (S, A)$ where $S$ and $A$ where, respectively, the size and alignment of \texttt{type} on the target architecture. A concrete definition of $\sigma$ will be introduced in \Cref{subsection:CEnvironments}.
+
+\begin{figure}[H]
+    \begin{align*}
+        &\begin{aligned}
+            &\slotlayout{\sigma}{\ints} = \archlayout{int} && \slotlayout{\sigma}{\bools} = \archlayout{unsigned char} \\
+            &\slotlayout{\sigma}{\strings} = \archlayout{char*} && \slotlayout{\sigma}{\sessions} = \archlayout{struct session*} \\
+            &\slotlayout{\sigma}{\tags} = \archlayout{unsigned char} && \slotlayout{\sigma}{\types} = \archlayout{struct type} \\
+            &\slotlayout{\sigma}{\exponentials} = \archlayout{struct exponential*} && \slotlayout{\sigma}{\cells} = \archlayout{struct cell*} \\
+        \end{aligned}\\
+        &\slotlayout{\sigma}{t_i} = \layoutofvar{\sigma}{t_i}\\
+    \end{align*}
+    \caption{Memory layout of a slot $s$ on a target architecture $\arch$ and a type variable layout map $\sigma$.}
+    \label{fig:CSlotLayout}
+\end{figure}
+
+The definition of $\slotlayout{\sigma}{s}$ is extended to support both trees of slots, and sets of slot trees, as shown in \Cref{fig:CTreeLayout}. The layout of a tree of slots is defined as the concatenation of the layouts of each of its slots, and maximum across any branches, while the layout of a set of slot trees is defined as the maximum layout among all its trees.
+
+\begin{figure}[H]
+    \begin{align*}
+        &\slotlayout{\sigma}{\nilst} = (0, 1)\\
+        &\slotlayout{\sigma}{\seqst{s; T}} = \slotlayout{\sigma}{s} + \slotlayout{\sigma}{T}\\
+        &\slotlayout{\sigma}{\tagst{T_1 \tagsepst \dots \tagsepst T_n}} = \bigvee_{i=1}^{n} \slotlayout{\sigma}{T_i}\\
+        &\slotlayout{\sigma}{\left\{T_1,\,\dots,\,T_n\right\}} = \bigvee_{i=1}^{n} \slotlayout{\sigma}{T_i}
+    \end{align*}
+    \caption{Memory layout of slot trees $T$ and of a set of slot trees on a target architecture $\arch$ and a type variable layout map $\sigma$.}
+    \label{fig:CTreeLayout}
+\end{figure}
+
+\todo{might need to also define 'current layout' to get the current size of a branching tree}
+
+\subsection{Environments} \label{subsection:CEnvironments}
+
+The main data structure used to implement the execution state of the \ac{IR} abstract machine is the environment, which stores all state related to a process invocation. In the generated code, environments are compiled to heap allocated byte arrays, which are indexed through an environment layout $\envlayout$.
+
+An environment layout $\envlayout$ is a compile-time data structure which describes the byte offsets at which each entry of the environment can be found, and is computed from the header of the \ac{IR} process being compiled. The address of the end point counter (a C integer or atomic integer if concurrency is enabled) is given by $\envlayouteps{\texttt{env}}$ where \texttt{env} is a pointer to the environment. Drop bits are stored at $\envlayoutdrop{\texttt{env}}$, type information for type variable $t_i$ is stored at $\envlayouttype{\texttt{env}}{t_i}$, sessions $s_i$ are stored at $\envlayoutsession{\texttt{env}}{s_i}$, and local data $d_i$ at $\envlayoutlocal{\texttt{env}}{d_i}$.
+
+The layout of the environment is computed trivially by concatenating the layouts of each of its entries, in the order they appear in the process header. The layout for for data entries is the most noteworthy, as it depends on the stored data type. This layout is computed from $\slotlayout{\sigma}{S}$, where $S$ is the set of slot trees of the data being stored, and $\sigma$ is a mapping between type variables and their layouts, fetched from the environment itself (e.g., $\sigma(t_i) = \texttt{access}(\envlayouttype{\texttt{env}}{t_i})$). Its formal definition is omitted for brevity.
+
+Sessions are stored in the environment as instances of the C type \texttt{struct session}, shown below. Sessions store the address of a label to jump to the continuation (\texttt{cont}), a pointer to the environment to switch to before jumping to the continuation (\texttt{cont\_env}), a pointer to the remote data (writing buffer) of the session (\texttt{cont\_data}), and a pointer to the session entry in the continuation environment pertaining to the other end point of the session (\texttt{cont\_session}).
+
 \begin{lstlisting}[language=C]
-struct environment {
-    struct record* records[];
+struct session {
+  void* cont;
+  char* cont_env;
+  char* cont_data;
+  struct session* cont_session;
 };
 \end{lstlisting}
 
-The session records, whose type is shown below, describe the current state of a session. The fields \texttt{cont}, \texttt{cont\_env} and \texttt{cont\_record} are used to implement the coroutining aspect of the execution. The \texttt{cont} field is a pointer which stores the program address to jump to when resuming the opposite end point of the session (when executing a flip). This address is obtained from a label, through the GCC extension for computed gotos. The \texttt{cont\_env} field stores a pointer to the environment to switch to when executing a flip, and the \texttt{cont\_record} field stores the index of the session record itself in the environment referenced by \texttt{cont\_env}. The purpose of these fields will be explained more clearly in the next subsections.
-
-To store the data exchanged asynchronously between the two end points of the session, we keep a session buffer in the field \texttt{buffer}, which is a simple byte array. Its size is determined at allocation time, and is at most $255$ bytes. To track how many data has already been written and pending to read, we use the fields \texttt{written} and \texttt{read}, respectively. The \texttt{written} field keeps the count on how many bytes have been written to the buffer, and the \texttt{read} field keeps the count on how many bytes have been read from the buffer.
+Type information is stored in the environment as instances of the C type \texttt{struct type}, shown below. This structure holds the \texttt{size} and \texttt{alignment} of the data described by the type. This structure is also used to store the value of $\types$ slots in the local data sections.
 
 \begin{lstlisting}[language=C]
-struct record {
-    void* cont;
-    struct environment* cont_env;
-    unsigned char cont_record;
-    unsigned char written, read;
-    unsigned char buffer[];
+struct type {
+    int size;
+    int alignment;
 };
 \end{lstlisting}
 
-% The exponential closures form a linked list, where each closure points to its parent closure. The \texttt{cont} field stores the program address to jump to, and the \texttt{size} field stores the size of the environment that should be created when the closure is instantiated.
+\subsubsection{Cleaning up an environment} \label{subsubsection:CEnvironmentCleanup}
 
-% \begin{lstlisting}[language=C]
-% struct exponential {
-%     struct exponential* parent;
-%     void* cont;
-%     int size;
-% };
-% \end{lstlisting}
-
-Finally, we define a C type for tasks. Tasks store a continuation, i.e., a program address and an environment to switch to. These exist solely to implement the parallel construct of \ac{CLASS}, which corresponds to the mix rule of linear logic. Tasks form a linked list, where each task points to the next task to be executed.
+When the end point counter of an environment reaches zero, any set drop bits must be processed, dropping their associated data. Thus, whenever an instruction decrements the end point counter, it must check if it reached zero, and if so, run the cleanup code. Only then can the environment itself be freed. For example, the code below decrements the end point counter, checking if it reached zero, and if so, checks if the drop bit $0$ is set, dropping its associated data if so, before freeing the environment itself.
 
 \begin{lstlisting}[language=C]
-struct task {
-    struct task* next;
-    void* cont;
-    struct environment* cont_env;
-};
+if (atomic_fetch_sub(&(*(atomic_int*)(env)), 1) == 1) {
+    if ((*(unsigned char*)(env + 4)) & (1 << 0)) {
+        /* drop data associated to drop bit 0 */
+    }
+    /* other drop bit checks... */
+    managed_free(env);
+}
 \end{lstlisting}
 
-\subsection{Registers}
+If a process has only one end point, a small optimization is applied which removes the end point counter from the environment, and any decrement instructions are replaced with the cleanup code directly, as the end point counter is guaranteed to reach zero when these instructions are reached.
 
-Translated \ac{IR} instructions operate on the registers shown below. The \texttt{env} register points to the current environment, on which operations are performed. The \texttt{task} registers point to the next task to be executed. The rest of the registers are used to store temporary values.
+\subsection{Execution and registers}
+
+The \texttt{main} function of the generated C program initializes any required global state (such as the allocator, or profiling tools), and invokes a function named \texttt{executor} with a \texttt{NULL} argument. The \texttt{executor} function is the core of the \ac{IR} abstract machine implementation. Each thread of execution runs its own instance of this function, receiving as argument a pointer to its entry task.
+
+At the start of the \texttt{executor} function, registers used to implement the \ac{IR} instructions are declared. The first two registers \texttt{task} and \texttt{env} respectively store pointers to the head of the task stack (introduced in the next subsection) and the current environment, which is state kept across \ac{IR} instructions. The rest of the registers are used to store temporary values used within the execution of each instruction. After declaring the registers, the thread state is initialized.
 
 \begin{lstlisting}[language=C]
-struct environment *env, *tmp_env;
-struct task *task, *tmp_task;
-struct record *tmp_record;
-void *tmp_cont;
+void executor(struct task* entry) {
+    /* Registers */
+    register struct task* task;
+    register char* env;
+    register void* tmp_ptr1;
+    register void* tmp_ptr2;
+    register int tmp_int;
+    struct session tmp_session;
+
+    /* Initialize thread state (...) */
 \end{lstlisting}
 
-\subsection{Main function and labels}
-
-The main function of the generated C program is shown below. It initializes the environment, allocates space for the session records, and then jumps to the entry process. For each process definition, a label of the form \texttt{proc\_X} is generated, where \texttt{X} is the name of the process. The code each for process definition is generated from its \ac{IR} instructions, immediately after the label.
+After initializing the thread state, control is passed to the entry task (received as argument), which contains a continuation address and environment. If the entry task is \texttt{NULL}, the main process is called instead, as shown below. To call the main process, a new environment is allocated with the size computed from its header, and a jump is performed to its entry block.
 
 \begin{lstlisting}[language=C]
-int main() {
-    /* The last task in the list of tasks finishes the program */
-    task = malloc(sizeof(struct task));
-    task->cont = &&end;
+    if (entry == NULL) {
+        /* callProcess(main) */
+        tmp_ptr1 = managed_alloc(144);
+        env = ((char*)(tmp_ptr1));
+        goto main_entry;
+    } else {
+        env = entry->cont_env;
+        tmp_ptr1 = entry->cont;
+        managed_free(entry);
+        goto *tmp_ptr1;
+    }
+\end{lstlisting}
 
-    /* Initializes the environment, where n is the number of session records
-       necessary for the entry process */
-    env = malloc(sizeof(struct environment) + /*n*/ * sizeof(struct record*));
-    goto proc_entry;
+After these instructions, still within the \texttt{executor} function, for each block of each process a unique C label is generated, followed by the C code generated from the \ac{IR} instructions in the block. Finally, a label named \texttt{end} is generated, which represents the end of the thread's execution.
 
-    /* ... process definitions ... */
-
+\begin{lstlisting}[language=C]
+main_entry:
+    /* instructions of main's entry block ... */
+foo_cut_lhs_0:
+    /* instructions of foo's cut_lhs_0 block ... */
+    /* other blocks ... */
 end:
     return 0;
 }
 \end{lstlisting}
 
-Additionally, any labels in the \ac{IR} are directly translated to C labels, with extra care taken to ensure that each label is unique.
-
-
 \subsection{Tasks}
 
-There are two \ac{IR} instructions which manipulate the linked list of tasks. The \texttt{newTask} instruction, from which code is generated as shown below, allocates a new task, sets its continuation to a chosen label \texttt{cont}, and inserts it at the end of the linked list.
+Tasks are stored in a linked list local to each thread of execution, where each node is of the type shown below. The \texttt{task} register points to the head node of this stack. The \texttt{next} field points to the next task to be executed, while the \texttt{cont} and \texttt{cont\_env} fields store the program address and environment to switch to when executing the task. 
 
 \begin{lstlisting}[language=C]
-    /* newTask(cont) */
-    tmp_task = malloc(sizeof(struct task));
-    tmp_task->next = task;
-    tmp_task->cont = &&cont;
-    tmp_task->cont_env = env;
-    task = tmp_task;
+struct task {
+    struct task* next;
+    void* cont;
+    char* cont_env;
+};
 \end{lstlisting}
 
-The \texttt{nextTask} instruction, whose generation is shown below, removes the first task from the linked list, changes the current environment and jumps to its continuation.
+The \texttt{task} register is initialized at the start of the \texttt{executor} function with a dummy task which jumps to the \texttt{end} label, ending the thread's execution. This dummy task is necessary to ensure that the task stack is never empty, simplifying the implementation of the \texttt{popTask} instruction.
 
 \begin{lstlisting}[language=C]
-    /* nextTask() */
-    tmp_task = task;
+    task = managed_alloc(sizeof(struct task));
+    task->cont = &&end;
+\end{lstlisting}
+
+The two \ac{IR} instructions for manipulating tasks, \texttt{pushTask} and \texttt{popTask}, manipulate the linked list of tasks pointed to by the \texttt{task} register. The first instruction, \texttt{pushTask}, allocates a new task, sets its continuation to the C label of the chosen block, and inserts it at the head of the linked list. The generated C code for this instruction is shown below.
+
+\begin{lstlisting}[language=C]
+    /* pushTask(cont) */
+    tmp_ptr1 = task;
+    task = managed_alloc(sizeof(struct task));
+    task->next = ((struct task*)(tmp_ptr1));
+    task->cont = &&proc_cont; /* proc_cont is the C label of block 'cont' */
+    task->cont_env = env;
+\end{lstlisting}
+
+The \texttt{popTask} instruction, whose generation is shown below, removes the first task from the linked list, changes the current environment and jumps to its continuation.
+
+\begin{lstlisting}[language=C]
+    /* popTask() */
+    tmp_ptr1 = task;
+    tmp_ptr2 = task->cont;
+    env = task->cont_env;
     task = task->next;
-    env = tmp_task->cont_env;
-    tmp_cont = tmp_task->cont;
-    free(tmp_task);
-    goto *tmp_cont;
+    managed_free(tmp_ptr1);
+    goto *tmp_ptr2;
 \end{lstlisting}
 
-\subsection{Session initialization and freeing}
+\subsection{Session manipulation}
 
-Sessions are initialized with the \texttt{initSession} instruction. This instruction receives the index \texttt{record} of the session record in the current environment, the \texttt{size} of the session record buffer in bytes, and the initial continuation of the session, referenced by a label \texttt{cont}. The generated C code for this instruction is shown below.
+The \texttt{initializeSession} instruction is compiled as shown below. The session at $\envlayoutsession{\texttt{env}}{s_0}$ (in this example, $\texttt{env} + 8$) is initialized with the given continuation label, the current environment as its continuation environment, the address $\envlayoutlocal{\texttt{env}}{d_0}$ (in this case, $\texttt{env} + 40$) as its continuation data, and a pointer to itself as its continuation session.
 
 \begin{lstlisting}[language=C]
-    /* initSession(record, size, cont) */
-    env->records[record] = malloc(sizeof(struct record) + size);
-    env->records[record]->cont = &&cont;
-    env->records[record]->cont_env = env;
-    env->records[record]->cont_record = record;
-    env->records[record]->written = 0;
-    env->records[record]->read = 0;
+    /* initializeSession(s0, cut_lhs_0, d0) */
+    (*(struct session*)(env + 8)) = (struct session){
+        .cont=&&main_cut_lhs_0,
+        .cont_env=env,
+        .cont_data=env + 40,
+        .cont_session=env + 8
+    };
 \end{lstlisting}
 
-Sessions are freed with the \texttt{freeSession} instruction. This instruction receives the index \texttt{record} of the session record in the current environment.
+The compilation of the \texttt{finishSession} instruction is shown below. First, the remote session of the finished session is unlinked from the current session by setting its \texttt{cont\_session} field to itself. This is necessary to avoid use after free errors in instructions such as \texttt{forwardSessions} and \texttt{callProcess}. Then, the continuation is stored on the registers and the environment's end point counter is decremented atomically (when concurrency is disabled, a normal integer is used instead). If the counter reaches zero, the environment cleanup code described in \Cref{subsubsection:CEnvironmentCleanup} is executed. Finally, the environment and program address are switched to the continuation values, and a jump is performed.
 
 \begin{lstlisting}[language=C]
-    /* freeSession(record) */
-    free(env->records[record]);
-\end{lstlisting}
-
-\subsection{Session buffer manipulation}
-
-To simplify write and read operations on session buffers, we define the \texttt{PUSH} and \texttt{POP} macros, shown below. These macros write and read to the buffer, respectively, and change the \texttt{written} and \texttt{read} fields of the session record accordingly.
-
-\begin{lstlisting}[language=C]
-#define READ(record) env->records[record]->read
-#define WRITTEN(record) env->records[record]->written
-#define BUFFER(record) env->records[record]->buffer
-
-#define PUSH(record, type, value) \
-    *((type*)&BUFFER(record)[WRITTEN(record) += sizeof(type)]) = value
-#define POP(record, type) \
-    *((type*)&BUFFER(record)[READ(record) += sizeof(type)])
-\end{lstlisting}
-
-The \texttt{pushClose} and \texttt{popClose} instructions both receive the index \texttt{record} of the session record in the current environment. Both instructions compile to nothing, as close tokens are zero-sized, and thus, nothing needs to be written or read from the session buffer. They're included only for debugging purposes.
-
-The \texttt{pushTag} instruction receives the index \texttt{record} of the session record in the current environment, and a tag \texttt{tag} to be pushed to the session buffer. The generated C code for this instruction is shown below.
-
-\begin{lstlisting}[language=C]
-    /* pushTag(record, tag) */
-    PUSH(record, unsigned char, tag);
-\end{lstlisting}
-
-Since tags are represented as \texttt{unsigned char}, we limit the maximum number of branches in choice and offer processes to $256$.
-
-The \texttt{popTag} instruction receives the index \texttt{record} of the session record in the current environment, and a mapping \texttt{cases} from tags to labels.
-
-\begin{lstlisting}[language=C]
-    /* popTag(record, cases) */
-    switch (POP(record, unsigned char)) {
-        case /*tag*/: goto /*label*/; /* for each (tag, label) in cases */
+    /* finishSession(s0, end point) */
+    (*(*(struct session*)(env + 8)).cont_session).cont_session = (*(struct session*)(env + 8)).cont_session;
+    tmp_ptr1 = (*(struct session*)(env + 8)).cont;
+    tmp_ptr2 = (*(struct session*)(env + 8)).cont_env;
+    if (atomic_fetch_sub((atomic_int*)(env), 1) == 1) {
+        /* environment cleanup code */
     }
+    env = ((char*)(tmp_ptr2));
+    goto *tmp_ptr1;
 \end{lstlisting}
 
-The \texttt{pushSession} instruction receives the indices \texttt{record} and \texttt{argRecord} of the session records in the current environment, and pushes a pointer to the session record \texttt{argRecord} to the buffer of the session record \texttt{record}. The generated C code for this instruction is shown below.
+The \texttt{continueSession} instruction is compiled similarly to \texttt{finishSession}, as shown below, except that the end point counter is not decremented, and that the continuation of the remote session must be updated so that it eventually jumps back to the correct label.
 
 \begin{lstlisting}[language=C]
-    /* pushSession(record, argRecord) */
-    PUSH(record, struct record*, env->records[argRecord]);
+    /* continueSession(s0, continue_12) */
+    tmp_ptr1 = (*(struct session*)(env + 8)).cont;
+    (*(*(struct session*)(env + 8)).cont_session).cont = &&main_continue_12;
+    env = (*(struct session*)(env + 8)).cont_env;
+    goto *tmp_ptr1;
 \end{lstlisting}
 
-The \texttt{popSession} instruction receives the indices \texttt{record} and \texttt{argRecord} of the session records in the current environment, pops a session record pointer from the buffer of the session record \texttt{record} and binds it to \texttt{argRecord} in the current environment.
+The \texttt{forwardSessions} instruction first stores the continuation of its second argument in the temporary registers. Then, it sets the remote sessions of both arguments to point to each other, ensuring no references are left to the local sessions. A temporary variable is used to store the first argument's session, as its value may be overwritten due to the possibility of a session being its own remote session. Finally, the end point counter is decremented, and control is passed to the continuation stored in the temporary registers.
 
 \begin{lstlisting}[language=C]
-    /* popSession(record, argRecord) */
-    env->records[argRecord] = POP(record, struct record*);
+    /* forwardSessions(s0, s1, end point) */
+    tmp_ptr1 = (*(struct session*)(env + 40)).cont;
+    tmp_ptr2 = (*(struct session*)(env + 40)).cont_env;
+    tmp_session = *(struct session*)(env + 8);
+    *(*(struct session*)(env + 8)).cont_session = *(struct session*)(env + 40);
+    *(*(struct session*)(env + 40)).cont_session = tmp_session;
+    if (atomic_fetch_sub(*(atomic_int*)(env), 1) == 1) {
+        /* environment cleanup code */
+    }
+    env = (char*)tmp_ptr2;
+    goto *tmp_ptr1;
 \end{lstlisting}
 
-% \todo{Write Pushing and popping exponentials}z
+\subsection{Data manipulation}
 
-\subsection{Flips}
+\todo{Explain moveSlots}
 
-We call the operation of switching the flow of control between two end points of a session a flip. Flips are generated by the \texttt{flip} instruction. This instruction receives the index \texttt{record} of the session record in the current environment, and swaps the current environment and program address with the session record's continuation environment and program address. Additionally, we update the \texttt{cont\_record} field of the record to store the index of the session record in the old environment, which is required by the \texttt{fwd} instruction, as we will see later. In the implementation, care is taken to ensure the continuation label \texttt{cont} is given a unique name for each flip.
+\todo{Explain cloneSlots}
 
-Notice that we use the computed goto extension provided by GCC, which allows us to jump to a label stored in a variable. This is necessary to implement the flip operation, as the continuation label is kept in the session record.
-
-\begin{lstlisting}[language=C]
-    /* flip(record) */
-    tmp_cont = env->records[record]->cont;
-    tmp_env = env->records[record]->cont_env;
-    env->records[record]->cont = &&cont;
-    env->records[record]->cont_env = env;
-    env->records[record]->cont_record = record;
-    env = tmp_env;
-    goto *tmp_cont;
-cont:
-\end{lstlisting}
-
-\subsection{Forwarding}
-
-The \texttt{fwd} instructions ties two session records in the current environment, \texttt{record1} and \texttt{record2}, together into a single session record, where the inactive end points of the two sessions become the two end points of the new session. Without loss of generality, we assume that \texttt{record1} corresponds to a session with a reading (negative) type, and \texttt{record2} corresponds to a session with a writing (positive) type - if the opposite is true, the caller can simply swap the arguments.
-
-\texttt{fwd} generates code as shown below. Since \texttt{record1} has a negative type, the currently inactive end point of the session must have already written data to the buffer, which is pending to be read. Similarly, since \texttt{record2} has a positive type, the currently inactive end point of the session may have data which it still hasn't read from its buffer. Thus, the first block of code appends any pending data in the  buffer of \texttt{record1} to the buffer of \texttt{record2}. Then, the continuation of \texttt{record2} is set to point to the continuation of \texttt{record1}. At this point, the only thing that remains to be done is to change the binding which originally belonged to \texttt{record1} to point to the record \texttt{record1}, and then \texttt{record1} session is freed, as the \texttt{record2} session now holds all the data. Finally, the flow of control is passed to the old continuation of \texttt{record2}.
-
-Note that this is the only instruction which makes use of the \texttt{cont\_record} field of the session record. Its only purpose is to allow the rebinding of a session record on a non-active end point's environment.
-
-\begin{lstlisting}[language=C]
-    /* fwd(record1, record2) */
-    memcpy(/*dst=*/  BUFFER(record2) + WRITTEN(record2),
-           /*src=*/  BUFFER(record1) + READ(record1),
-           /*size=*/ WRITTEN(record1) - READ(record1));
-    WRITTEN(record2) += WRITTEN(record1) - READ(record1);
-
-    tmp_cont = env->records[record2]->cont;
-    tmp_env = env->records[record2]->cont_env;
-    env->records[record1]->cont = env->records[record1]->cont;
-    env->records[record1]->cont_env = env->records[record1]->cont_env;
-    env->records[record1]->cont_record = env->records[record1]->cont_record;
-
-    tmp_record = env->records[record1];
-    tmp_record->cont_env[tmp_record->cont_record] = record2;
-    free(tmp_record);
-
-    env = tmp_env;
-    goto *tmp_cont;
-\end{lstlisting}
+\todo{Explain dropSlots}
 
 \subsection{Process calls}
+
+\todo{rewrite everything here}
 
 Process calls are performed through the \texttt{call} instruction. This instruction receives the label of the process to be called, the size of the environment to be created, and a mapping containing the indices of the session records to be passed as arguments. The generated C code for this instruction is shown below.
 
@@ -1175,20 +1186,10 @@ Process calls are performed through the \texttt{call} instruction. This instruct
     goto proc;
 \end{lstlisting}
 
-\section{Next Steps and Future Work}
+\subsection{Exponentials}
 
-\todo{Rewrite this section}
+\todo{Write this section}
 
-An implementation of the proposed solution, including some polymorphism functionality, recursion and exponentials, has already been developed, but still has to be profiled and optimized. In terms of language features, it still doesn't cover any of the shared state and reference cell constructs of \ac{CLASS}.
+\subsection{Cell operations}
 
-One challenge brought up by polymorphism is that we no longer know at compile time whether on a given code section a type variable is positive or negative, and thus, whether we should generate a flip or not when encountering it as a remainder type. We expect to solve this problem by keeping track of the polarity of type variables in the environment, and branching on it when necessary.
-
-Memory management is currently very inefficient, as we allocate a new session record as sessions are created as needed and freed as they are closed, using the \texttt{malloc} and \texttt{free} functions provided by the C standard library. These functions are very slow, and we could improve performance by using a custom memory allocator, specially given that due to the linear nature of \ac{CLASS}, we have plenty of guarantees about the lifetime of session records. It would also be interesting to explore the possibility of reusing data by doing in-place updates on session buffers, instead of copying data around.
-
-One other issue also related to memory management is the deallocation of environments. Currently, environments are never deallocated, which means that we have at least one memory leak for each process call. Once again, due to the linearity of \ac{CLASS}, it's possible that we may be able to determine statically when an environment is no longer needed, and deallocate it. The challenge lies in determining when an environment is no longer needed, as it may be shared between multiple sessions, and sessions may be passed around dynamically. This is a problem that will be tackled in the full implementation. We're expecting to solve the problem through type driven compilation, and thus avoid the need for garbage collection. This can be achieved by using a reference counting mechanism, where an environment's reference count is decremented each time one of its sessions is closed, and deallocated when the count reaches zero.
-
-Adding support for native types such as integers and booleans is also something that will be addressed in the final implementation, as it will greatly increase the performance capabilities of the compiler.
-
-Although this work focuses on generating sequential code, it should still be useful to make use of the natural parallelism of the \ac{CLASS} language. One possibly solution would be to distribute the tasks in the task list to multiple threads, through a thread pool, for example.
-
-Finally, there are several other improvements and optimizations that could be made to the compiler that are not and won't be addressed in this work, but would be interesting to explore in the future. One such improvement would be to change the target language from C to LLVM IR, which is a low-level intermediate representation used by the LLVM compiler infrastructure. This would allow us to take advantage of the more advanced optimizations provided by the LLVM compiler.
+\todo{Write this section}

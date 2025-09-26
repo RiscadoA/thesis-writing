@@ -57,9 +57,10 @@
 \newcommand{\vars}[1]{\irs{t#1}}
 
 % Slot trees
-\newcommand{\nilst}{\text{[]}}
-\newcommand{\seqst}[1]{\text{[}#1\text{]}}
-\newcommand{\tagst}[1]{\irs{tag}\text{[}#1\text{]}}
+\newcommand{\nilst}{\left[\right]}
+\newcommand{\seqst}[1]{\left[#1\right]}
+\newcommand{\tagst}[1]{\irs{tag}\left[#1\right]}
+\newcommand{\flagsst}[3]{\irs{flags}\left<#1\right>\left[#2\tagsepst{}#3\right]}
 \newcommand{\combst}[1]{\text{$<$}#1\text{$>$}}
 \newcommand{\tagsepst}{\text{ | }}
 \newcommand{\concatst}[2]{#1\oplus#2}
@@ -190,18 +191,9 @@
 \newcommand{\offsetfuture}[1]{\text{future}(#1)}
 
 % CLASS definitions
-\newcommand{\valueset}{\mathcal{V}}
-\newcommand{\droppableset}{\mathcal{D}}
-\newcommand{\cloneableset}{\mathcal{C}}
-\newcommand{\isvalue}[2]{\mathcal{V}^{#1}(#2)}
-\newcommand{\isdroppable}[2]{\mathcal{D}^{#1}(#2)}
-\newcommand{\iscloneable}[2]{\mathcal{C}^{#1}(#2)}
 \newcommand{\slots}[2]{\mathcal{S}(#1,\,#2)}
 \newcommand{\allslots}[2]{\mathcal{S}_T(#1,\,#2)}
 \newcommand{\alllocalslots}[2]{\mathcal{S}_L(#1,\,#2)}
-\newcommand{\impossible}{\mathbf{\textcolor{red}{impossible}}}
-\newcommand{\guaranteed}{\mathbf{\textcolor{forestgreen}{guaranteed}}}
-\newcommand{\dependent}[1]{\mathbf{\textcolor{orange}{dependent}}(#1)}
 
 % Compiler environment accessors
 \newcommand{\polarityof}[2]{#1_{p}(#2)}
@@ -212,6 +204,30 @@
 \newcommand{\readlocof}[2]{#1_r(#2)}
 \newcommand{\writelocof}[2]{#1_w(#2)}
 \newcommand{\advancech}[6]{#1[#2 \overset{#3,#4}{\oplus} (#5,\,#6)]}
+
+% C generator notation
+\newcommand{\arch}{\mathcal{T}}
+\newcommand{\archlayout}[1]{\arch(\texttt{#1})}
+\newcommand{\slotlayout}[2]{\mathcal{L}_{\arch}(#1,\,#2)}
+\newcommand{\layoutofvar}[2]{#1(#2)}
+\newcommand{\envlayout}{\mathcal{E}}
+\newcommand{\envlayouteps}[1]{\envlayout_\text{eps}(#1)}
+\newcommand{\envlayoutdrop}[1]{\envlayout_\text{e}(#1)}
+\newcommand{\envlayouttype}[2]{\envlayout_\text{ty}(#1, #2)}
+\newcommand{\envlayoutsession}[2]{\envlayout_\text{s}(#1, #2)}
+\newcommand{\envlayoutlocal}[2]{\envlayout_\text{d}(#1, #2)}
+
+% Optimizer notation
+\newcommand{\typeenv}{\theta}
+\newcommand{\isvalue}[1]{\mathcal{V}_\typeenv(#1)}
+\newcommand{\isdroppable}[1]{\mathcal{D}_\typeenv(#1)}
+\newcommand{\iscloneable}[1]{\mathcal{C}_\typeenv(#1)}
+\newcommand{\impossible}{\mathbf{impossible}}
+\newcommand{\guaranteed}{\mathbf{guaranteed}}
+\newcommand{\dependent}[1]{\mathbf{dependent}(#1)}
+\newcommand{\depisvalue}[1]{\mathcal{V}(#1)}
+\newcommand{\depisdroppable}[1]{\mathcal{D}(#1)}
+\newcommand{\depiscloneable}[1]{\mathcal{C}(#1)}
 
 % Session modes
 \newcommand{\writemode}{\texttt{write}}
@@ -299,6 +315,7 @@
     \mkthreeargir{\bindsession}{bindSession}
     \mkthreeargir{\forwardsessions}{forwardSessions}
     \mktwoargir{\branchtag}{branchTag}
+    \mktwoargir{\branchflags}{branchFlags}
     \mktwoargir{\writetype}{writeType}
     \mktwoargir{\writetag}{writeTag}
     \mktwoargir{\writeexpr}{writeExpression}
@@ -358,3 +375,6 @@
 
 % For \Mapsto
 \usepackage{stmaryrd}
+
+% For centering tables
+\usepackage{tabularx}
