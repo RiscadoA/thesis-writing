@@ -87,9 +87,7 @@ Additionally, all instructions which pass around type information must be extend
 
 Finally, to allow generating code which depends on type flags, it is also necessary to add a new branching instruction \texttt{branchFlags}, with the exact same syntax as \texttt{branchExpression}, but instead of branching on a boolean expression, it branches on whether some flag requirements are met.
 
-All of these newly introduced branches depend on flag requirements which are usually possible to determine as either $\guaranteed$ or $\impossible$ during compile time. Only when compiling polymorphic code must the final program performs these checks at runtime. 
-
-\todo{}
+All of these newly introduced branches depend on flag requirements which are usually possible to determine as either $\guaranteed$ or $\impossible$ during compile time. Only when compiling polymorphic code must the final program performs these checks at runtime.
 
 \subsection{Sending and receiving values} \label{subsection:SendValueOptimizations}
 
@@ -125,9 +123,23 @@ Finally, the $\callc{x}{y}$ process is modified to simply generate a \texttt{clo
 
 \subsection{Affine and cell values} \label{subsection:AffineValueOptimizations}
 
-\todo{TODO: show changes made to the slot tree functions}
-\todo{TODO: show changes made to the affine / use / discard compilation rules}
-\todo{TODO: show changes made to the cell / put / take / release compilation rules}
+On the base compiler, $\affinet{A}$ types are implemented as sessions which follows the affine protocol, i.e., $\offert{\labelt{use}{A}\ \labelt{discard}{\closet}}$, as described in \Cref{subsection:IRDroppingData}. Although this implementation saves time by lazily executing the affine code if the channel is used, it still has the overhead of requiring multiple jumps and a tag to determine whether the channel is used or discarded, even if the inner type $A$ is a droppable type, e.g., $\affinet{\lintt}$ or $\affinet{\bangt{\lintt}}$. In the cases, the value could be computed immediately, and simply dropped if the channel is discarded.
+
+The biggest benefit of this change is on the shared state types, such as $\statet{A}$. On the base implementation, this type is represented as a $\cells{\sessions}$ slot, due to cell contents being affine, which effectively means all cells store closures instead of concrete values. With this optimization, if the inner type $A$ of a $\statet{A}$ type is a droppable type, such as another cell, an exponential, or a primitive type such as $\lintt$, the cell can store the value directly, as a $\cells{A}$ slot.
+
+One difficult aspect of this optimization is that, unlike the previous two optimizations, the polarity of the affected $\affinet{A}$ type ends up being dependent on whether the inner type $A$ is a droppable type or not. If $A$ is not droppable, the polarity is negative, as on the base implementation. However if $A$ is a positive droppable type, the polarity becomes positive, as the $\affinep$ process will write the value immediately. This problem was tacked by defining the polarity $\polarityof{\theta}{\affinet{A}}$ as always being positive, and negative for the $\coaffinet{A}$ type. In order to implement the write-to-read adjustment for $\affinet{A}$ types, the compilation of the $\affinep$ process is modified to always generate a \texttt{continueSession} instruction for non-droppable inner types before branching on the use-discard choice.
+
+The mapping from session types to slot trees is modified as follows:
+\begin{align*}
+    \slots{\theta}{\affinet{A}} &= \flagsst{\isdroppable{A}}{\slots{\theta}{A}}{\nilst} \\
+    \slots{\theta}{\coaffinet{A}} &= \flagsst{\isdroppable{A}}{\nilst}{\tagst{\nilst\tagsepst\slots{\theta}{A}}}
+\end{align*}
+
+The compilation of the $\affinec{x}{P}$ process is modified to generate a \texttt{branchFlags} instruction which branches on whether the inner type $A$ is a positive droppable type. If it is not, the implementation is the same as before, with the addition of a \texttt{continueSession} instruction, as mentioned above. Otherwise, the inner process $P$ is executed immediately, writing the value directly to the affine channel.
+
+The $\usec{x}{P}$ process, where $x: \coaffinet{A}$ is modified to also branch on whether $A$ is a negative droppable type. If it is not, the implementation is the same as before. Otherwise, the instructions does nothing. The same goes for the $\discardc{x}$ process, but if $A$ is a negative droppable type, a \texttt{dropSlots} instruction is generated to drop the value immediately.
+
+Finally, the $\cellc{x}{y}{P}$ and $\putc{x}{y}{P}{Q}$ processes are modified to branch on whether the inner type $A$ (where $y: A$) is a positive droppable type. If it is not, the implementation is the same as before. Otherwise, the process $P$ is executed immediately, with session $y$ initialized such that it writes directly to the cell's storage. The $\takec{x}{y}{P}$ process is also modified, such that if $A$ (where $y: A$) is a negative droppable type, the value is simply moved from cell $x$ to a new local data section for $y$, instead of receiving a new session.
 
 \section{Improving the C generator}
 

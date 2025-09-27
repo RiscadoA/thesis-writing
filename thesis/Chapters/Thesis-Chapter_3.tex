@@ -156,7 +156,7 @@ The \texttt{cloneSlots} instruction is used to clone data from one location to a
 
 Although \ac{CLASS} is a linear language, it also supports both affine and exponential types. Thus, it is necessary to be able to drop some types of data if they are no longer needed. To this end, two instructions are provided: \texttt{dropSlots} and \texttt{deferDrop}.
 
-The \texttt{dropSlots} instruction takes as arguments a data location and a slot tree, and immediately drops the passed data. This instruction is only defined for droppable slots, which are $\ints$, $\bools$, $\strings$, $\tags$, $\sessions$, $\cells$ and $\exponentials$. 
+The \texttt{dropSlots} instruction takes as arguments a data location and a slot tree, and immediately drops the passed data. This instruction is only defined for droppable slots, which are $\ints$, $\bools$, $\strings$, $\tags$, $\sessions$, $\cells{T}$ and $\exponentials$. The argument $T$ of $\cells{T}$ is the slot tree of the cell contents, necessary to properly drop the data when the cell is deallocated.
 
 When a $\sessions$ slot is dropped, the session is expected to follow the affine protocol, defined is as follows: when the session is to be deallocated, a tag with value $0$ is written to indicate the session will not be used, and control is passed to it with a continue instruction. Then, the session should finish, passing control back to the cell deallocator.
 
@@ -465,12 +465,14 @@ A type with positive polarity is one for which sessions of that type are used to
         &\polarityof{\theta}{\lstringt} = + && \polarityof{\theta}{\colstringt} = - && \polarityof{\theta}{\closet} = + && \polarityof{\theta}{\waitt} = - \\
         &\polarityof{\theta}{\choicet{\dots}} = + && \polarityof{\theta}{\offert{\dots}} = - && \polarityof{\theta}{\sendt{A}{B}} = + && \polarityof{\theta}{\recvt{A}{B}} = - \\
         &\polarityof{\theta}{\bangt{A}} = + && \polarityof{\theta}{\whynott{A}} = - && \polarityof{\theta}{\sendtyt{X}{A}} = + && \polarityof{\theta}{\recvtyt{X}{A}} = - \\
-        &\polarityof{\theta}{\affinet{A}} = + && \polarityof{\theta}{\coaffinet{A}} = - && \polarityof{\theta}{\statet{A}} = + && \polarityof{\theta}{\usaget{A}} = - \\
+        &\polarityof{\theta}{\coaffinet{A}} = + && \polarityof{\theta}{\affinet{A}} = - && \polarityof{\theta}{\statet{A}} = + && \polarityof{\theta}{\usaget{A}} = - \\
         &\polarityof{\theta}{\rect{X}{A}} = + && \polarityof{\theta}{\corect{X}{A}} = - && \polarityof{\theta}{\statelt{A}} = + && \polarityof{\theta}{\usagelt{A}} = - \\
     \end{align*}
     \caption{Polarity of session types}
     \label{fig:TypePolarity}
 \end{figure}
+
+Note that due to affine types being implemented as a choice between using the data or dropping it, i.e., $\affinet{A} \equiv \offert{\labelt{use}{A}\ \labelt{discard}{\closet}}$, the polarity of $\affinet{A}$ is negative, while the polarity of $\coaffinet{A}$ is positive, as shown in \Cref{fig:TypePolarity}.
 
 \subsubsection{Channel environments}
 
@@ -507,9 +509,10 @@ We start by defining this mapping for session types $A$ which are strictly posit
         &\slots{\theta}{\closet} = \nilst && \slots{\theta}{\lintt} = \seqst{\ints} \\
         &\slots{\theta}{\lboolt} = \seqst{\bools} && \slots{\theta}{\lstringt} = \seqst{\strings} \\
         &\slots{\theta}{\sendt{A}{B}} = \seqst{\sessions; \slots{\theta}{B}} && \slots{\theta}{\bangt{A}} = \seqst{\exponentials} \\
-        &\slots{\theta}{\sendtyt{X}{A}} = \seqst{\types; \sessions; \tags} && \slots{\theta}{\affinet A} = \seqst{\sessions} \\
-        &\slots{\theta}{\statet A} = \seqst{\cells} && \slots{\theta}{\statelt A} = \seqst{\cells} \\
-        &\slots{\theta}{\choicet{\labelt a A\ (\dots)\ \labelt z Z}} = \tagst{\slots{\theta}{A} \texttt{|}\ \dots\ \texttt{|}\slots{\theta}{Z}} && \slots{\theta}{X} = \seqst{\typeidof{\theta}{X}} \text { s.t. } \polarityof{\theta}{X} = + \\
+        &\slots{\theta}{\sendtyt{X}{A}} = \seqst{\types; \sessions; \tags} && \slots{\theta}{\coaffinet A} = \tagst{\nilst\tagsepst\slots{\theta}{A}} \\
+        &\slots{\theta}{\statet A} = \seqst{\cells{\sessions}} && \slots{\theta}{\statelt A} = \seqst{\cells{\sessions}} \\
+        &\slots{\theta}{\choicet{\labelt a A\ \dots}} = \tagst{\slots{\theta}{A} \texttt{|}\ \dots} && \slots{\theta}{X} = \seqst{\typeidof{\theta}{X}} \text { s.t. } \polarityof{\theta}{X} = + \\
+        &\slots{\theta}{A} = \nilst \text{ if } \polarityof{\theta}{A} = -
     \end{align*}
     \caption{Mapping from value session types to slot trees}
     \label{fig:SessionTypeToSlotTree}
@@ -838,14 +841,8 @@ The right-hand-side $P$ is compiled on the new block \texttt{cont}, with a new e
 
 The compilation of the $\affinec{x}P$ process, shown below, implements the affine protocol described in \Cref{subsection:IRDroppingData}: a tag is received from $x$ (with an offset of 0) indicating whether the channel is being used or discarded. If it's being used, the process continues with an environment where $x$ has been advanced by the read tag. If the tag indicates the session is being discarded, any co-affine data free in $P$ is discarded and the affine session is finished.
 
-One important aspect to note is that although $\affinet{A}$ is a positive type, its process starts by reading a tag, while the dual type $\coaffinet{\dualt{A}}$, which is negative, starts by writing a tag. The rest of the compilation scheme guarantees that the positive side always executes first, which in this case is the reading side. Thus, the $\affinep$ process must always pass control to the negative side before continuing.
-
-An alternative solution would be to change the definition of $\affinet{A}$ to be negative and $\coaffinet{\dualt{A}}$ to be positive, but this would add a lot of complexity the important affine value optimization described in \Cref{subsection:AffineValueOptimizations}.
-
 \begin{compilation}{\theta}{\Delta}{\affinec{x}{P}}
 {\getendpoints{\theta}{P}}
-    \continuesession{\sessionof{\Delta}{x},\,\texttt{cont}}
-    \labelir{cont}
     \branchtag{\localdataof{\Delta}{x}}{\texttt{use:}\getendpoints{\theta}{P},\,\texttt{discard:1}}
     \labelir{use}
     \recurse{\theta}{\advancech{\Delta}{x}{-}{\theta}{\seqst{\tags}}{A}}{P} \comment \text{where } x:A \text{ in }P
@@ -952,7 +949,7 @@ The memory layout of a slot $s$ on a given target architecture $\arch$ is given 
             &\slotlayout{\sigma}{\ints} = \archlayout{int} && \slotlayout{\sigma}{\bools} = \archlayout{unsigned char} \\
             &\slotlayout{\sigma}{\strings} = \archlayout{char*} && \slotlayout{\sigma}{\sessions} = \archlayout{struct session*} \\
             &\slotlayout{\sigma}{\tags} = \archlayout{unsigned char} && \slotlayout{\sigma}{\types} = \archlayout{struct type} \\
-            &\slotlayout{\sigma}{\exponentials} = \archlayout{struct exponential*} && \slotlayout{\sigma}{\cells} = \archlayout{struct cell*} \\
+            &\slotlayout{\sigma}{\exponentials} = \archlayout{struct exponential*} && \slotlayout{\sigma}{\cells{\dots}} = \archlayout{struct cell*} \\
         \end{aligned}\\
         &\slotlayout{\sigma}{t_i} = \layoutofvar{\sigma}{t_i}\\
     \end{align*}
