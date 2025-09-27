@@ -1014,8 +1014,6 @@ if (atomic_fetch_sub(&(*(atomic_int*)(env)), 1) == 1) {
 }
 \end{lstlisting}
 
-If a process has only one end point, a small optimization is applied which removes the end point counter from the environment, and any decrement instructions are replaced with the cleanup code directly, as the end point counter is guaranteed to reach zero when these instructions are reached.
-
 \subsection{Execution and registers}
 
 The \texttt{main} function of the generated C program initializes any required global state (such as the allocator, or profiling tools), and invokes a function named \texttt{executor} with a \texttt{NULL} argument. The \texttt{executor} function is the core of the \ac{IR} abstract machine implementation. Each thread of execution runs its own instance of this function, receiving as argument a pointer to its entry task.
