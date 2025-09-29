@@ -1279,4 +1279,41 @@ Before jumping to the entry block of the called process, the end point counter o
 
 \subsection{Cell operations}
 
-\todo{Write this section}
+Cells are implemented in C as heap-allocated instances of the type shown below. The first three fields, \texttt{mutex}, \texttt{cond\_var} and \texttt{is\_free}, are used to implement the locking mechanism of the cell. The \texttt{ref\_count} field is an atomic integer which stores the reference count of the cell, while the flexible array member \texttt{data} stores the actual contents of the cell, similarly to a local data section in an environment.
+
+\begin{lstlisting}[language=C]
+struct cell {
+    pthread_mutex_t mutex;
+    pthread_cond_t cond_var;
+    unsigned char is_free;
+    atomic_int ref_count;
+    char[] data;
+};
+\end{lstlisting}
+
+The \texttt{writeCell} instruction is simply compiled as the allocation of a new \texttt{struct cell} with enough space to store its data section, and the initialization of its fields. The \texttt{acquireCell} and \texttt{releaseCell} instructions are compiled respectively as the atomic increment and decrement of the cell's reference count. If the reference count reaches zero, the cell's data is dropped, the cell's mutex and condition variable are destroyed, and finally the cell itself is freed.
+
+The cell locking/unlocking operations cannot be implemented with a simple mutex lock/unlock pair, as it is possible for a locked cell to be passed to another thread, which must then be able to unlock it. This violates the requirement that \texttt{pthread} mutex can only be unlocked by the thread which locked them. To solve this issue, the \texttt{is\_free} flag is used to indicate if the cell is currently locked or not, and the mutex and condition variable are used to ensure mutual exclusion and to block threads trying to lock an already locked cell.
+
+The \texttt{lockCell} instruction is compiled as shown below. First, the cell's mutex is locked. Then, while the cell is not free, the thread waits on the cell's condition variable, atomically releasing the mutex while waiting, and re-acquiring it when woken up. When the cell is free, it is marked as not free, and the mutex is unlocked.
+
+\begin{lstlisting}[language=C]
+    /* lockCell(d0) */
+    pthread_mutex_lock(&((*(struct cell**)(env + 16))->mutex));
+    while (!(*(struct cell**)(env + 16))->is_free) {
+        pthread_cond_wait(&(*(struct cell**)(env + 16)->cond_var),
+                          &(*(struct cell**)(env + 16))->mutex);
+    }
+    (*(struct cell**)(env + 16))->is_free = 0;
+    pthread_mutex_unlock(&((*(struct cell**)(env + 16))->mutex));
+\end{lstlisting}
+
+The \texttt{unlockCell}, shown below, locks the cell's mutex, marks the cell as free, signals one thread waiting on the cell's condition variable (if any), and finally unlocks the mutex.
+
+\begin{lstlisting}[language=C]
+    /* unlockCell(d0) */
+    pthread_mutex_lock(&(*(struct cell**)(env + 16))->mutex);
+    (*(struct cell**)(env + 0))->is_free = 1;
+    pthread_cond_signal(&(*(struct cell**)(env + 16))->cond_var);
+    pthread_mutex_unlock(&(*(struct cell**)(env + 16))->mutex);
+\end{lstlisting}
