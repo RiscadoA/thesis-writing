@@ -14,7 +14,7 @@ At a high-level, the compilation scheme is divided into four phases. First, the 
 
 The \ac{IR} optimization phase is left for the next chapter, while this chapter focuses on presenting the base \ac{IR} and compilation scheme. This chapter is divided into five four. In the first section, the \ac{IR}'s constructs and its abstract machine are defined. In the second section, the compilation of \ac{CLASS} to the \ac{IR} is described. Finally, in the third section, an overview is given on how the \ac{IR} is translated to C code.
 
-\section{Intermediate Representation}
+\section{Intermediate Representation} \label{section:IR}
 
 In this section, we introduce the intermediate representation (\ac{IR}) used by the compiler and its abstract machine. The \ac{IR} is an imperative stateful language meant to act as a bridge between the high-level session-based language \ac{CLASS} and the low-level imperative language C.
 
@@ -442,7 +442,7 @@ if_false:
     \label{fig:IREndPointsExample2}
 \end{figure}
 
-\section{Generating IR programs from CLASS}
+\section{Generating IR programs from CLASS} \label{section:IRGeneration}
 
 This section formally defines the base (unoptimized) translation from \ac{CLASS} to the \ac{IR} defined in the previous section. It starts defining notation for representing and updating the state of the compiler. Then, it defines how session types are mapped to the slot trees introduced in \Cref{subsection:IRSlots}. Next, an overview of the instruction generation scheme is presented, and some important concepts are defined. Finally, the translation from \ac{CLASS} processes to \ac{IR} programs is incrementally defined, starting from simple processes and adding more constructs until the whole language is covered.
 
@@ -923,7 +923,7 @@ Finally, the $\sharec{x}{P}{Q}$ process is compiled as shown below. Since the ce
     \recurse{\theta}{\Delta}{Q}
 \end{compilation}
 
-\section{Generating C code from IR programs}
+\section{Generating C code from IR programs} \label{section:IRtoC}
 
 The last phase of the compilation pipeline is the C generation phase. This phase takes as input the \ac{IR} produced by the compilation scheme described in the previous section, and produces a C program which implements the semantics of the \ac{IR}.
 
@@ -1158,32 +1158,124 @@ The \texttt{forwardSessions} instruction first stores the continuation of its se
     goto *tmp_ptr1;
 \end{lstlisting}
 
+\subsection{Exponentials}
+
+Exponentials are reference counted, heap allocated structures, represented in C by the type shown below. Each exponential stores stores a template for the environments to be created when the exponential is called. The \texttt{entry\_session\_offset} field stores the byte offset the argument session is stored at on the environment template, while the \texttt{entry\_data\_offset} field stores the byte offset the argument data is stored at. The \texttt{env\_size} field stores the size in bytes of the environment template, while the \texttt{manager} field stores a code location, known as the exponential's manager, which is responsible for cloning and dropping the exponential's template environment. Finally, the flexible array member \texttt{env} stores the actual environment template data.
+
+\begin{lstlisting}[language=C]
+struct exponential {
+    atomic_int ref_count;
+    int entry_session_offset;
+    int entry_data_offset;
+    int env_size;
+    void* manager;
+    char env[];
+};
+\end{lstlisting}
+
+The \texttt{writeExponential} instruction is compiled as shown below. First, a new exponential structure is allocated with enough space to store the environment template, and its fields are initialized. The reference count is initialized to $1$, the offsets and size are computed from the environment layout of the exponential process, and the manager is set to a new unique C label. The environment template is initialized based on the exponential process header. The argument session's continuation is initialized to point to the entry block of the exponential process, and any argument types or data are written.
+
+\begin{lstlisting}[language=C]
+    /* writeExponential(d0, main_exp0) */
+    *(struct exponential**)(env + 64) = managed_alloc(60);
+    (*(struct exponential**)(env + 64))->ref_count = 1;
+    (*(struct exponential**)(env + 64))->entry_session_offset = 0;
+    (*(struct exponential**)(env + 64))->entry_data_offset = 32;
+    (*(struct exponential**)(env + 64))->env_size = 36;
+    (*(struct exponential**)(env + 64))->manager = &&main_exp0_exp_manager;
+    tmp_ptr1 = (*(struct exponential**)(env + 64))->env;
+    (*(struct session*)(((char*)(tmp_ptr1)) + 0)).cont = &&main_exp0_entry;
+    // (...) write argument types and data to environment tmp_ptr1 ...
+\end{lstlisting}
+
+The exponential manager is a block of code which when jumped to, branches on the value of \texttt{tmp\_int}, which is set to $0$ for cloning the exponential, and to $1$ for dropping it. If cloning, the current environment is assumed to be the newly allocated environment for the exponential call, while \texttt{tmp\_ptr1} is assumed to be the environment template stored in the exponential. If dropping, the current environment is assumed to be the environment template stored in the exponential. The cloning branch clones the argument data from the environment template into the new environment, while the dropping branch drops the argument data in the environment template. Finally, in both cases, control is passed to the continuation stored in argument session of the exponential environment.
+
+\begin{lstlisting}[language=C]
+main_exp0_exp_manager:
+    if (tmp_int == 0) {
+        /* (...) clone argument data from environment tmp_ptr1 to env */
+    } else {
+        /* (...) drop argument data in environment env */
+    }
+    tmp_ptr2 = (*(struct session*)(env + 0)).cont;
+    env = (*(struct session*)(env + 0)).cont_env;
+    goto *tmp_ptr2;
+\end{lstlisting}
+
+The \texttt{callExponential} instruction, compiled as shown below, first allocates a new environment for the exponential call with the size stored in the exponential structure. This environment is initialized through a memory copy from the exponential's template environment, and is set as the continuation environment of the argument session on the current environment. Then, the argument session and data is connected to the argument session in the new environment, and finally the exponential manager is jumped to, with \texttt{tmp\_int} set to $0$ to indicate a clone operation. When the clone finishes, control is passed back to the label \texttt{main\_exp\_call\_return\_0}.
+
+\begin{lstlisting}[language=C]
+    /* callExponential(d0, s0, d1) */
+#define exp (*(struct exponential**)(env + 64))
+#define exp_env (*(struct session*)(env + 0)).cont_env
+#define exp_session (*(struct session*)(exp_env + exp->entry_session_offset))
+    exp_env = managed_alloc(exp->env_size);
+    memcpy(exp_env, exp->env, exp->env_size);
+    (*(struct session*)(env + 0)).cont = exp_session.cont;
+    ((env + 0)).cont_data = exp_env + exp->entry_data_offset;
+    (*(struct session*)(env + 0)).cont_session = &exp_session;
+    exp_session.cont_env = env;
+    exp_session.cont_data = env + 72;
+    exp_session.cont_session = env;
+    exp_session.cont = &&main_exp_call_return_0;
+    tmp_ptr1 = exp->env;
+    tmp_ptr2 = exp->manager;
+    tmp_int = 0;
+    env = exp_env;
+    goto *tmp_ptr2;
+main_exp_call_return_0:
+
+\end{lstlisting}
+
+When the reference count of an exponential reaches zero, the control is passed to its manager with \texttt{tmp\_int} set to $1$, indicating a drop operation, and the current environment set to the exponential's template environment. After the drop operation finishes, control is returned to the drop caller and the exponential structure is freed.
+
 \subsection{Data manipulation}
 
-\todo{Explain moveSlots}
+The \texttt{moveSlots}, \texttt{cloneSlots} and \texttt{dropSlots} instructions are compiled using a \textit{slot traversal} utility function, which recursively generates C code to visit each slot address given a slot tree and a base address. This is necessary due to the complexity of slots trees, which may branch both due to the presence of tags (\ac{CLASS} choices) and due to polymorphic types.
 
-\todo{Explain cloneSlots}
+For example, to move, clone or drop a slot tree $T = \tagst{\seqst{\strings}\tagsepst\seqst{\exponentials}}$, different code must be generated depending on whether the tag indicates that the first or second branch is active. Cloning a $\strings$ slot implies allocating a new string and copying the original string, while cloning an $\exponentials$ slot implies incrementing the reference count of the exponential value. Below is the generated C code for the \texttt{cloneSlots} instruction, operating on the slot tree $T$ described above, assuming $d_1$ is at $\texttt{env} + 32$, both $\datal{d_1}{\tags}{\strings}$ and $\datal{d_1}{\tags}{\exponentials}$ are at $\texttt{env} + 40$, $d_0$ at $\texttt{env} + 48$ and both $\datal{d_0}{\tags}{\strings}$ and $\datal{d_0}{\tags}{\exponentials}$ are at $\texttt{env} + 56$.
 
-\todo{Explain dropSlots}
+\begin{lstlisting}[language=C]
+    /* cloneSlots(d1, d0, tag[string | exponential]) */
+    *(unsigned char*)(env + 32) = *(unsigned char*)(env + 48);
+    switch (*(unsigned char*)(env + 48)) {
+        case 0: /* string */
+            *(char**)(env + 40) = *(char**)(env + 56);
+            *(char**)(env + 40) = string_clone(*(char**)(env + 40));
+            break;
+        case 1: /* exponential */
+            *(struct exponential**)(env + 40) = *(struct exponential**)(env + 56);
+            /* ... increment reference count */
+            break;
+    }
+\end{lstlisting}
+
+Moves of slots $s$ are always generated as simple memory copies of size given by $\slotlayout{\sigma}{s}$. Clones and drops, on the other hand, are generated by pattern matching on the slot $s$, generating the appropriate code for each case. Cloning and dropping basic types such as $\ints$, $\bools$ and $\tags$ slots is a no-op, while cloning and dropping other slots may involve memory (de)allocation and reference count manipulation, as shown in the example above.
+
+To clone or drop polymorphic slots $t_i$, type information for each type $t_i$ is stored alongside the environment buffer, describing, at run-time, the slots which must be cloned or dropped within the polymorphic type. This type information is generated when a new environment is created, or when a type is stored using the \texttt{writeType} instruction.
 
 \subsection{Process calls}
 
-\todo{rewrite everything here}
-
-Process calls are performed through the \texttt{call} instruction. This instruction receives the label of the process to be called, the size of the environment to be created, and a mapping containing the indices of the session records to be passed as arguments. The generated C code for this instruction is shown below.
+Process calls are performed through the \texttt{callProcess} instruction. This instruction receives the identifier of the process to be called, a list of type arguments, a list of session arguments and a list of data arguments. The generated C code for this instruction is shown below.
 
 \begin{lstlisting}[language=C]
-    /* call(proc, size, args) */
-    tmp_env = malloc(sizeof(struct environment) + size * sizeof(struct record*));
-    /* for each i in 0..#args */
-    tmp_env->records[/*i*/] = env->records[args[/*i*/]];
-    env = tmp_env;
-    goto proc;
+    /* callProcess(foo, end point, s0 <- s0) */
+    tmp_ptr1 = managed_alloc(40);
+    (*(atomic_int*)(((char*)(tmp_ptr1)))) = 1; // setup end points
+    /* (...) pass type arguments */
+    /* (...) pass session arguments */
+    /* (...) pass data arguments */
+    if (atomic_fetch_sub(&(*(atomic_int*)(env)), 1) == 1) {
+        /* environment cleanup code */
+        managed_free(env);
+    }
+    env = ((char*)(tmp_ptr1));
+    goto foo_entry;
 \end{lstlisting}
 
-\subsection{Exponentials}
+Type arguments are passed by writing their information to the appropriate offsets in the new environment. Session arguments are passed by initializing the session entries in the environment, and connecting them to the sessions passed as arguments. This implies updating the remote session of the argument sessions to point to the sessions in the new environment. Finally, data arguments are passed by simply moving or cloning the data from the current environment to the new environment, in the same way as the \texttt{moveSlots} and \texttt{cloneSlots} instructions.
 
-\todo{Write this section}
+Before jumping to the entry block of the called process, the end point counter of the current environment is decremented, and if it reaches zero, the current environment is cleaned up and freed, as described in \Cref{subsubsection:CEnvironmentCleanup}. Control is then passed to the entry block of the called process, with the new environment set as the current environment.
 
 \subsection{Cell operations}
 
