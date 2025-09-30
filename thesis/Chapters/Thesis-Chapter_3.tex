@@ -55,7 +55,7 @@ cut_lhs_0:
 
 \subsection{Environments}
 
-Each process invocation creates an \textit{environment} which holds its dynamic state, similarly to a stack frame in a traditional function call. This state includes the number of remaining end points, the properties of any polymorphic types, the state of all sessions, the local data being used by the process and finally, a bitset indicating which data locations should be dropped when the process terminates.
+Each process invocation creates an \textit{environment} which holds its dynamic state, similarly to a stack frame in a traditional function call. This state includes the number of remaining end points, the properties of any type parameters, the state of all sessions, the local data being used by the process and finally, a bitset indicating which data locations should be dropped when the process terminates.
 
 All instructions in a process implicitly operate on its environment. When an instruction refers to a session or a data location, it is referring to the respective section in the current environment.
 
@@ -304,17 +304,15 @@ Accesses to the environment are not synchronized except for reference and end po
 
 \subsection{Polymorphism}
 
-Processes in the \ac{IR} may be parametrized by polymorphic types. These types are identified by names which start with \texttt{t} followed by a number, such as \texttt{t0} and \texttt{t1}. Types may be used directly as slots in slot trees (e.g.: $\seqst{t_2; \ints; t_0}$).
+Processes in the \ac{IR} may be type parametrized. These type parameters are identified by names which start with \texttt{t} followed by a number, such as \texttt{t0} and \texttt{t1}. Types parameters may be used directly as slots in slot trees (e.g.: $\seqst{t_2; \ints; t_0}$).
 
-Types can be written to data locations through the \texttt{writeType} instruction, producing a \texttt{type} slot. This slot can then be read by a process invocation instruction, such as \texttt{callProcess}. The \texttt{writeType} instructions takes as arguments a data location to write to and a slot tree describing the data layout of the type.
-
-For example, \texttt{writeType(d0, [int; t1])} writes a type to \texttt{d0} which stores first an integer, and then data of type \texttt{t1}, which is a polymorphic type in the current environment.
+Type information can be written to data locations through the \texttt{writeType} instruction, producing a \texttt{type} slot. This slot can then be used as type parameter for a process invocation instruction, such as \texttt{callProcess}. The \texttt{writeType} instructions takes as arguments a data location to write to and a slot tree describing the data layout of the type. For example, \texttt{writeType(d0, [int; t1])} writes information to \texttt{d0} describing a slot tree $\seqst{\ints; t_1}$.
 
 \subsection{Process calls}
 
-Processes can be invoked through the \texttt{callProcess} instruction, which takes as arguments the name of the process to invoke (might be the same process), and a list of type, session and data arguments to initialize the new process environment.
+Processes can be invoked through the \texttt{callProcess} instruction, which takes as arguments the name of the process to invoke (might be the same process), a list of type parameters, and lists of session and data arguments to initialize the new process environment.
 
-A type argument is described by the target type identifier on the new process, and by either a data location containing a \texttt{type} slot, or by a slot tree describing the type directly. For example, \texttt{t0 <- [int]} initializes the type parameter \texttt{t0} of the new process to be a type which stores an integer, while \texttt{t1 <- d3.[int]~[type]} initializes \texttt{t1} to the type stored after an integer at \texttt{d3}.
+A type parameter is described by the target type parameter identifier on the new process, and by either a data location containing a \texttt{type} slot, or by a slot tree directly. For example, \texttt{t0 <- [int]} initializes the type parameter \texttt{t0} of the new process to be a type which stores an integer, while \texttt{t1 <- d3.[int]~[type]} initializes \texttt{t1} to the type parameter stored after an integer at \texttt{d3}.
 
 A session argument is described by the target session identifier on the new process, by either a source session identifier or a data location containing a \texttt{session} slot, and finally, by a data offset to apply to the writing location of the session. For example, \texttt{s0 <- s1+[int]~[int]} initializes the session parameter \texttt{s0} of the new process to be the same as session \texttt{s1} of the current process, but with its writing location pointing at $\datal{s1}{\seqst{\ints}}{\seqst{\ints}}$. If the offset is zero, it is omitted for brevity.
 
@@ -1252,7 +1250,7 @@ For example, to move, clone or drop a slot tree $T = \tagst{\seqst{\strings}\tag
 
 Moves of slots $s$ are always generated as simple memory copies of size given by $\slotlayout{\sigma}{s}$. Clones and drops, on the other hand, are generated by pattern matching on the slot $s$, generating the appropriate code for each case. Cloning and dropping basic types such as $\ints$, $\bools$ and $\tags$ slots is a no-op, while cloning and dropping other slots may involve memory (de)allocation and reference count manipulation, as shown in the example above.
 
-To clone or drop polymorphic slots $t_i$, type information for each type $t_i$ is stored alongside the environment buffer, describing, at run-time, the slots which must be cloned or dropped within the polymorphic type. This type information is generated when a new environment is created, or when a type is stored using the \texttt{writeType} instruction.
+To clone or drop polymorphic slots $t_i$, type information for each type parameter $t_i$ is stored alongside the environment buffer, describing, at run-time, the slots which must be cloned or dropped within the type parameter. This type information is generated when a new environment is created, or when a type is stored using the \texttt{writeType} instruction.
 
 \subsection{Process calls}
 
