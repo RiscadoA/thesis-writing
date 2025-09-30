@@ -73,7 +73,8 @@
 % Package 'subfigure' allows to place figures within figures with own caption. 
 % For each of the subfigures use the command \subfigure.
 \usepackage{graphicx}
-\usepackage[hang,small,bf,tight]{subfigure}
+% \usepackage[hang,small,bf,tight]{subfigure}
+\usepackage[subrefformat=parens,labelfont=bf, font=small]{subcaption}
 %
 % -----------------------------------------------------------------------------
 % PACKAGE caption:
@@ -353,10 +354,8 @@
 \setcounter{secnumdepth} {5}
 \setcounter{tocdepth} {5}
 \renewcommand{\thesubsubsection}{\thesubsection.\Alph{subsubsection}}
-\renewcommand{\subfigtopskip}{0.3 cm}
-\renewcommand{\subfigbottomskip}{0.2 cm}
-\renewcommand{\subfigcapskip}{0.3 cm}
-\renewcommand{\subfigcapmargin}{0.2 cm}
+\captionsetup{aboveskip=0.3cm, belowskip=0.2cm}
+\captionsetup[sub]{skip=0.3cm, margin=0.2cm}
 %
 % -----------------------------------------------------------------------------
 % PACKAGE minitoc:

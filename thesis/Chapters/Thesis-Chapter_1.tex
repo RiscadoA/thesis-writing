@@ -21,6 +21,105 @@ During this work, a compilation scheme was designed and implemented which transl
 
 The base \ac{CLASS} language was also slightly extended with a program abort construct, and a input extraction construct, allowing programs to read input from the standard input. This allowed for the creation of more complex programs, which were helpful to measure the real-world performance of the compiled programs. The performance of the compiled programs was compared with the original \ac{CLASS} interpreter, the \ac{SAM} interpreter, and with equivalent programs written in Haskell. The results show that the compiled programs are orders of magnitude faster than the interpreted ones, and, in some cases, outperform equivalent Haskell programs compiled with GHC.
 
-\todo{Review/rewrite}
+The first section of this chapter gives a brief overview of the \ac{CLASS} language and how the developed compilation scheme transforms an example \ac{CLASS} program into C code. The second section describes the structure of the document.
 
-\todo{Brief description of the structure of the document}
+\section{From CLASS to C}
+
+\ac{CLASS} programs are linearly typed session-based programs. Programs are constructed by composing processes which communicate through channels. Channels are first-class citizens of the language, replacing variables from traditional imperative languages. Communication through channels is regulated by the channel's session type, which describes the communication protocol followed by the channel. The linearity of the type system ensures that all communication is carried out exactly once, preventing leakage of resources, and guaranteeing memory safety.
+
+An example \ac{CLASS} program is shown in \Cref{fig:CLASSIntroExample}. This program defines a process called \texttt{main} which will be executed when the programs is run. Within it, the $\cutp$ process creates a new channel $x$ through which both sides of the cut can communicate. On the right hand side of the cut, $x$ is typed by $\colintt$, and on the left hand side of the cut, by its dual, $\lintt$. Semantically, the left hand side of the cut must produce an integer, which the right hand side must then consume. In this case, the left hand side produces the integer 1, through the $\letp$ process, and the right hand side consumes it by printing it to the standard output, through the $\printp$ process. The $\printp$ process requires a continuation, which in this case is the $\emptyp$ process, which represents end of computation.
+
+The developed compilation scheme starts by translating the \ac{CLASS} program into an \acf{IR}, shown in \Cref{fig:IRBaseIntroExample}. This \ac{IR} is based on the \ac{SAM} execution model, sequentially executing the processes of the \ac{CLASS} program with buffered communication. The process $\texttt{main}$ is translated into an \ac{IR} process of the same name, composed of an header, and a set of blocks of instructions. In this case, the header specifies that the process has two end points, no type parameters, one session $s_0$ which is used to implement the channel $x$, and one data variable $d_0$ which is used to store the integer sent through the channel.
+
+\begin{figure}
+    \centering
+    \begin{subfigure}{0.45\textwidth}
+        \begin{class}
+            \procdefc{main}{}{
+                \cutc{
+                    \letc{x}{1}
+                }{x: \colintt}{
+                    \printi{x}
+                    \emptyc
+                }
+            }
+        \end{class}
+        \caption{An example CLASS program}
+        \label{fig:CLASSIntroExample}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.45\textwidth}
+        \begin{lstlisting}[language=IR]
+main:
+    end points: 2
+    types: none
+    sessions: s0
+    data d0: <[int]> (s0)
+entry:
+    initializeSession(s0, cut_0, d0)
+    writeExpression(s0, 1)
+    finishSession(s0, end point)
+cut_0:
+    print(move(d0, int))
+    popTask(end point)
+        \end{lstlisting}
+        \caption{Generated IR program}
+        \label{fig:IRBaseIntroExample}
+    \end{subfigure}
+    \caption{An example CLASS program which prints the integer 1, and the base IR program generated from it}
+\end{figure}
+
+The \texttt{entry} block of the \ac{IR} process is generated from the $\cutp$ process. It starts by initializing the session $s_0$, indicating that data written to it (the integer) should be stored at $d_0$, and that when the session is finished, control should be transferred to the block \texttt{cut\_0}. The writing side is always executed first, so the next instructions are generated from the $\letp$ process, writing the integer $1$ to the session $s_0$ (and thus to $d_0$), and finishing the session, passing control to the block \texttt{cut\_0}, as specified earlier.
+
+The \texttt{cut\_0} block is generated from the right hand side of the cut. The $\printp$ process generates a \texttt{print} instructions, which reads the integer from $d_0$ and prints it to the standard output. Finally, the $\emptyp$ process generates a \texttt{popTask} instruction, which passes control to the next task, if any, or ends the program if there are no more tasks to execute, as is the case here.
+
+Before the C generation phase, a set of optimizations are applied to the \ac{IR} program to improve its performance. The final optimized version of the \ac{IR} is shown in \Cref{fig:IROptimizedIntroExample}. In this case, through analysis of the \ac{IR} program, optimizations were able to remove the session $s_0$ entirely, leaving only the data variable $d_0$. This is possible in this example due to the session's state being completely known at compile time. For example, the \texttt{finishSession} must pass control to the \texttt{cut\_0} block, and thus, it can be removed and the blocks concatenated. Additionally, the writing location of $s_0$ is known to be $d_0$, and thus \texttt{writeExpression} can write directly to it.
+
+Finally, the optimized \ac{IR} program is compiled into C code. A segment of the generated code is shown in \Cref{fig:CIntroExample}. Due to the continuation-based nature of the \ac{SAM} execution model, processes are not represented as functions, but instead as code blocks within a single function, with control being transferred between them through the use of \texttt{goto} statements. Stack frames are replaced by heap-allocated environments, linked together to form a spaghetti stack, and which contain all local variables and state used by the process. A set of variables are used as registers to keep the current execution state, such as a pointer \texttt{task} to the next task, and a pointer \texttt{env} to the active environment.
+
+\begin{figure}
+    \begin{subfigure}{0.45\textwidth}
+        \begin{lstlisting}[language=IR]
+main:
+    end points: 1
+    types: none
+    sessions: none
+    data d0: <[int]>
+entry:
+    writeExpression(d0, 1)
+    print(move(d0, int))
+    popTask(end point)
+        \end{lstlisting}
+        \caption{Optimized IR program}
+        \label{fig:IROptimizedIntroExample}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.45\textwidth}
+        \begin{lstlisting}[language=C]
+main_entry:
+    /* writeExpression(d0, 1) */
+    *(int*)(env + 0) = 1;
+    /* print(move(d0, int)) */
+    printf("%d", *(int*)(env + 0));
+    /* popTask(end point) */
+    managed_free(env);
+    tmp_ptr1 = task;
+    tmp_ptr2 = task->cont;
+    env = task->cont_env;
+    task = task->next;
+    managed_free(tmp_ptr1);
+    goto *tmp_ptr2;
+        \end{lstlisting}
+        \caption{Generated C code}
+        \label{fig:CIntroExample}
+    \end{subfigure}
+    \caption{Final optimized IR program and a segment of the C code generated from it}
+\end{figure}
+
+The \texttt{main\_entry} label represents the \texttt{entry} block of the \ac{IR} \texttt{main} process. At the start of the program, an environment \texttt{env} is allocated and control is passed to this label. The \texttt{writeExpression} instruction is compiled into a simple assignment to the location of $d_0$ in the environment, which in this case is at offset $0$. The \texttt{print} instruction is compiled into a call to the C \texttt{printf} function, reading the integer from the same location. Finally, the \texttt{popTask} instruction is compiled into code which frees the current environment, and transfers control to the next task. In this case, the only task left is the end of the program, and thus, the program ends immediately.
+
+\section{Structure of the Document}
+
+The second chapter focuses on the theoretical background and on prior work related to this thesis, introducing the \ac{CLASS} language and the \ac{SAM} execution model. The third chapter describes the base compilation scheme in detail. The fourth chapter lists the various transformations made to the base compilation scheme in order to improve the performance of the generated programs. The fifth chapter describes the implementation of the compiler and its test suite, and discusses the performance results of the developed benchmarks. Finally, the sixth chapter gives some concluding remarks and discusses possible future work.
+
+\todo{mention annex?}
