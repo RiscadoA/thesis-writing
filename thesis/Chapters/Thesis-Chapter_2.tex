@@ -380,7 +380,7 @@ The syntax of \ac{CLASS} we'll be using on this thesis differs slightly from $\m
     \end{tabular}
 \end{table}
 
-The $\lintt$, $\colintt$, $\lboolt$, $\colboolt$, $\lstringt$, $\colstringt$, $\classt{affine}$, $\classt{coaffine}$, $\classt{state}$, $\classt{usage}$, $\classt{statel}$ and $\classt{usagel}$ types are not present in $\mu$CLL and are used for basic values, defining affine sessions and reference cells, which we won't be diving into in this report. \todo{now in the thesis we must talk about them!} A \ac{CLASS} program is composed of a collection of type definitions and process definitions, with the following BNF grammar:
+The $\lintt$, $\colintt$, $\lboolt$, $\colboolt$, $\lstringt$, $\colstringt$, $\classt{affine}$, $\classt{coaffine}$, $\classt{state}$, $\classt{usage}$, $\classt{statel}$ and $\classt{usagel}$ types are not present in $\mu$CLL and are used for basic values, defining affine sessions and reference cells. A \ac{CLASS} program is composed of a collection of type definitions and process definitions, with the following BNF grammar:
 
 \begin{align*}
     \text{Program} ::=\  & \text{ProcDef}\ \text{Program} &  & |\ \text{ProcDef} \\
@@ -436,6 +436,10 @@ With the introduction of basic types, along with the print, if and let processes
                     |\ & E_1 < E_2   & & |\ E_1 > E_2 & & |\ E_1 <= E_2 & & |\ E_1 >= E_2 \\ 
 \end{align*}
 
+The affine constructs, $\affinec{x}P$, $\usec{x}P$ and $\discardc{x}$, are used to define affine sessions. The process $\affinec{x}P$ is typed such that only co-affine or exponential names can be used in $P$, and $x$ is an affine session. The process $\usec{x}P$ marks the co-affine session $x$ as used in $P$, and the process $\discardc{x}$ discards the affine session $x$.
+
+Finally, the constructs $\cellp$, $\putp$, $\takep$, $\releasep$ and $\sharep$, build on top of the affine constructs to model shared mutable state through reference cells. The process $\cellc{x}{y}P$ creates a new reference cell $x$ containing the affine session $y$, used in $P$. The process $\takec{x}{y}P$ locks the reference cell $x$, binding its content to $y$, and runs $P$. The process $\putc{x}{y}{P}Q$ places a new affine session $y$, used in $P$, in the locked reference cell $x$, unlocks it, and runs $Q$. The process $\releasec{x}$ drops the reference cell $x$, and, finally, the process $\sharec{x}{P}{Q}$ runs $P$ and $Q$ concurrently, both sharing access to the reference cell $x$.
+
 \subsection{Example Programs}
 
 We now present some example programs in \ac{CLASS}, starting with a simple program which does nothing but close a session (Figure \ref{fig:CLASSWaitCloseExample}). The \texttt{main} process definition never has any channel or type arguments. In this program, a session $x$ is initialized through a $\cutp$. Its type annotation $x: \closet$ indicates that on the right-hand side of the $\cutp$ the only action that can (and must) be performed is $\closep$. On the left-hand side, the dual is true - that is, the actions on $x$ must match the dual type of $\closet$, which is $\waitt$. The $\waitp$ action has a continuation, which in this case is set to $\emptyc$ (empty), indicating that the process has terminated.
@@ -455,20 +459,20 @@ We now present some example programs in \ac{CLASS}, starting with a simple progr
     \label{fig:CLASSWaitCloseExample}
 \end{figure}
 
-In Figure \ref{fig:CLASSSendAndReceiveExample} we present a program that sends a session $y$ of type $\waitt$ through a session $x$, which then continues with type $\waitt$. The sent session $y$ has one of its end points defined by the closure $\waitc{y}{\emptyc}$, and the other end point is received by $x$, which then closes it.
+In Figure \ref{fig:CLASSSendAndReceiveExample} we present a program that sends a session $y$ of type $\colintt$ through a session $x$, which then continues with type $\colintt$. The sent session $y$ has one of its end points defined by the closure $\printlnc{y}{\emptyc}$, which prints the integer received through $y$ and terminates.
 
-On the right-hand side of the cut, session $y$ is received and bound to $z$. The type system forces both $x$ and $z$ to be closed, and since $\closep$ has no continuation, we must use the $\parp$ construct to close both sessions.
+On the right-hand side of the cut, session $y$ is received and bound to $z$. The type system forces integers to be produced to both $x$ and $z$, and since $\letp$ has no continuation, we must use the $\parp$ construct to close both sessions.
 
 \begin{figure}[H]
     \centering
     \begin{class}
         \procdefc{main}{}{
             \cutc{
-                \sendc{x}{y}{\waiti{y}\emptyc}
-                \waiti{x}\emptyc
-            }{x: \recvt{\closet}{\closet}}{
+                \sendc{x}{y}{\printlni{y}\emptyc}
+                \printlni{x}\emptyc
+            }{x: \recvt{\lintt}{\lintt}}{
                 \recvc{x}{z}
-                {\pari{\closec{x}}{\closec{z}}}
+                {\pari{\letc{x}{1}}{\letc{z}{2}}}
             }
         }
     \end{class}
@@ -537,23 +541,23 @@ Figure \ref{fig:CLASSProcDefExample} presents a program equivalent to the one in
     \label{fig:CLASSProcDefExample}
 \end{figure}
 
-When writing complex programs in \ac{CLASS}, we use type definitions to simplify the code. In Figure \ref{fig:CLASSBoolExample}, a type $Bool$ is defined which is equivalent to a choice of two labels, each option leading to $\waitt$. Then, this definition can be used in the type annotations of the processes. The \texttt{printBool} process definition receives a session $x$ of type $\dualt{Bool}$, i.e., receives a choice of one of two labels, and prints the choice made.
+When writing complex programs in \ac{CLASS}, type definitions are used to simplify the code. In Figure \ref{fig:CLASSEitherExample}, a type $Either$ is defined which is equivalent to a choice of two labels, each option leading to $\waitt$. Then, this definition can be used in the type annotations of the processes. The \texttt{printEither} process definition receives a session $x$ of type $\dualt{Either}$, i.e., receives a choice of one of two labels, and prints the choice made.
 
-The main process definition \texttt{main} initializes a session $x$ of type $Bool$ with the choice $\labelp{false}$, and calls the \texttt{printBool} process definition with it. Running this program will print \texttt{false}.
+The main process definition \texttt{main} initializes a session $x$ of type $Either$ with the choice $\labelp{left}$, and calls the \texttt{printBool} process definition with it. Running this program will print \texttt{left}.
 
 \begin{figure}[H]
     \centering
     \begin{minipage}{0.45\textwidth}
         \begin{class}
-            \typedefc{Bool}{\choicet{\iz\z
-                    \labelt{false}{\waitt}\z
-                    \labelt{true}{\waitt}\dz\z
+            \typedefc{Either}{\choicet{\iz\z
+                    \labelt{left}{\waitt}\z
+                    \labelt{right}{\waitt}\dz\z
                 }}
             \z\z
-            \procdefc{printBool}{x: \dualt{Bool}}{
+            \procdefc{printEither}{x: \dualt{Either}}{
                 \casec{x}{
-                    \labelc{false}{\printlni{false}\closec{x}}
-                    \labelc{true}{\printlni{true}\closec{x}}
+                    \labelc{left}{\printlni{\texttt{"left"}}\closec{x}}
+                    \labelc{right}{\printlni{\texttt{"right"}}\closec{x}}
                 }
             }
         \end{class}
@@ -563,16 +567,16 @@ The main process definition \texttt{main} initializes a session $x$ of type $Boo
         \begin{class}
             \procdefc{main}{}{
                 \cutc{
-                    \proccallc{printBool}{x}
-                }{x: Bool}{
-                    \choosec{false}{x}
+                    \proccallc{printEither}{x}
+                }{x: Either}{
+                    \choosec{left}{x}
                     \waiti{x}\emptyc
                 }
             }
         \end{class}
     \end{minipage}
-    \caption{Definition and Use of a Boolean Type in \ac{CLASS}}
-    \label{fig:CLASSBoolExample}
+    \caption{Definition and use of an either type in \ac{CLASS}}
+    \label{fig:CLASSEitherExample}
 \end{figure}
 
 \ac{CLASS} supports defining inductive types and processes. Figure \ref{fig:CLASSNatExample} presents a inductive definition of natural numbers in \ac{CLASS}, and a recursive process that prints a natural number. The unfold actions $\unfoldmuc{x}$ and $\unfoldnuc{x}$ are used to unfold the inductive type $Nat$, i.e., transform $Nat$ into $\choicet{\labelt{zero}{\waitt}\ \labelt{succ}{Nat}}$. Unfold actions are added implicitly, but they are explicit in the example for clarity. This example prints \texttt{S S 0}, representing the number $2$.
@@ -589,8 +593,8 @@ The main process definition \texttt{main} initializes a session $x$ of type $Boo
             \recprocdefc{printNat}{x: \dualt{Nat}}{
                 \unfoldnuc{x}
                 \casec{x}{
-                    \labelc{zero}{\printlni{0}\closec{x}}
-                    \labelc{succ}{\printi{S}\proccallc{printNat}{x}}
+                    \labelc{zero}{\printlni{\texttt{"0"}}\closec{x}}
+                    \labelc{succ}{\printi{\texttt{"S"}}\proccallc{printNat}{x}}
                 }
             }
         \end{class}
@@ -642,6 +646,10 @@ The concatenation is done by matching on the first list $x$. If it is $\labelp{n
     \caption{Polymorphic List Concatenation in \ac{CLASS}}
     \label{fig:CLASSPolymorphismExample}
 \end{figure}
+
+\todo{add affine example}
+
+\todo{add shared state example}
 
 \section{Linear Session Abstract Machine}
 
