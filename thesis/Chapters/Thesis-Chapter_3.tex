@@ -158,7 +158,7 @@ entry:
 
 \subsection{Expressions}
 
-Expressions are tree-like structure which compute basic values (\texttt{int}, \texttt{bool} or \texttt{string}) without side effects. \ac{IR} expressions are defined exactly as the expressions of \ac{CLASS}, with the difference that channel names are replaced by \texttt{move(d, T)} and \texttt{clone(d, T)} expressions. Move and clone instructions read a slot tree $T$ from a data location $d$, with the difference that move consumes the data (cannot be read again) while clone leaves the data intact. For example, an integer clone is equivalent to a move, as integers are trivially copyable, but a string clone must allocate a new string and copy the contents.
+Expressions are tree-like structure which compute basic values (\texttt{int}, \texttt{bool} or \texttt{string}) without side effects. \ac{IR} expressions are defined exactly as the expressions of \ac{CLASS}, with the difference that channel names are replaced by \texttt{move(d, S)} and \texttt{clone(d, S)} expressions. Move and clone expressions read a slot $S$ from a data location $d$, with the difference that move consumes the data (cannot be read again) while clone leaves the data intact. For example, an integer clone is equivalent to a move, as integers are trivially copyable, but a string clone must allocate a new string and copy the contents.
 
 While expressions do not occur as instructions, they are used as arguments to some instructions, such as \texttt{writeExpression}, \texttt{branchExpression} and \texttt{print}.
 
@@ -366,11 +366,11 @@ if_false: // ... 1 end point removed (max - curr = 2 - 1 = 1)
 
 This section formally defines the base (unoptimized) translation from \ac{CLASS} to the \ac{IR} defined in the previous section. It starts defining notation for representing and updating the state of the compiler. Then, it defines how session types are mapped to the slot trees introduced in \Cref{subsection:IRSlots}. Next, an overview of the instruction generation scheme is presented, and some important concepts are defined. Finally, the translation from \ac{CLASS} processes to \ac{IR} programs is incrementally defined, starting from simple processes and adding more constructs until the whole language is covered.
 
-This compilation scheme assumes well-typed \ac{CLASS} processes are given as input, along with the required type information of free names in all processes. The notation $x: A$ is used to indicate that the type checker has inferred that channel $x$ is a free name of type $A$ on some process.
+The presented compilation scheme assumes well-typed \ac{CLASS} processes are given as input, along with the required type information of free names in all processes. The notation $x: A$ is used to indicate that the type checker infers channel $x$ to be a free name of type $A$ on some process.
 
 \subsection{Compiler state}
 
-To compile \ac{CLASS} processes to \ac{IR} programs, the compiler must keep track of information regarding the state of each type and channel name within the process being compiled. This state is referred to as the environment, and is represented by a tuple $(\theta, \Delta)$, where $\theta$ is the type environment and $\Delta$ is the channel environment.
+To compile \ac{CLASS} processes to \ac{IR} programs, the compiler must keep track of information regarding the type parameters and the state of each channel within the process being compiled. This state is referred to as the environment, and is represented by a tuple $(\theta, \Delta)$, where $\theta$ is the type environment and $\Delta$ is the channel environment.
 
 \subsubsection{Type environments} \label{subsubsection:TypeEnvironments}
 
@@ -392,7 +392,7 @@ A type with positive polarity is one for which sessions of that type are used to
     \label{fig:TypePolarity}
 \end{figure}
 
-Note that due to affine types being implemented as a choice between using the data or dropping it, i.e., $\affinet{A} \equiv \offert{\labelt{use}{A}\ \labelt{discard}{\closet}}$, the polarity of $\affinet{A}$ is negative, while the polarity of $\coaffinet{A}$ is positive, as shown in \Cref{fig:TypePolarity}.
+Note that due to affine types being implemented as a choice between using the data or dropping it, i.e., $\affinet{A} \equiv \offert{\labelt{use}{A}\ \labelt{discard}{\closet}}$, the polarity of $\affinet{A}$ is negative, while the polarity of $\coaffinet{A}$ is positive.
 
 \subsubsection{Channel environments}
 
@@ -402,30 +402,26 @@ Given a channel environment $\Delta$, $\Delta[x \mapsto (s, d, o)]$ is defined a
 
 \subsubsection{Writing and reading locations}
 
-For convenience, both $\readlocof{\Delta}{x}$ and $\writelocof{\Delta}{x}$ are defined. The first provides the current data location from which data of channel $x$ is to be read, taking into account the offset, and is defined as $\readlocof{\Delta}{x} = \dataol{\localdataof{\Delta}{x}}{\offsetof{\Delta}{x}}$. The second is the current data location into which data for channel $x$ is to be written, and is defined as $\writelocof{\Delta}{x} = \dataol{\localdataof{\Delta}{x}}{\offsetof{\Delta}{x}}$.
+For convenience, both $\readlocof{\Delta}{x}$ and $\writelocof{\Delta}{x}$ are defined. The first provides the current data location from which data of channel $x$ is to be read, taking into account the offset, and is defined as $\readlocof{\Delta}{x} = \dataol{\localdataof{\Delta}{x}}{\offsetof{\Delta}{x}}$. The second is the current data location into which data for channel $x$ is to be written, and is defined as $\writelocof{\Delta}{x} = \dataol{\sessionof{\Delta}{x}}{\offsetof{\Delta}{x}}$.
 
 \subsubsection{Advancing the offset} \label{subsubsection:AdvancingOffsets}
 
-When more than one slot is read from or written to a channel in succession, the channel's offset must be advanced accordingly. To this end, first the concatenation of offsets must be defined. Given two offsets $o_1 = (P_1, F_1)$ and $o_2 = (P_2, F_2)$, their concatenation is defined as $\concatst{o_1}{o_2} = (\concatst{P_1}{P_2}, F_2)$, where $\concatst{P_1}{P_2}$ is the concatenation of the two slot trees. In other words, when two offsets are concatenated, the resulting offset has concatenates both of the past slot trees, and keeps the future slot tree of the second offset. Slot tree concatenation is defined as replacing every leaf of the first slot tree with the second slot tree.
+When more than one slot is read from or written to a channel in succession, the channel's offset must be advanced accordingly. To this end, the concatenation of offsets must be defined. Given two offsets $o_1 = (P_1, F_1)$ and $o_2 = (P_2, F_2)$, their concatenation is defined as $\concatst{o_1}{o_2} = (\concatst{P_1}{P_2}, F_2)$, where $\concatst{P_1}{P_2}$ is the concatenation of the two slot trees. In other words, when two offsets are concatenated, the resulting offset has concatenates both of the past slot trees, and keeps the future slot tree of the second offset. Slot tree concatenation is defined as replacing every leaf of the first slot tree with the second slot tree.
 
 To simplify the definitions in the next sections, $\advancech{\Delta}{x}{p}{\theta}{S}{A}$ is defined as the channel environment $\Delta$ where the offset of channel $x$ is either advanced by a given offset, or reset. The decision is made based on whether the polarity $p$ (either $+$ or $-$) matches the polarity of the type $A$ in the type environment $\theta$. If they match, the new offset is computed as $\concatst{\offsetof{\Delta}{x}}{(\slotoffset{S}{\slots{\theta}{A}})}$, where $S$ is a slot tree describing the data which was just read or written, and $\slots{\theta}{A}$ is the slot tree corresponding to type $A$, which will be defined in the next section. Otherwise the new offset is $0$. Formally:
-
-$$
+\[
 \advancech{\Delta}{x}{p}{\theta}{S}{A} = \begin{cases}
     \Delta[x \mapsto (\sessionof{\Delta}{x}, \localdataof{\Delta}{x}, \concatst{\offsetof{\Delta}{x}}{(\slotoffset{S}{\slots{\theta}{A}})})] & \text{if } p = \polarityof{\theta}{A} \\
     \Delta[x \mapsto (\sessionof{\Delta}{x}, \localdataof{\Delta}{x}, 0)] & \text{otherwise}
 \end{cases}
-$$
+\]
 
 \subsection{Mapping session types to slot trees}
 
 To translate \ac{CLASS} processes to \ac{IR} programs, we need to define which data is sent and received over sessions. As explained in \Cref{subsection:IRSlots}, in the \ac{IR} data types are represented through slot trees. Thus, we need to define how session types are mapped to slot trees.
 
-We start by defining this mapping for session types $A$ which are strictly positive. Let $\slots{\theta}{A}$ be the slot tree corresponding to the data exchanged over a session type $A$ within type environment $\theta$. This function is defined through pattern matching on session types in \Cref{fig:SessionTypeToSlotTree}.
-
-\begin{figure}[H]
-    \centering
-    \begin{align*}
+We start by defining this mapping for session types $A$ which are strictly positive. Let $\slots{\theta}{A}$ be the slot tree corresponding to the data exchanged over a session type $A$ within type environment $\theta$. This function is defined through pattern matching on session types:
+\[\begin{aligned}
         &\slots{\theta}{\closet} = \nilst && \slots{\theta}{\lintt} = \seqst{\ints} \\
         &\slots{\theta}{\lboolt} = \seqst{\bools} && \slots{\theta}{\lstringt} = \seqst{\strings} \\
         &\slots{\theta}{\sendt{A}{B}} = \seqst{\sessions; \slots{\theta}{B}} && \slots{\theta}{\bangt{A}} = \seqst{\exponentials} \\
@@ -433,10 +429,7 @@ We start by defining this mapping for session types $A$ which are strictly posit
         &\slots{\theta}{\statet A} = \seqst{\cells{\sessions}} && \slots{\theta}{\statelt A} = \seqst{\cells{\sessions}} \\
         &\slots{\theta}{\choicet{\labelt a A\ \dots}} = \tagst{\slots{\theta}{A} \texttt{|}\ \dots} && \slots{\theta}{X} = \seqst{\typeidof{\theta}{X}} \text { s.t. } \polarityof{\theta}{X} = + \\
         &\slots{\theta}{A} = \nilst \text{ if } \polarityof{\theta}{A} = -
-    \end{align*}
-    \caption{Mapping from value session types to slot trees}
-    \label{fig:SessionTypeToSlotTree}
-\end{figure}
+\end{aligned}\]
 
 To exemplify, consider the session type $\sendt{\lintt}{\sendt{\closet}{\choicet{\labelt a \lstringt\ \labelt b \lboolt}}}$. Its slot tree is $\seqst{\sessions; \sessions; \tagst{\seqst{\strings}\tagsepst \seqst{\bools}}}$, as first a session is sent, then another session is sent, and finally, a tag is sent followed by either a string or a boolean, depending on the sent tag.
 
@@ -456,34 +449,21 @@ All writing operations to a channel $x$ write to an offset within the remote dat
 
 For example, consider two processes communicating over a session of type $\sendt{A}{\recvt{B}{\waitt}}$, where the positive channel is named $x$ and the negative channel is named $y$. The writing process, with a channel environment $\Delta^1$ first writes a session of type $A$ to $\writelocof{\Delta^1}{x}$, which is equal to $\readlocof{\Delta^2}{y}$. Since $\recvt{B}{\waitt}$ is negative, a write-to-read adjustment is performed, and thus, a \texttt{continueSession} instruction is executed on $\sessionof{\Delta^1}{x}$.
 
-The reading process, with a channel environment $\Delta^2$, reads a session of type $A$ from $\readlocof{\Delta^2}{y}$. Then, it will write to $\writelocof{\Delta^2}{y}$ a session of type $B$. The writing offset is zero, since we performed a read-to-write adjustment after reading $A$. Finally, it finishes the session $\sessionof{\Delta^2}{y}$, passing control back to the writing process.
-
-The writing process now reads from $\readlocof{\Delta^1}{x}$ a session of type $B$, which is equal to $\writelocof{\Delta^2}{y}$, and the communication is complete.
+The reading process, with a channel environment $\Delta^2$, reads a session of type $A$ from $\readlocof{\Delta^2}{y}$. Then, it will write to $\writelocof{\Delta^2}{y}$ a session of type $B$. The writing offset is zero, since we performed a read-to-write adjustment after reading $A$. Finally, it finishes the session $\sessionof{\Delta^2}{y}$, passing control back to the writing process. The writing process then reads from $\readlocof{\Delta^1}{x}$ a session of type $B$, which is equal to $\writelocof{\Delta^2}{y}$, and the communication is complete.
 
 \subsection{Expression generation}
 
-Apart from generating instructions for processes, \ac{IR} expressions must be generated from \ac{CLASS} expressions when generating instructions for processes such as $\printp$, $\letp$ and $\ifp$. To achieve this, the function $\getexpression{\Delta}{E}$ is defined, which takes a \ac{CLASS} expression $E$ and a channel environment $\Delta$, and produces equivalent an \ac{IR} expression.
-
-This function is defined through pattern matching on \ac{CLASS} expression, as shown below.
-
-\begin{align*}
-    &\getexpression{\Delta}{E_1 + E_2} = \getexpression{\Delta}{E_1} + \getexpression{\Delta}{E_2} & & |\ & & \getexpression{\Delta}{E_1 - E_2} = \getexpression{\Delta}{E_1} - \getexpression{\Delta}{E_2} \\
-    &\getexpression{\Delta}{E_1 * E_2} = \getexpression{\Delta}{E_1} * \getexpression{\Delta}{E_2} & & |\ & & \getexpression{\Delta}{E_1 / E_2} = \getexpression{\Delta}{E_1} / \getexpression{\Delta}{E_2} \\
-    &\getexpression{\Delta}{E_1 \% E_2} = \getexpression{\Delta}{E_1}\,\%\,\getexpression{\Delta}{E_2} & & |\ & & \getexpression{\Delta}{-E} = -\getexpression{\Delta}{E} \\
-    &\getexpression{\Delta}{E_1\,\texttt{and}\,E_2} = \getexpression{\Delta}{E_1}\ \texttt{and}\ \getexpression{\Delta}{E_2} & & |\ & & \getexpression{\Delta}{E_1\,\texttt{or}\,E_2} = \getexpression{\Delta}{E_1}\ \texttt{or}\ \getexpression{\Delta}{E_2} \\
-    &\getexpression{\Delta}{\texttt{not}\,E} = \texttt{not}\ \getexpression{\Delta}{E} & & |\ & & \getexpression{\Delta}{E_1 < E_2} = \getexpression{\Delta}{E_1} < \getexpression{\Delta}{E_2} \\
-    &\getexpression{\Delta}{E_1 \leq E_2} = \getexpression{\Delta}{E_1} \leq \getexpression{\Delta}{E_2} & & |\ & & \getexpression{\Delta}{E_1 > E_2} = \getexpression{\Delta}{E_1} > \getexpression{\Delta}{E_2} \\
-    &\getexpression{\Delta}{E_1 \geq E_2} = \getexpression{\Delta}{E_1} \geq \getexpression{\Delta}{E_2} & & |\ & & \getexpression{\Delta}{E_1 == E_2} = \getexpression{\Delta}{E_1} == \getexpression{\Delta}{E_2} \\
-    &\getexpression{\Delta}{n} = n \text{ where } n \text{ is an integer literal} & & |\ & & \getexpression{\Delta}{b} = b \text{ where } b \text{ is a boolean literal} \\
-    &\getexpression{\Delta}{s} = s \text{ where } s \text{ is a string literal} & & |\ & & \getexpression{\Delta}{x} = \texttt{move}(\readlocof{\Delta}{x}) \text{ where } x \text{ is linear}\\
-    &\getexpression{\Delta}{x} = \texttt{clone}(\readlocof{\Delta}{x}) \text{ where } x \text{ is exponential}
-\end{align*}
+Apart from generating instructions for processes, \ac{IR} expressions must be generated from \ac{CLASS} expressions when generating instructions for processes such as $\printp$, $\letp$ and $\ifp$. To achieve this, the function $\getexpression{\Delta}{E}$ is defined, which takes a \ac{CLASS} expression $E$ and a channel environment $\Delta$, and produces equivalent an \ac{IR} expression. This function is trivially defined recursively through pattern matching on \ac{CLASS} expressions, as they are exactly the same as \ac{IR} expressions, except for channel names $x$, which must be for which the transformation is defined as
+\[
+\getexpression{\Delta}{x} = \texttt{move}(\readlocof{\Delta}{x}, S)
+\]
+where $S$ is the slot corresponding to the type of the channel $x$, which is guaranteed be a basic type (e.g., $\ints$ for $\colintt$, $\strings$ for $\colstringt$).
 
 \subsection{End point counting}
 
 One other important aspect of the compilation is counting the number of end points of the generated \ac{IR} code for a given \ac{CLASS} process. This is necessary to ensure that the generated code properly deallocates the process environment when there's no more code left to execute within it, as explained in \Cref{subsection:EndPoints}.
 
-The number of end points in a process $P$ is denoted by $\getendpoints{\theta}{P}$, which is defined by pattern matching on processes. It will be incrementally defined along with the instruction generation rules in the following sections.
+The number of end points in a process $P$ is denoted by $\getendpoints{\theta}{P}$, and is defined by pattern matching on processes. It will be incrementally defined along with the instruction generation function in the following sections.
 
 \subsection{Process Definitions} \label{subsection:ProcessDefinitions}
 
@@ -500,11 +480,6 @@ Finally, we generate the instructions for the process body $P$ (starting by the 
 \subsection{Cut, Parallel and Empty}
 
 We start by defining the compilation of a $\cutp$ process, which can be seen below. We assume, without loss of generality, that $A$ is a positive type, and thus, that $P$ will be writing to $x$ before $Q$ executes - if $A$ were negative, we could simply swap $P$ and $Q$. The number of end points of the generated code is the sum of the number of end points of both $P$ and $Q$.
-
-First, a fresh session identifier $s$ is generated and added to the process header. Additionally, a data section with unique identifier $d$ is added to the header, with a layout given by $\allslots{\theta}{A}$. In other words, $d$ reserves space for all data which will be both sent and received over the session of type $A$. This is necessary as both sides of the cut share the same data section.
-
-The process initializes the session $s$ with a new block \texttt{rhs} as continuation, and $d$ as a writing location. Then, it recursively compiles both $P$ and $Q$ with a new environment where the name $x$ is bound to $(s, d, 0)$. $P$ is placed on the original block, and $Q$ placed on the new block \texttt{rhs}.
-
 \begin{compilation}{\theta}{\Delta}{\cutc{P}{x: A}{Q}}
 {\getendpoints{\theta}{P} + \getendpoints{\theta}{Q}}
     \initsession{s}{\texttt{rhs}}{d}
@@ -513,8 +488,13 @@ The process initializes the session $s$ with a new block \texttt{rhs} as continu
     \recurse{\theta}{\Delta[x \mapsto (s, d, 0)]}{Q}
 \end{compilation}
 
-The compilation of a $\parp$ process is shown below. The process starts by generating code to push a new task for executing $Q$ into the task stack. Then, it compiles $P$, which will be executed immediately. AS with the $\cutp$ process, the number of end points of the generated code is the sum of the number of end points of both $P$ and $Q$. Since the task stack is a stack, task pop instructions always execute the most recently pushed task. Thus, it is guaranteed that $Q$ will only execute after $P$ has finished executing completely.
+First, a fresh session identifier $s$ is generated and added to the process header. Additionally, a data section with unique identifier $d$ is added to the header, with a layout given by $\allslots{\theta}{A}$. In other words, $d$ reserves space for all data which will be both sent and received over the session of type $A$. This is necessary as both sides of the cut share the same data section.
 
+The process initializes the session $s$ with a new block \texttt{rhs} as continuation, and $d$ as a writing location. Then, it recursively compiles both $P$ and $Q$ with a new environment where the name $x$ is bound to $(s, d, 0)$. $P$ is placed on the original block, and $Q$ placed on the new block \texttt{rhs}.
+
+
+
+The compilation of a $\parp$ process is shown below. The process starts by generating code to push a new task for executing $Q$ into the task stack. Then, it compiles $P$, which will be executed immediately. AS with the $\cutp$ process, the number of end points of the generated code is the sum of the number of end points of both $P$ and $Q$. Since the task stack is a stack, task pop instructions always execute the most recently pushed task. Thus, it is guaranteed that $Q$ will only execute after $P$ has finished executing completely.
 \begin{compilation}{\theta}{\Delta}{\parc{P}{Q}}
 {\getendpoints{\theta}{P} + \getendpoints{\theta}{Q}}
     \pushtask{rhs}
@@ -523,16 +503,14 @@ The compilation of a $\parp$ process is shown below. The process starts by gener
     \recurse{\theta}{\Delta}{Q}
 \end{compilation}
 
-The $\emptyp$ process is compiled as shown below. The process marks the end of the current task, as it has no continuation. The flow of control is thus simply passed to the next task in the linked list. Additionally, we mark this instruction as an end point. 
-
+The $\emptyp$ process is compiled as shown below. The process marks the end of the current task, and thus the flow of control is passed to the next task in the linked list through the \texttt{popTask} instruction.
 \begin{compilation}{\theta}{\Delta}{\emptyc}{1}
     \poptask{\hasendpoint}
 \end{compilation}
 
 \subsection{Close and Wait}
 
-The compilation of a $\closep$ process can be seen below. The session identifier is fetched from the channel environment $\Delta$. This action doesn't have a continuation, as the session is closed and no more operations can be performed on it. The flow of control is simply passed to the continuation of the session, and won't return. Additionally, since there's no continuation, the instruction is marked as an end point.
-
+The compilation of a $\closep$ process can be seen below. The session identifier is fetched from the channel environment $\Delta$. This action doesn't have a continuation, as the session is closed and no more operations can be performed on it. Flow of control is simply passed to the continuation of the session, and won't return.
 \begin{compilation}{\theta}{\Delta}{\closec{x}}{1}
     \finishsession{\sessionof{\Delta}{x}}{\hasendpoint}
 \end{compilation}
@@ -580,7 +558,6 @@ To compile the $\printp$ and $\printlnp$ processes, a single instruction is gene
 \subsection{Choice and branching}
 
 The compilation of choice processes is shown below. Code is generated which writes a tag to the remote data of the channel $x$. We define $i(\#a)$ as the index of the tag \texttt{a} in the alphabetically sorted list of tags in the offer process. Then, the pseudo-instruction \texttt{continueIfNegative} is inserted, which adds a \texttt{continueSession} instruction if the remainder type of $x$ is negative. Finally, the process recurses on its continuation $P$, advancing the offset of channel $x$ to skip over the written tag, taking into account the remainder type of the channel, as explained in \Cref{subsubsection:AdvancingOffsets}.
-
 \begin{compilation}{\theta}{\Delta}{\choosec{a}{x}{P}}
 {\getendpoints{\theta}{P}}
     \writetag{\writelocof{\Delta}{x}}{i(\#a)}
@@ -589,7 +566,6 @@ The compilation of choice processes is shown below. Code is generated which writ
 \end{compilation}
 
 The compilation of a $\casep$ process is shown below. The compiler generates code which reads a tag from the local data of channel $x$, jumps to the corresponding label and then recurses, generating code for each possible branch, preceded by the respective label. The labels are generated by their alphabetical order, so that their index matches the one written by the \texttt{writeTag} instruction. As before, the offset of channel $x$ is advanced to skip over the read tag. Here, the remainder type of $x$ depends on the chosen branch.
-
 \begin{compilation}{\theta}{\Delta}{\casec{x}{\labelc{a}{A},\,\dots,\,\labelc{z}{Z}}}
     {\max(\getendpoints{\theta}{A},\,\dots,\,\getendpoints{\theta}{Z})}
     \branchtag{\readlocof{\Delta}{x}}{\texttt{a}:\getendpoints{\theta}{A},\,\dots,\,\texttt{z}:\getendpoints{\theta}{Z}}
@@ -608,7 +584,6 @@ The compilation of a $\sendp$ process is shown below. The process initializes a 
 The initialized session $s$ is then written the remote data of $x$, after which a \texttt{continueIfNegative} instruction is placed. This is necessary, as before, to implement the write-to-read adjustment of the \ac{SAM}. After this, the process recurses immediately on $Q$, advancing the offset of channel $x$ to skip over the sent data, as explained in \Cref{subsubsection:AdvancingOffsets}.
 
 Finally, on the new block \texttt{lhs}, the process recurses on $P$, with a new environment where $y$ is bound to the channel state $(s, d, 0)$. This block will only be executed when the reader of the session we just wrote passes control to it.
-
 \begin{compilation}{\theta}{\Delta}{\sendc{x}{y}{P}{Q}}
 {\getendpoints{\theta}{P} + \getendpoints{\theta}{Q}}
     \initsession{s}{\texttt{lhs}}{d}
@@ -622,7 +597,6 @@ Finally, on the new block \texttt{lhs}, the process recurses on $P$, with a new 
 The $\recvp$ process is compiled as shown below. When executing this process, a session has already been written to the local data section associated to channel $x$. A session binding instruction is generated to bind this stored session into a fresh session identifier $s$, which is added to the process header, and a to a fresh local data section $d$, which is also added to the header, with layout $\alllocalslots{\theta}{A}$, similarly to the $\sendp$ process.
 
 The newly bound session must be continued if its type is negative, ensuring that the writing side of the session executes first. After this, the compilation recurses on $P$, with a new environment where $x$ has been advanced to skip over the received session, and $y$ is bound to the channel state $(s, d, 0)$.
-
 \begin{compilation}{\theta}{\Delta}{\recvc{x}{y: A}{P}}
 {\getendpoints{\theta}{P}}
     \bindsession{s}{\readlocof{\Delta}{x}}{d}
@@ -635,7 +609,6 @@ The newly bound session must be continued if its type is negative, ensuring that
 Given a process $\fwdc{x}{y}$, it can be assumed without loss of generality that $x$ is of negative type and $y$ of positive type - if this is not the case, $x$ and $y$ can be swapped.
 
 Forwarding requires us to move any data which has been received (but not consumed) through $x$ on its local data section to the remote data of $y$, which is positive. This data is known be composed of the slots given by $\slots{\theta}{A}$, where $A$ is the type being forwarded. For example, if $A = \lintt$, then $\seqst{\ints}$ must be moved from the local data of $x$ to the remote data of $y$. This is the first operation performed by the forwarding process, as shown below.
-
 \begin{compilation}{\theta}{\Delta}{\fwdc{x}{y}}
 {1}
     \moveslots{\writelocof{\Delta}{y}}{\readlocof{\Delta}{x}}{\slots{\theta}{A}}
@@ -644,25 +617,14 @@ Forwarding requires us to move any data which has been received (but not consume
 
 \subsection{Process Calls}
 
-Process calls are compiled as shown below. The identifier $id$ of the \ac{IR} process to call is generated from the name of the process being called and the polarities of its type parameters, using the same scheme as when generating process definitions. This ensures that the correct variant of the process is being called, as explained in \Cref{subsection:ProcessDefinitions}.
-
+Process calls are compiled as shown below. The identifier $id$ of the \ac{IR} process to call is generated from the name of the process being called and the polarities of its type parameters, using the scheme used for generating process definitions, covered in \Cref{subsection:ProcessDefinitions}. This ensures that the correct variant of the process is called.
 \begin{compilation}{\theta}{\Delta}{\proccallgc{processId}{A_1,\,\dots,\,A_n}{x_1,\,\dots,\,x_m;\,y_1,\,\dots,y_k}}{1}
     \callprocess{id}{\hasendpoint}{T, S, D}
 \end{compilation}
 
-The list of type arguments $T_1,\,\dots,\,T_n$ is generated from the type parameters $A_1,\,\dots,\,A_n$. Each $T_i$ is the active slot tree of type, computed as $\slots{\theta}{A_i}$.
+The list of \ac{IR} type parameters $T_1,\,\dots,\,T_n$ is generated from the \ac{CLASS} type parameters $A_1,\,\dots,\,A_n$. Each $T_i$ is the active slot tree of type, given by $\slots{\theta}{A_i}$. The list of session arguments $S_1,\,\dots,\,S_m$ is generated from the linear arguments $x_1,\,\dots,\,x_m$. Each $S_i$ is a tuple $(s_t, s_s, o)$, where $s_t$ is the session identifier in the environment of the process being called, $s_s = \sessionof{\Delta}{x}$, and $o = \offsetof{\Delta}{x}$.
 
-The list of session arguments $S_1,\,\dots,\,S_m$ is generated from the linear arguments $x_1,\,\dots,\,x_m$. Each $S_i$ is a tuple $(s_t, s_s, o)$, where $s_t$ is the session identifier of the argument in the environment of the process being called, $s_s = \sessionof{\Delta}{x}$, and $o = \offsetof{\Delta}{x}$.
-
-The list of data arguments $D_1,\,\dots,\,D_{m+k}$ is generated similarly to the session arguments, but with extra entries for the exponential arguments. Each $D_i$ is a tuple $(d_t, d_s, t, c)$.
-
-For $i \leq m$ (the linear arguments), $d_t$ is the target data section identifier of the argument in the environment of the process being called, $d_s = \readlocof{\Delta}{x}$, $t = \slots{\theta}{\tau}$ where $x_i: \tau$ and $c$ is the flag indicating whether the argument data should be cloned or moved, which in this case is always \texttt{move}, as $x_i$ is linear.
-
-For $i > m$ (the exponential arguments), let $j = i - m + 1$. $d_t$ is once again the target data section identifier of the argument in the environment of the process being called, $d_s = \readlocof{\Delta}{y_j\textsc{}}$, $t = \slots{\theta}{\whynott{\tau}}$ where $y_j: \tau$. In this case, $c$ is always \texttt{clone}, as $y_j$ is exponential.
-
-\todo{this is quite complex, maybe this could be written in a clearer way?}
-
-\todo{an example of a process call could be nice here}
+Finally, the list of data arguments $D_1,\,\dots,\,D_{m+k}$ is generated similarly to the session arguments, but with extra entries for the exponential arguments. Each $D_i$ is a tuple $(d_t, d_s, t, c)$. For each linear argument $x_i$, $d_t$ is the target data section in the environment of the process being called, $d_s = \readlocof{\Delta}{x}$, $t = \slots{\theta}{\tau}$ where $x_i: \tau$ and $c$ is the flag indicating whether the argument data should be cloned or moved, which in this case is always \texttt{move}, as $x_i$ is linear. For each exponential argument $y_j$, $d_t$ is once again the target data section identifier of the argument in the environment of the process being called, $d_s = \readlocof{\Delta}{y_j\textsc{}}$, $t = \slots{\theta}{\whynott{\tau}}$ where $y_j: \tau$. In this case, $c$ is always \texttt{clone}, as $y_j$ is exponential.
 
 \subsection{Creating and calling exponentials}
 
@@ -671,7 +633,6 @@ The right-hand-side $P$ of a $\bangc{x}{y}{P}$ process is compiled as a separate
 All free names in $P$ which are not $y$ are exponentials (guaranteed by the typing rules of \ac{CLASS}), and should be passed to the new process as arguments. For each of them, a data section is created in the new process header, with layout $\alllocalslots{\theta}{\whynott{\tau}}$, where $\tau$ is the type of the free name. The environment used to compile $P$ is also updated to bind these names to their respective data sections, with offset $0$.
 
 On the original process, an exponential write instruction is generated referencing the new process identifier, along with all necessary type arguments (derived from the type parameters of the current process), and all data arguments for each of the free names in $P$. Finally, since the $\bangp$ process has no continuation, the session is finished, similarly to the $\closep$ process.
-
 \begin{compilation}{\theta}{\Delta}{\bangc{x}{y}{P}}
 {1}
     \writeexp{\writelocof{\Delta}{x}}{id}{T, D}
@@ -698,54 +659,41 @@ Unfolded processes are compiled such that positive unfolds ($\unfoldmup$) always
 
 Negative unfolds ($\unfoldnup$) only pass control to their continuation if the remainder type is negative, as in this case, the positive side must have already executed a positive unfold, and thus, given control to the negative side. If the remainder type is negative, the positive side must execute first, and thus we surrender control back to it. If the remainder type is positive, we can continue executing immediately.
 
-In both cases, the process finishes by recursing on the right-hand-side $P$ of the unfold, with a new environment where $x$ is bound to a new channel state equal to its previous state, but with offset $0$, as a new segment of the session type starts.
-
-\begin{figure}[H]
-    \centering
-    \begin{minipage}{0.45\textwidth}
-        \begin{compilationembed}{\theta}{\Delta}{\unfoldmuc{x}{P}}
-        {\getendpoints{\theta}{P}}
-            \continuesession{\sessionof{\Delta}{x},\,\texttt{cont}}
-            \labelir{cont} 
-            \recurse{\theta}{\Delta[x \mapsto (\sessionof{\Delta}{x}, \localdataof{\Delta}{x}, 0)]}{P}
-        \end{compilationembed}
-    \end{minipage}
-    \hfill
-    \begin{minipage}{0.45\textwidth}
-        \begin{compilationembed}{\theta}{\Delta}{\unfoldnuc{x}{P}}
-        {\getendpoints{\theta}{P}}
-            \beginir\%\ \text{where } x:A \text{ in }P
-            \continueifneg{x}{A}
-            \recurse{\theta}{\Delta[x \mapsto (\sessionof{\Delta}{x}, \localdataof{\Delta}{x}, 0)]}{P}
-        \end{compilationembed}
-    \end{minipage}
-\end{figure}
-
+In both cases, the process finishes by recursing on the right-hand-side $P$ of the unfold, with a new environment where $x$ is bound to a new channel state equal to its previous state, but with offset $0$, as a new segment of the session type starts. The compilation definitions of both processes are shown below:
+\begin{minipage}{0.45\textwidth}
+    \begin{compilation}{\theta}{\Delta}{\unfoldmuc{x}{P}}
+    {\getendpoints{\theta}{P}}
+        \continuesession{\sessionof{\Delta}{x},\,\texttt{cont}}
+        \labelir{cont} 
+        \recurse{\theta}{\Delta[x \mapsto (\sessionof{\Delta}{x}, \localdataof{\Delta}{x}, 0)]}{P}
+    \end{compilation}
+\end{minipage}
+\hfill
+\begin{minipage}{0.45\textwidth}
+    \begin{compilation}{\theta}{\Delta}{\unfoldnuc{x}{P}}
+    {\getendpoints{\theta}{P}}
+        \beginir\%\ \text{where } x:A \text{ in }P
+        \continueifneg{x}{A}
+        \recurse{\theta}{\Delta[x \mapsto (\sessionof{\Delta}{x}, \localdataof{\Delta}{x}, 0)]}{P}
+    \end{compilation}
+\end{minipage}
 
 \subsection{Receiving and sending types}
 
-The \ac{IR} only allows polymorphic data using type variables which are part of the process header. Thus, to implement the $\recvtyc{x}{X}P$ process, a new process must be called which has $X$ as a type parameter, and depending on $X$'s polarity. This mechanism is similar to the one used for exponentials, but in this case, the process is immediately called instead of writing an exponential, and it may have free linear names which must be passed as arguments. Additionally, two processes must be generated, one for each polarity of $X$.
+Polymorphism in the \ac{IR} is modeled through process type parameters. Thus, to compile $\recvtyc{x}{X}P$, a new \ac{IR} process must be called in which $X$ is a type parameter. This mechanism is similar to the one used for exponentials, but in this case, the process is immediately called instead of writing an exponential, and it may have free linear names which must be passed as arguments. Additionally, two \ac{IR} processes are generated: one for when $X$ is negative, another for when $X$ is positive.
 
-The compilation definition of the $\recvtyc{x}{X}P$ process is shown below. Two new process identifiers $id^-$ and $id^+$ are generated from the identifier of the current process. For each of them, a new process is generated with the same type parameters as the current process, plus a new type parameter $X$ with polarity negative for $id^-$ and positive for $id^+$. The number of end points of both new processes is set to $\getendpoints{\theta}{P}$.
-
-First, a branch instruction is generated which reads a tag from the local data of channel $x$, which indicates the polarity of the type being received. Then, depending on the read tag, either $id^-$ or $id^+$ is called, passing all free names in $P$ as arguments, along with the new session which represents $x$ in $P$, stored in $\readlocof{\Delta}{x} + \slotoffset{\seqst{\types}}{\seqst{\sessions; \tags}}$. Both $T^-$ and $T^+$ are generated from the type parameters of the current process, exactly as in a process call, but with an extra entry for $X$, which is read from $\readlocof{\Delta}{x}$.
-
-All session arguments $S$ and data arguments $D$ are generated from the free names in $P$, simply forwarding their channel states from the environment $\Delta$. \todo{do I need to clarify this?}
-
+The compilation definition of the $\recvtyc{x}{X}P$ process is shown below. Two new process identifiers $id^-$ and $id^+$ are generated from the identifier of the current process. For each of them, a new process is generated with the same type parameters as the current process, plus a new type parameter $X$ with polarity negative for $id^-$ and positive for $id^+$. The end point count of both is set to $\getendpoints{\theta}{P}$.
 \begin{compilation}{\theta}{\Delta}{\recvtyc{x}{X}P}{1}
     \branchtag{\concatst{\readlocof{\Delta}{x}}{\slotoffset{\seqst{\types; \sessions}}}{\seqst{\tags}}}{\texttt{neg:1},\,\texttt{pos:1}}
     \labelir{neg}
-    \callprocess{id^-}{\hasendpoint}{T^-, S, D}
+    \callprocess{id^-}{\hasendpoint}{T, S, D}
     \labelir{pos}
-    \callprocess{id^+}{\hasendpoint}{T^+, S, D}
+    \callprocess{id^+}{\hasendpoint}{T, S, D}
 \end{compilation}
 
-On the other hand, the $\sendtyc{x}{A}{P}$ process is compiled in a more direct manner, as shown below. This is possible because the type variable has a concrete type $A$ at the point of sending, known at compile time.
+First, a branch instruction is generated which reads a tag from the local data of channel $x$, indicating the polarity of the received type. Then, depending on the read tag, either $id^-$ or $id^+$ is called, passing all free names in $P$ as arguments, along with the new session which represents $x$ in $P$, stored in $\readlocof{\Delta}{x} + \slotoffset{\seqst{\types}}{\seqst{\sessions; \tags}}$. Type parameters $T$ are generated from the type parameters of the current process, but with an extra entry for $X$, which is read from $\readlocof{\Delta}{x}$. Session arguments $S$ and data arguments $D$ are generated from the free names in $P$ and their state in $\Delta$. The right-hand-side $P$ is compiled on the new processes in the same way as process definitions.
 
-First, a fresh session $s$ is initialized with a new block \texttt{cont} as continuation, and a fresh local data section $d$ with layout $\alllocalslots{\theta}{B}$, where $B$ is the type of channel $x$ in $P$. Then, the type $A$ is written to the remote data of channel $x$, along with a $\sessions$ referencing a $s$ and a $\tags$ indicating $A$'s polarity ($0$ for negative types, $1$ for positive types). The session of channel $x$ is then finished.
-
-The right-hand-side $P$ is compiled on the new block \texttt{cont}, with a new environment where $x$ is rebound to the channel state $(s, d, 0)$. This block will be executed by the $\recvtyp$ process, similarly to how the right-hand-side of a $\sendp$ process is executed by $\recvp$.
-
+On the other hand, the $\sendtyc{x}{A}{P}$ process is compiled in a more direct manner, as shown below. This is possible because the type variable has a concrete type $A$ at the point of sending, known at compile time. First, a fresh session $s$ is initialized with a new block \texttt{cont} as continuation, and a fresh local data section $d$ with layout $\alllocalslots{\theta}{B}$, where $B$ is the type of channel $x$ in $P$. Then, the type $A$ is written to the remote data of channel $x$, along with a $\sessions$ referencing a $s$ and a $\tags$ indicating $A$'s polarity ($0$ for negative types, $1$ for positive types). The session of channel $x$ is then finished.
 \begin{compilation}{\theta}{\Delta}{\sendtyc{x}{A}{P}}
 {\getendpoints{\theta}{P}}
     \initsession{s}{\texttt{cont}}{d}
@@ -757,10 +705,11 @@ The right-hand-side $P$ is compiled on the new block \texttt{cont}, with a new e
     \recurse{\theta}{\Delta[x \mapsto (s, d, 0)]}{P}
 \end{compilation}
 
+The right-hand-side $P$ is compiled on the new block \texttt{cont}, with $x$ bound to the channel state $(s, d, 0)$. This block will be executed by the $\recvtyp$ process, similarly to how $\recvp$ executes received sessions.
+
 \subsection{Affine, use and discard}
 
 The compilation of the $\affinec{x}P$ process, shown below, implements the affine protocol described in \Cref{subsection:IRDroppingData}: a tag is received from $x$ (with an offset of 0) indicating whether the channel is being used or discarded. If it's being used, the process continues with an environment where $x$ has been advanced by the read tag. If the tag indicates the session is being discarded, any co-affine data free in $P$ is discarded and the affine session is finished.
-
 \begin{compilation}{\theta}{\Delta}{\affinec{x}{P}}
 {\getendpoints{\theta}{P}}
     \branchtag{\localdataof{\Delta}{x}}{\texttt{use:}\getendpoints{\theta}{P},\,\texttt{discard:1}}
@@ -772,7 +721,6 @@ The compilation of the $\affinec{x}P$ process, shown below, implements the affin
 \end{compilation}
 
 To compile a $\discardc{x}$ process, as seen below, a tag is written to the remote data of channel $x$ indicating that the session is being discarded. Then, control is passed to the continuation of the session. When it returns, the current task is finished, unless the $\discardp$ process was generate as part of the discard branch of an affine process, in which case the execution of the current task continues.
-
 \begin{compilation}{\theta}{\Delta}{\discardc{x}}
 {1}
     \writetag{\writelocof{\Delta}{x}}{1} \comment \text{indicating discard}
@@ -782,7 +730,6 @@ To compile a $\discardc{x}$ process, as seen below, a tag is written to the remo
 \end{compilation}
 
 Finally, the $\usec{x}{P}$ process is compiled as shown below. A tag is written to the remote data of channel $x$ indicating that the session is being used. Then, if the continuation is negative, the control is passed to the other side of the session. Otherwise, the process continues executing immediately.
-
 \begin{compilation}{\theta}{\Delta}{\usec{x}{P}}
 {\getendpoints{\theta}{P}}
     \writetag{\writelocof{\Delta}{x}}{0} \comment \text{indicating use}
@@ -793,7 +740,6 @@ Finally, the $\usec{x}{P}$ process is compiled as shown below. A tag is written 
 \subsection{Shared state}
 
 The compilation of the $\cellc{x}{y}{P}$ process, which creates a new shared cell on $x$, is shown below. First, a new cell is written to the remote data of channel $x$, with space for a single $\sessions$ slot. Then, a new session $s$ is initialized with a new block \texttt{cont} as continuation, and a fresh local data section $d$ with layout $\alllocalslots{\theta}{A}$, where $A$ is the type of channel $y$ in $P$. This session $s$ is written to the cell we just created, using the cell as a base address, and an offset of $0$. Finally, the process recurses on $P$, with a new environment where $y$ is bound to the channel state $(s, d, 0)$. This block will be executed by the process which takes the cell's content.
-
 \begin{compilation}{\theta}{\Delta}{\cellc{x}{y}{P}}
 {\getendpoints{\theta}{P}}
     \writecell{\writelocof{\Delta}{x}}{\seqst{\sessions}}
@@ -804,7 +750,6 @@ The compilation of the $\cellc{x}{y}{P}$ process, which creates a new shared cel
 \end{compilation}
 
 The $\takec{x}{y}P$ process is compiled as shown below. First, the cell's mutex is locked. Then, the session stored in the cell is bound to a fresh session identifier $s$, which is added to the process header, along with a fresh local data section $d$ with layout $\alllocalslots{\theta}{A}$, where $A$ is the type of channel $y$ in $P$. If the type $A$ is negative, the session is continued, similarly to the $\recvp$ process. Finally, the process recurses on $P$, with a new environment where $y$ is bound to the channel state $(s, d, 0)$. The cell's mutex is unlocked when the session $s$ is released.
-
 \begin{compilation}{\theta}{\Delta}{\takec{x}{y}{P}}
 {\getendpoints{\theta}{P}}
     \lockcell{\readlocof{\Delta}{x}}
@@ -814,7 +759,6 @@ The $\takec{x}{y}P$ process is compiled as shown below. First, the cell's mutex 
 \end{compilation}
 
 The $\putc{x}{y}{P}Q$ process is compiled as shown below. First, a fresh session $s$ is initialized with a new block \texttt{lhs} as continuation, and a fresh local data section $d$ with layout $\alllocalslots{\theta}{A}$, where $A$ is the type of channel $y$ in $P$. This session $s$ is written to the cell referenced by channel $x$. Then, the cell is unlocked and the process recurses immediately on $Q$. Finally, on the new block \texttt{lhs}, the process recurses on $P$, with a new environment where $y$ is bound to the channel state $(s, d, 0)$. This block will only be executed when the taker of the cell we just wrote passes control to it.
-
 \begin{compilation}{\theta}{\Delta}{\putc{x}{y}{P}{Q}}
 {\getendpoints{\theta}{P} + \getendpoints{\theta}{Q}}
     \initsession{s}{\texttt{lhs}}{d}
@@ -825,15 +769,13 @@ The $\putc{x}{y}{P}Q$ process is compiled as shown below. First, a fresh session
     \recurse{\theta}{\Delta[y \mapsto (s, d, 0)]}{P}
 \end{compilation}
 
-The process $\releasec{x}$ is compiled directly to the instruction which decrements the reference count of the cell referenced by channel $x$, as shown below. The responsibility of correctly dropping the cell's contents when the reference count is zero is left to the \ac{IR} implementation (the C code generation phase), as explained in \Cref{subsubsection:CellSlotArguments}.
-
+The process $\releasec{x}$ is compiled directly to the instruction which decrements the reference count of the cell referenced by channel $x$, as shown below. The responsibility of correctly dropping the cell's contents when the reference count is zero is left to the \ac{IR} implementation (the C code generation phase).
 \begin{compilation}{\theta}{\Delta}{\releasec{x}}{1}
     \releasecell{\readlocof{\Delta}{x}}
     \poptask{\hasendpoint}
 \end{compilation}
 
 Finally, the $\sharec{x}{P}{Q}$ process is compiled as shown below. Since the cell is going to be shared between two processes, its reference count must be incremented. By default, with concurrency enabled, a new thread is launched to execute the right-hand-side $Q$ of the share process, as shown below. If it is disabled, the right-hand-side is instead added as a new task to the task queue, which will be executed when the current task finishes.
-
 \begin{compilation}{\theta}{\Delta}{\sharec{x}{P}{Q}}
 {\getendpoints{\theta}{P} + \getendpoints{\theta}{Q}}
     \acquirecell{\readlocof{\Delta}{x}}
@@ -845,9 +787,7 @@ Finally, the $\sharec{x}{P}{Q}$ process is compiled as shown below. Since the ce
 
 \section{Generating C code from IR programs} \label{section:IRtoC}
 
-The last phase of the compilation pipeline is the C generation phase. This phase takes as input the \ac{IR} produced by the compilation scheme described in the previous section, and produces a C program which implements the semantics of the \ac{IR}.
-
-This C program can then be compiled with \ac{GCC} to produce an executable which runs a computation equivalent to the original \ac{CLASS} program. The generated code depends only on the standard C library and on \texttt{pthread}, if concurrency is enabled. Additionally, it makes extensive use of the \ac{GCC} extension for computed gotos, which allows for efficient implementation of continuations.
+The last phase of the compilation pipeline is the C generation phase. This phase takes as input the \ac{IR} produced by the compilation scheme described in the previous section, and produces a C program which implements the semantics of the \ac{IR}. This C program can then be compiled with \ac{GCC} to produce an executable which runs a computation equivalent to the original \ac{CLASS} program. The generated code depends only on the standard C library and on \texttt{pthread}, if concurrency is enabled. Additionally, it makes extensive use of the \ac{GCC} extension for computed gotos, which allows for efficient implementation of continuations.
 
 The first subsection of this section describes how the slot trees are translated to concrete data structures in C. The second subsection describes the environment data structure, which stores the state of a process invocation.  The third subsection shows how the main function and the generated code are laid out. Finally, the the last subsections give an overview of how the main instructions of the \ac{IR} abstract machine are implemented in C.
 
@@ -861,36 +801,23 @@ In order to satisfy the alignment requirements of the various C types used to im
 
 Two memory layouts $L_1 = (S_1, A_1), L_2 = (S_2, A_2)$ can be concatenated to form a new layout $L = L_1 + L_2$, where $L = (\texttt{ALIGN}(S_1, A_2) + S_2,\ \texttt{MAX}(A_1, A_2))$, such that $L_1$ is placed first in memory, followed by $L_2$, with padding added to ensure that $L_2$ starts at an address which is a multiple of $A_2$. Additionally, the maximum of two layouts $L = L_1 \vee L_2$ is defined as $L = (\texttt{MAX}(S_1, S_2),\ \texttt{MAX}(A_1, A_2))$.
 
-The memory layout of a slot $s$ on a given target architecture $\arch$ is given by the function $\slotlayout{\sigma}{s}$ (defined in \Cref{fig:CSlotLayout}), where $\sigma$ is a map between type variables and their layouts, and $\arch$ a target architecture. A target architecture $\arch$ is a mapping from C types to their memory layouts, such that $\archlayout{type} = (S, A)$ where $S$ and $A$ where, respectively, the size and alignment of \texttt{type} on the target architecture. A concrete definition of $\sigma$ will be introduced in \Cref{subsection:CEnvironments}.
+The memory layout of a slot $s$ on a given target architecture $\arch$ is given by $\slotlayout{\sigma}{s}$, defined as
+\[\begin{aligned}
+    &\begin{aligned}
+        &\slotlayout{\sigma}{\ints} = \archlayout{int} && \slotlayout{\sigma}{\bools} = \archlayout{unsigned char} \\
+        &\slotlayout{\sigma}{\strings} = \archlayout{char*} && \slotlayout{\sigma}{\sessions} = \archlayout{struct session*} \\
+        &\slotlayout{\sigma}{\tags} = \archlayout{unsigned char} && \slotlayout{\sigma}{\types} = \archlayout{struct type} \\
+        &\slotlayout{\sigma}{\exponentials} = \archlayout{struct exponential*} && \slotlayout{\sigma}{\cells{\dots}} = \archlayout{struct cell*} \\
+    \end{aligned}\\
+    &\slotlayout{\sigma}{t_i} = \layoutofvar{\sigma}{t_i}\\
+\end{aligned}\]
+where $\sigma$ is a map between type variables and their layouts. A target architecture $\arch$ is a mapping from C types to their memory layouts, such that $\archlayout{type} = (S, A)$ where $S$ and $A$ where, respectively, the size and alignment of \texttt{type} on the target architecture. A concrete definition of $\sigma$ will be introduced in \Cref{subsection:CEnvironments}.
 
-\begin{figure}[H]
-    \begin{align*}
-        &\begin{aligned}
-            &\slotlayout{\sigma}{\ints} = \archlayout{int} && \slotlayout{\sigma}{\bools} = \archlayout{unsigned char} \\
-            &\slotlayout{\sigma}{\strings} = \archlayout{char*} && \slotlayout{\sigma}{\sessions} = \archlayout{struct session*} \\
-            &\slotlayout{\sigma}{\tags} = \archlayout{unsigned char} && \slotlayout{\sigma}{\types} = \archlayout{struct type} \\
-            &\slotlayout{\sigma}{\exponentials} = \archlayout{struct exponential*} && \slotlayout{\sigma}{\cells{\dots}} = \archlayout{struct cell*} \\
-        \end{aligned}\\
-        &\slotlayout{\sigma}{t_i} = \layoutofvar{\sigma}{t_i}\\
-    \end{align*}
-    \caption{Memory layout of a slot $s$ on a target architecture $\arch$ and a type variable layout map $\sigma$.}
-    \label{fig:CSlotLayout}
-\end{figure}
-
-The definition of $\slotlayout{\sigma}{s}$ is extended to support both trees of slots, and sets of slot trees, as shown in \Cref{fig:CTreeLayout}. The layout of a tree of slots is defined as the concatenation of the layouts of each of its slots, and maximum across any branches, while the layout of a set of slot trees is defined as the maximum layout among all its trees.
-
-\begin{figure}[H]
-    \begin{align*}
-        &\slotlayout{\sigma}{\nilst} = (0, 1)\\
-        &\slotlayout{\sigma}{\seqst{s; T}} = \slotlayout{\sigma}{s} + \slotlayout{\sigma}{T}\\
-        &\slotlayout{\sigma}{\tagst{T_1 \tagsepst \dots \tagsepst T_n}} = \bigvee_{i=1}^{n} \slotlayout{\sigma}{T_i}\\
-        &\slotlayout{\sigma}{\left\{T_1,\,\dots,\,T_n\right\}} = \bigvee_{i=1}^{n} \slotlayout{\sigma}{T_i}
-    \end{align*}
-    \caption{Memory layout of slot trees $T$ and of a set of slot trees on a target architecture $\arch$ and a type variable layout map $\sigma$.}
-    \label{fig:CTreeLayout}
-\end{figure}
-
-\todo{might need to also define 'current layout' to get the current size of a branching tree}
+The definition of $\slotlayout{\sigma}{s}$ is extended below to support both trees of slots, and sets of slot trees. The layout of a tree of slots is defined as the concatenation of the layouts of each of its slots, and maximum across any branches, while the layout of a set of slot trees is defined as the maximum layout among all its trees.
+\[\begin{aligned}
+    &\slotlayout{\sigma}{\nilst} = (0, 1) \quad & & \slotlayout{\sigma}{\seqst{s; T}} = \slotlayout{\sigma}{s} + \slotlayout{\sigma}{T}\\
+    &\slotlayout{\sigma}{\tagst{T_1 \tagsepst \dots \tagsepst T_n}} = \bigvee_{i=1}^{n} \slotlayout{\sigma}{T_i} \quad & & \slotlayout{\sigma}{\left\{T_1,\,\dots,\,T_n\right\}} = \bigvee_{i=1}^{n} \slotlayout{\sigma}{T_i}
+\end{aligned}\]
 
 \subsection{Environments} \label{subsection:CEnvironments}
 
@@ -1182,12 +1109,9 @@ Process calls are performed through the \texttt{callProcess} instruction. This i
     /* callProcess(foo, end point, s0 <- s0) */
     tmp_ptr1 = managed_alloc(40);
     (*(atomic_int*)(((char*)(tmp_ptr1)))) = 1; // setup end points
-    /* (...) pass type arguments */
-    /* (...) pass session arguments */
-    /* (...) pass data arguments */
+    /* (...) pass type, session and data arguments */
     if (atomic_fetch_sub(&(*(atomic_int*)(env)), 1) == 1) {
         /* environment cleanup code */
-        managed_free(env);
     }
     env = ((char*)(tmp_ptr1));
     goto foo_entry;
@@ -1213,9 +1137,7 @@ struct cell {
 
 The \texttt{writeCell} instruction is simply compiled as the allocation of a new \texttt{struct cell} with enough space to store its data section, and the initialization of its fields. The \texttt{acquireCell} and \texttt{releaseCell} instructions are compiled respectively as the atomic increment and decrement of the cell's reference count. If the reference count reaches zero, the cell's data is dropped, the cell's mutex and condition variable are destroyed, and finally the cell itself is freed.
 
-The cell locking/unlocking operations cannot be implemented with a simple mutex lock/unlock pair, as it is possible for a locked cell to be passed to another thread, which must then be able to unlock it. This violates the requirement that \texttt{pthread} mutex can only be unlocked by the thread which locked them. To solve this issue, the \texttt{is\_free} flag is used to indicate if the cell is currently locked or not, and the mutex and condition variable are used to ensure mutual exclusion and to block threads trying to lock an already locked cell.
-
-The \texttt{lockCell} instruction is compiled as shown below. First, the cell's mutex is locked. Then, while the cell is not free, the thread waits on the cell's condition variable, atomically releasing the mutex while waiting, and re-acquiring it when woken up. When the cell is free, it is marked as not free, and the mutex is unlocked.
+The cell locking/unlocking operations cannot be implemented with a simple mutex lock/unlock pair, as it is possible for a locked cell to be passed to another thread, which must then be able to unlock it. This violates the requirement that \texttt{pthread} mutexes can only be unlocked by the thread which locked them. To workaround this, the \texttt{is\_free} flag indicates if the cell is locked or not, and the mutex and condition variable are used solely to synchronize access to this flag. The \texttt{lockCell} instruction thus compiled as shown below. First, the cell's mutex is locked. Then, while the cell is not free, the thread waits on the cell's condition variable, atomically releasing the mutex while waiting, and re-acquiring it when woken up. When the cell is free, it is marked as not free, and the mutex is unlocked.
 
 \begin{lstlisting}[language=C]
     /* lockCell(d0) */
