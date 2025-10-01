@@ -418,7 +418,7 @@ A process definition associates a name $\texttt{proc\_id}$ to a process $P$, whi
 
 Processes in \ac{CLASS}, defined by the BNF grammar in \Cref{fig:CLASSProcessGrammar}, have a direct correspondence to the process composition constructs in $\mu$CLL and the actions shown in \Cref{tab:muCLLActions}, with the exception of the process definition calling, affine, shared state, scan, print, let and if constructs. Note that in \ac{CLASS} the sum/choice type is expanded to allow for an arbitrary number of choices, as opposed to $\mu$CLL, where the sum type is binary. This simplifies the syntax of the language, and all arbitrary sized sums can be trivially encoded as binary sums. Additionally, \ac{CLASS} adds scan and print constructs for input and output, support for basic types such as integers, booleans and strings through the let and if constructs, and the process definition call construct, similar to a function call in an imperative language.
 
-With the introduction of basic types, along with the print, if and let processes, there's a need to define expressions in \ac{CLASS}. Expressions $E$ are defined as follows, where $i$ is an integer literal, $s$ is a string literal, and $x$ is a session name:
+With the introduction of basic types, along with the print, if and let processes, there's a need to define expressions in \ac{CLASS}. Expressions $E$ are defined as follows, where $i$ is an integer literal, $s$ is a string literal, and $x$ is a channel name:
 \[\begin{aligned}
     E, E_1, E_2 ::=\ & E_1 + E_2    & & |\ E_1 - E_2 & & |\ E_1 * E_2  & & |\ E_1 / E_2 \\
                   |\ & E_1 \% E_2   & & |\ -E        & & |\ (E)        & & |\ x \\
