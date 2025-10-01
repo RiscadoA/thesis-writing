@@ -7,12 +7,12 @@
 % The following line allows to ref this chapter
 \label{chap:architecture}
 
-The solution developed on this thesis to the problem of compiling \ac{CLASS} programs to native code is a compilation scheme heavily based on the \ac{SAM}. Execution is done sequentially and deterministically, with the compiler generating code that closely resembles the execution of the \ac{SAM}, implementing continuation-based coroutining.
-Associated to each process is a block of data called an environment, similar to a stack frame of traditional imperative languages. This environment stores the continuations of each session, as well as any data received through them. Whenever a process finishes writing data to a session, a jump is made to its other end point, which will read the data and continue execution.
+This chapter presents the base compilation scheme developed on this thesis. This scheme generates native code which executes in a sequential and deterministic manner, closely resembling the execution of the \ac{SAM}, implementing continuation-based coroutining. Associated to each process is a block of data called an environment, similar to a stack frame of traditional imperative languages. This environment stores the continuations of each session, as well as any data received through them. Whenever a process finishes writing data to a session, a jump is made to its other end point, which will read the data and continue execution.
 
 At a high-level, the compilation scheme is divided into four phases. First, the source \ac{CLASS} program is parsed and type-checked. This phase is not discussed in this report, as its implementation has been reused from the previous work \cite{Rocha:2023, Caires:2024} on the \ac{SAM} and \ac{CLASS} interpreters. Then, the program is compiled to an \acf{IR} which abstracts some details of the target language. Next, the \ac{IR} is analyzed and optimized by a series of passes. Finally, the optimized \ac{IR} is translated to C code, which is then compiled to native code using the \acf{GCC}.
 
-The \ac{IR} optimization phase is left for the next chapter, while this chapter focuses on presenting the base \ac{IR} and compilation scheme. This chapter is divided into five four. In the first section, the \ac{IR}'s constructs and its abstract machine are defined. In the second section, the compilation of \ac{CLASS} to the \ac{IR} is described. Finally, in the third section, an overview is given on how the \ac{IR} is translated to C code.
+In the first section of this chapter, the \ac{IR}'s constructs and its abstract machine are defined. In the second section, the compilation of \ac{CLASS} to the \ac{IR} is described. Finally, in the third section,
+an overview is given on how the \ac{IR} is translated to C code.
 
 \section{Intermediate Representation} \label{section:IR}
 
@@ -491,8 +491,6 @@ We start by defining the compilation of a $\cutp$ process, which can be seen bel
 First, a fresh session identifier $s$ is generated and added to the process header. Additionally, a data section with unique identifier $d$ is added to the header, with a layout given by $\allslots{\theta}{A}$. In other words, $d$ reserves space for all data which will be both sent and received over the session of type $A$. This is necessary as both sides of the cut share the same data section.
 
 The process initializes the session $s$ with a new block \texttt{rhs} as continuation, and $d$ as a writing location. Then, it recursively compiles both $P$ and $Q$ with a new environment where the name $x$ is bound to $(s, d, 0)$. $P$ is placed on the original block, and $Q$ placed on the new block \texttt{rhs}.
-
-
 
 The compilation of a $\parp$ process is shown below. The process starts by generating code to push a new task for executing $Q$ into the task stack. Then, it compiles $P$, which will be executed immediately. AS with the $\cutp$ process, the number of end points of the generated code is the sum of the number of end points of both $P$ and $Q$. Since the task stack is a stack, task pop instructions always execute the most recently pushed task. Thus, it is guaranteed that $Q$ will only execute after $P$ has finished executing completely.
 \begin{compilation}{\theta}{\Delta}{\parc{P}{Q}}
