@@ -9,32 +9,29 @@
 
 During the course of this project, several optimizations on various parts of the compiler were implemented to produce more efficient code. Code transformations such as \textit{inlining} and polymorphic process \textit{monomorphization} were implemented with great results, but are not described in this chapter, as they are well-known techniques. Instead, this chapter focuses on optimizations specific to the language and its intermediate representation.
 
-The first section goes over the transformations made to the compiler to produce more efficient code when handling \textit{value} types. The second section describes optimizations specific to the C code generation phase, focused on simplifying the counting of end points and tail calls. Finally, the last section introduces a new compilation phase which applies a series of transformations to the generated \ac{IR} code before passing it to the C code generation phase.
+The first section goes over the transformations made to the compiler to produce more efficient code when handling types with certain properties. The second section describes optimizations specific to the C code generation phase, focused on simplifying the counting of end points and tail calls. Finally, the last section introduces a new compilation phase which applies a series of transformations to the generated \ac{IR} code before passing it to the C code generation phase.
 
-\section{Handling value types more efficiently}
+\section{Making use of type properties}
 
-The compiler presented in \Cref{chap:architecture} does not take any advantage of the fact that many types in the language can be handled more efficiently than the general case. For example, the type $\sendt{\lintt}{\lintt}$ is stored as a pointer to a session (essentially a closure) followed by an integer, while it could be stored as just a pair of integers. This change would save both memory and time, as the pointer indirection would be removed, along with some unnecessary jumps.
+The compiler presented in \Cref{chap:architecture} does not take any advantage of the fact that many types in the language can be handled more efficiently than the general case. For example, the type $\sendt{\lintt}{\lintt}$ is stored as a pointer to a session (essentially a closure) followed by an integer. The closure producing the $\lintt$ will eventually be executed, producing a single integer and immediately terminating. Instead of sending this closure, the integer could be computed immediately and sent directly, saving both memory and time, as the pointer indirection would be removed, along with some unnecessary jumps.
 
-This section describes the implemented optimizations which take advantage of properties such as these to generate more efficient code. In the first subsection, three type properties are defined, which determine which optimizations can be applied to them. Then, the second subsection describes the necessary compiler adaptations to obtain these properties. The last three subsections describe the optimizations applied to the multiplicative, exponential and affine types, respectively.
+This section describes the implemented optimizations which take advantage of type properties such as these to generate more efficient code. In the first subsection, three type properties are defined, which determine which optimizations can be applied to them. Then, the second subsection describes the necessary compiler adaptations to classify whether a type has these properties. The last three subsections describe the transformations made using these properties.
 
 \subsection{Value, droppable and cloneable types}
 
-In the optimizations described in this section, types are optimized based on whether they're \textit{value}, \textit{droppable} or \textit{cloneable} types. These properties are referred to as \textit{type flags}. Each type flag may either be $\guaranteed$ to hold, $\impossible$ to hold, or be dependent on whether some type variables have some type flags set, which is denoted as $\dependent{F_1,\,\dots,\,F_n}$, where each $F_i$ is either $\depisvalue{t_j}$, $\depisdroppable{t_j}$ or $\depiscloneable{t_j}$ (value, droppable and cloneable flags, respectively), and $t_j$ is a type variable. These requirements are referred to as \text{type flag requirements}. The union of two type flag requirements $R_1$ and $R_2$, denoted as $R_1 \land R_2$, is defined as follows:
-$$
+In the optimizations described in this section, types are optimized based on whether they're \textit{value}, \textit{droppable} or \textit{cloneable} types. These properties are referred to as \textit{type flags}. A type flag of a given type may either be $\guaranteed$ to hold, $\impossible$ to hold, or be dependent on whether some type parameters have some type flags set, which is denoted as $\dependent{F_1,\,\dots,\,F_n}$, where each $F_i$ is either $\depisvalue{t_j}$, $\depisdroppable{t_j}$ or $\depiscloneable{t_j}$ (value, droppable and cloneable flags, respectively), and $t_j$ is a type variable. These requirements are referred to as \text{type flag requirements}. The union of two type flag requirements $R_1$ and $R_2$, denoted as $R_1 \land R_2$, is defined as follows:
+\[
 \begin{tabularx}{\linewidth}{*{3}{>{\centering\arraybackslash}X}}
     $R_1 \land R_2 = R_2 \land R_1$ & $R \land \impossible = \impossible$ & $\quad R \land \guaranteed = R$ \\
 \end{tabularx}
-$$
-$$
+\]
+\[
 \dependent{F_1,\,\dots,\,F_n} \land \dependent{G_1,\,\dots,\,G_m} = \dependent{F_1,\,\dots,\,F_n,\,G_1,\,\dots,\,G_m}
-$$
+\]
 
-Value types are types which have a strict polarity, being either strictly positive or strictly negative. A session of a negative value type is finished, i.e., flow control won't leave the process through the session (having no continuation), which means it is only used to read data. A session of a positive value type will be finished after writing the current segment, i.e., flow of control will never return to the current process, being only used to write data. The value type flag requisites of type $A$ are denoted as $\isvalue{A}$, where $\typeenv$ is the type environment introduced in \Cref{subsubsection:TypeEnvironments}, and their definition for positive types is shown in \Cref{fig:IsValueDefinition}. For negative types, $\isvalue{A} = \isvalue{\dualt A}$.
-
-
-\begin{figure}[H]
+\begin{figure}[t]
     \centering
-    \begin{align*}
+    \[\begin{aligned}
         &\isvalue{\lintt} = \guaranteed && \isvalue{\lboolt} = \guaranteed \\
         &\isvalue{\lstringt} = \guaranteed && \isvalue{\closet{}} = \guaranteed \\
         &\isvalue{\sendt{A}{B}} = \isvalue{B} && \isvalue{\sendtyt{X}{B}} = \guaranteed \\
@@ -42,19 +39,19 @@ Value types are types which have a strict polarity, being either strictly positi
         &\isvalue{\statet A} = \guaranteed && \isvalue{\statelt A} = \guaranteed \\
         &\isvalue{\choicet{\labelt a A\ (\dots)\ \labelt z Z}} = \bigwedge\,(\isvalue{A},\,\dots,\,\isvalue{Z}) && \isvalue{X} = \dependent{\depisvalue{\typeidof{\typeenv}{X}}} \\
         &\isvalue{A} = \impossible \text{ if } \polarityof{\typeenv}{A} = - &&
-    \end{align*}
+    \end{aligned}\]
     \caption{Definition of $\isvalue{A}$ for positive types}
     \label{fig:IsValueDefinition}
 \end{figure}
 
-Droppable types are types for which a drop function can be implemented, effectively making them affine. The droppable type flag requisites of type $A$ are denoted as $\isdroppable{A}$, and their definition for positive types is shown in \Cref{fig:IsDroppableDefinition}. For negative types, $\isdroppable{A} = \isdroppable{\dualt A}$.
+A type is said to be a value type if it has a strict polarity, being either strictly positive, or strictly negative. A channel of a negative value type will only be read from, and control will not be passed to it. A channel of a positive value type will only be written to, and control will not return to it. For example, $\lintt$ and $\sendt{A}{\closet}$ are both positive value types. A type $A$ is only a value if and only if its type flag requisites are met, which are denoted as $\isvalue{A}$, where $\typeenv$ is the type environment introduced in \Cref{subsubsection:TypeEnvironments}. The definition of $\isvalue{A}$ for positive types is shown in \Cref{fig:IsValueDefinition}. For negative types, $\isvalue{A} = \isvalue{\dualt A}$.
 
-\begin{figure}[H]
+\begin{figure}[t]
     \centering
     \begin{align*}
         &\isdroppable{\lintt} = \guaranteed && \isdroppable{\lboolt} = \guaranteed \\
         &\isdroppable{\lstringt} = \guaranteed && \isdroppable{\closet{}} = \guaranteed \\
-        &\isdroppable{\sendt{A}{B}} = \impossible && \isdroppable{\sendtyt{X}{B}} = \impossible \\
+        &\isdroppable{\sendt{A}{B}} = \isdroppable{A} \land \isdroppable{B} && \isdroppable{\sendtyt{X}{B}} = \impossible \\
         &\isdroppable{\bangt A} = \guaranteed && \isdroppable{\affinet A} = \guaranteed \\
         &\isdroppable{\statet A} = \guaranteed && \isdroppable{\statelt A} = \impossible \\
         &\isdroppable{\choicet{\labelt a A\ (\dots)\ \labelt z Z}} = \bigwedge\,(\isdroppable{A},\,\dots,\,\isdroppable{Z}) && \isdroppable{X} = \dependent{\depisdroppable{\typeidof{\typeenv}{X}}} \\
@@ -64,9 +61,9 @@ Droppable types are types for which a drop function can be implemented, effectiv
     \label{fig:IsDroppableDefinition}
 \end{figure}
 
-Finally, cloneable types are types for which a clone operation is defined. The cloneable type flag requisites of type $A$ are denoted as $\iscloneable{A}$, and their definition for positive types is shown in \Cref{fig:IsCloneableDefinition}. For negative types, $\iscloneable{A} = \iscloneable{\dualt A}$.
+Additionally, a type is said to be a droppable type if a drop function is defined for it, effectively making it affine. A type $A$ is droppable if and only if its type flag requisites, denoted as $\isdroppable{A}$ and defined for positive types in \Cref{fig:IsDroppableDefinition}, are met. For negative types, $\isdroppable{A} = \isdroppable{\dualt A}$. For example, $\lintt$ can be dropped trivially, no special action required, and a channel of type $\sendt{A}{B}$ can only be dropped if both $A$ and $B$ can be dropped.
 
-\begin{figure}[H]
+\begin{figure}
     \centering
     \begin{align*}
         &\iscloneable{\lintt} = \guaranteed && \iscloneable{\lboolt} = \guaranteed \\
@@ -81,21 +78,21 @@ Finally, cloneable types are types for which a clone operation is defined. The c
     \label{fig:IsCloneableDefinition}
 \end{figure}
 
+Finally, a type is said to be cloneable if a clone operation is defined for it. The type flag requisites for type $A$ to be cloneable are denoted as $\iscloneable{A}$, and their definition for positive types is shown in \Cref{fig:IsCloneableDefinition}. For negative types, $\iscloneable{A} = \iscloneable{\dualt A}$. For example, $\bangt{A}$ is a cloneable type, as exponentials can be cloned by incrementing their reference count. 
+
 \subsection{Adding type flags to the compiler}
 
-For a type flag to be known even when polymorphism is activated, the value of flag (set or unset) must be stored on the type information on process environments. This is done by adding a new integer field to the \texttt{type} struct, which stores one bit for each of the type flags.
+To generate code which depends on type flags, it is necessary to add a new branching instruction \texttt{branchFlags}, with the exact same syntax as \texttt{branchExpression}, but instead of branching on a boolean expression, it branches on whether some flag requirements are met. For example, the instruction \texttt{branchFlags(if(t0.value), value:1, not\_value:1)} jumps to block \texttt{value} if the type parameter $t_0$ has the value flag set, or to block \texttt{not\_value} otherwise. Most flag requisites are either $\guaranteed$ or $\impossible$, in which case they do not depend on type parameters, and thus can be determined at compile time, avoiding the branch.
 
-Additionally, all instructions which pass around type information must be extended to support these type flags. For example, \texttt{writeType} originally received only the type's slot tree as an argument. Now, it must also receive the flag requirements for each of the flags. To enable different memory representations for session types based on these flags, slot trees also need to be extended with a new node kind $\flagsst{R}{T_1}{T_2}$. This new node is similar to the $\tagst{\dots}$ node, but instead of branching on a written tag, it branches on whether some flag requirements $R$ are met - if $R$ is met, $T_1$ is chosen, otherwise, $T_2$ is chosen.
+To enable different memory representations for session types based on these flags, slot trees also need to be extended with a new definition $\flagsst{R}{T_1}{T_2}$. This tree is similar to $\tagst{\dots}$, but instead of branching on a written tag, it branches on whether some flag requirements $R$ are met - if $R$ is met, $T_1$ is chosen, otherwise, $T_2$ is chosen.
 
-Finally, to allow generating code which depends on type flags, it is also necessary to add a new branching instruction \texttt{branchFlags}, with the exact same syntax as \texttt{branchExpression}, but instead of branching on a boolean expression, it branches on whether some flag requirements are met.
+To branch on the flags of a type parameter, the flags must be stored in environments, along with the rest of the type parameter information. This is done by adding a new integer field to the \texttt{type} C struct, which stores one bit for each of the type flags. Additionally, all instructions which pass around type information must be extended to support these type flags. For example, \texttt{writeType} must receive the flag requirements for each of the flags.
 
-All of these newly introduced branches depend on flag requirements which are usually possible to determine as either $\guaranteed$ or $\impossible$ during compile time. Only when compiling polymorphic code must the final program performs these checks at runtime.
-
-\subsection{Sending and receiving values} \label{subsection:SendValueOptimizations}
+\subsection{Sending values instead of sessions} \label{subsection:SendValueOptimizations}
 
 The first implemented optimization takes advantage of the fact that a session of a positive value type $A$ being sent (e.g., $\sendt{A}{B}$) is a session which will have control returned to it only once, and immediately when it is received. The total number of operations can be reduced by simply immediately writing the data of the value instead of writing a session which would write that data. For example, instead of $\sendt{\lintt}{\sendt{\lintt}{\lintt}}$ being represented as $\seqst{\sessions;\sessions;\ints}$, it can be represented as $\seqst{\ints;\ints;\ints}$.
 
-First, the mapping from sessions types $A$ to their respective slot trees introduced in \Cref{fig:SessionTypeToSlotTree} is updated such that, if the left-hand-side $A$ type is a positive value type, the slots of the $A$ are computed, and concatenated with the slots of the right-hand-side $B$. Otherwise, as before, a $\sessions$ slot is simply added before the slots of $B$. Formally:
+First, the mapping from sessions types $A$ to their respective slot trees introduced in \Cref{subsection:MappingSessionTypesToSlots} is updated such that, for the $\sendt{A}{B}$ type, if the left-hand-side $A$ type is a positive value type, the slots of the $A$ are computed, and concatenated with the slots of the right-hand-side $B$. Otherwise, as before, a $\sessions$ slot is simply added before the slots of $B$. Formally:
 $$
     \slots{\theta}{\sendt{A}{B}} = \concatst{\flagsst{\isvalue{A}}{\slots{\theta}{A}}{\seqst{\sessions}}}{\slots{\theta}{B}}
 $$
@@ -106,9 +103,11 @@ On the sending side, if the argument is a positive value type, the argument's se
 
 On the receiver side, instead of receiving a new session, the data is simply moved from the main session using \texttt{moveSlots} into the local data associated with the argument's name. The right-hand-side continues executing, reading data after the data that was just moved.
 
-\subsection{Exponential values} \label{subsection:ExponentialValueOptimizations}
+\subsection{Eagerly computing exponentials} \label{subsection:ExponentialValueOptimizations}
 
 The second implemented optimization greatly simplifies the representation of exponential types when their inner type is a cloneable value type. Instead of representing $\bangt{A}$ as an $\exponentials$ slot, the value can simply be computed immediately and stored directly. Without this optimization, for example, storing the result of a complex computation as an exponential would require re-executing the entire computation every time the exponential is called. With this optimization, the computation is executed only once, and then the result is cloned whenever a call is made. When the exponential is dropped, the resulting value is simply dropped.
+
+This optimization changes the semantics of exponentials, as the computation is done immediately and only once, instead of once per exponential call. This transformation may end up worsening performance in cases where the exponential is never called. However, in practice, when exponentials are used, they are often called multiple times, and the performance gain in these cases is significant.
 
 Once again, the mapping from session types to slot trees is modified. If the inner type $A$ of a $\bangt{A}$ type is a cloneable and droppable type, the slots of $A$ are computed and used directly. Otherwise, a single $\exponentials$ slot is used, as before. Formally:
 $$
@@ -123,11 +122,13 @@ On the $\whynotc{x}{P}$ process, nothing changes. The drop of the slots correspo
 
 Finally, the $\callc{x}{y}$ process is modified to simply generate a \texttt{cloneSlots} instruction whenever the inner type $A$ is a cloneable and droppable type, instead of generating a \texttt{callExponential} instruction.
 
-\subsection{Affine and cell values} \label{subsection:AffineValueOptimizations}
+\subsection{Eagerly computing affine sessions} \label{subsection:AffineValueOptimizations}
 
-On the base compiler, $\affinet{A}$ types are implemented as sessions which follows the affine protocol, i.e., $\offert{\labelt{use}{A}\ \labelt{discard}{\closet}}$, as described in \Cref{subsection:IRDroppingData}. Although this implementation saves time by lazily executing the affine code if the channel is used, it still has the overhead of requiring multiple jumps and a tag to determine whether the channel is used or discarded, even if the inner type $A$ is a droppable type, e.g., $\affinet{\lintt}$ or $\affinet{\bangt{\lintt}}$. In the cases, the value could be computed immediately, and simply dropped if the channel is discarded.
+On the base compiler, $\affinet{A}$ types are implemented as sessions which follows the affine protocol, i.e., $\offert{\labelt{use}{A}\ \labelt{discard}{\closet}}$, as described in \Cref{subsection:IRDroppingData}. Although this implementation saves time by lazily executing the affine code only if the channel is used, it has the overhead of storing a session instead of the actual value, requiring multiple jumps and a tag to determine whether the channel is used or discarded, even if the inner type $A$ is a droppable type, e.g., $\affinet{\lintt}$ or $\affinet{\bangt{\lintt}}$. In these cases, the semantic could be changed so that the value is computed immediately, and simply dropped if the channel is discarded.
 
-The biggest benefit of this change is on the shared state types, such as $\statet{A}$. On the base implementation, this type is represented as a $\cells{\sessions}$ slot, due to cell contents being affine, which effectively means all cells store closures instead of concrete values. With this optimization, if the inner type $A$ of a $\statet{A}$ type is a droppable type, such as another cell, an exponential, or a primitive type such as $\lintt$, the cell can store the value directly, as a $\cells{A}$ slot.
+This of course, does not always increase performance. While exponentials are used multiple times in practice, affine channels are often used to prevent computing a value which is never used. With this transformation, time may be wasted performing an unnecessary expensive computation.
+
+The biggest benefit of this change is on the shared state types, such as $\statet{A}$. On the base implementation, this type is represented as a $\cells{\sessions}$ slot, due to cell contents being affine, which effectively means all cells store sessions instead of concrete values. With this optimization, if the inner type $A$ of a $\statet{A}$ type is a droppable type, such as another cell, an exponential, or a primitive type such as $\lintt$, the cell can store the value directly, as a $\cells{A}$ slot. The drawbacks for cells are not as big as for affine types, as most values stored in cells, in practice, end up being used - only the last value written to a cell is discarded.
 
 One difficult aspect of this optimization is that, unlike the previous two optimizations, the polarity of the affected $\affinet{A}$ type ends up being dependent on whether the inner type $A$ is a droppable type or not. If $A$ is not droppable, the polarity is negative, as on the base implementation. However if $A$ is a positive droppable type, the polarity becomes positive, as the $\affinep$ process will write the value immediately. This problem was tacked by defining the polarity $\polarityof{\theta}{\affinet{A}}$ as always being positive, and negative for the $\coaffinet{A}$ type. In order to implement the write-to-read adjustment for $\affinet{A}$ types, the compilation of the $\affinep$ process is modified to always generate a \texttt{continueSession} instruction for non-droppable inner types before branching on the use-discard choice.
 
@@ -151,9 +152,9 @@ To take advantage of this, the C code generation phase omits any end point handl
 
 Tail calls, i.e., recursive process calls executed when there's a single end point left, can also be greatly optimized to reuse the current process environment instead of allocating a new one, avoiding the overhead of memory allocation and deallocation. Without the first optimization, or in cases where a process has more than one end point, this optimizations requires branching on the end point count. Otherwise, it can be done unconditionally.
 
-\section{IR optimizations phase}
+\section{Simplifying the generated IR code}
 
-The previously mentioned optimizations not only produce significant improvements in the generated code \todo{reference benchmark?}, but also introduce many optimization opportunities in the generated \ac{IR} code itself. Below is an example of the result of compiling a send of positive value type, as described in \Cref{subsection:SendValueOptimizations}. A new session $s_2$ is introduced which is used for nothing other than writing to session $s_1$. It could instead be rewritten simply as a \texttt{writeExpression} directly to $s_1$.
+The previously mentioned transformations introduce many optimization opportunities in the generated \ac{IR} code itself. For example, below is a result of compiling a send of positive value type, as described in \Cref{subsection:SendValueOptimizations}. A new session $s_2$ is introduced only for writing to session $s_1$. In this case, it could be replaced entirely by writing directly to $s_1$.
 
 \begin{lstlisting}[language=IR]
     initializeSession(s2, send_rhs_2, s1)
@@ -165,9 +166,9 @@ send_rhs_2:
 
 To simplify the generated \ac{IR} code, first each \ac{IR} process is analyzed, and a control flow graph is built. Then a series of optimizations are applied using the information obtained from the analysis.
 
-\ac{IR} processes are analyzed through a symbolic execution. For each instruction, the known state of the process environment is updated, storing information such as the current continuations and writing locations of each session, or the known values of slots in the local data section. As this execution progresses, a control flow graph where each node is an \ac{IR} block is built. For each, the nodes into which the node may jump to directly are stored, as well as nodes which become detached from the main control flow, such as blocks referenced by a \texttt{pushTask} instruction. Eventually, all reachable nodes are visited, and the graph is complete.
+\ac{IR} processes are analyzed through a symbolic execution. For each instruction, the known state of the process environment is updated, storing information such as the current continuations and writing locations of each session, or the known values of slots in the local data section. As this execution progresses, a control flow graph where each node is an \ac{IR} block is built. For each node, the nodes into which the node may jump to directly are stored, as well as nodes which become detached from the main control flow, such as blocks referenced by a \texttt{pushTask} instruction. Eventually, all reachable nodes are visited, and the graph is complete.
 
-The first optimization to be applied is optimizing jumps to known locations, such as \texttt{jump} instructions, \texttt{continueSession} instructions of sessions with a known continuation or branches with known outcomes. These instructions are removed, and the source and target \ac{IR} blocks are merged. This optimization is applied repeatedly until no more optimizations can be made. The example shown above would be optimized into:
+The first applied optimization is removing jumps to known locations, such as \texttt{jump} instructions, \texttt{continueSession} instructions of sessions with a known continuation or branches with known outcomes. After these instructions are removed, the source and target \ac{IR} blocks are merged. This optimization is applied repeatedly until no more optimizations can be made. The example shown above would be optimized into:
 
 \begin{lstlisting}[language=IR]
     initializeSession(s2, -, s1) // no continuation
