@@ -48,7 +48,7 @@ A type is said to be a value type if it has a strict polarity, being either stri
 
 \begin{figure}[t]
     \centering
-    \begin{align*}
+    \[\begin{aligned}
         &\isdroppable{\lintt} = \guaranteed && \isdroppable{\lboolt} = \guaranteed \\
         &\isdroppable{\lstringt} = \guaranteed && \isdroppable{\closet{}} = \guaranteed \\
         &\isdroppable{\sendt{A}{B}} = \isdroppable{A} \land \isdroppable{B} && \isdroppable{\sendtyt{X}{B}} = \impossible \\
@@ -56,7 +56,7 @@ A type is said to be a value type if it has a strict polarity, being either stri
         &\isdroppable{\statet A} = \guaranteed && \isdroppable{\statelt A} = \impossible \\
         &\isdroppable{\choicet{\labelt a A\ (\dots)\ \labelt z Z}} = \bigwedge\,(\isdroppable{A},\,\dots,\,\isdroppable{Z}) && \isdroppable{X} = \dependent{\depisdroppable{\typeidof{\typeenv}{X}}} \\
         &\isdroppable{A} = \impossible \text{ if } \polarityof{\typeenv}{A} = - \\
-    \end{align*}
+    \end{aligned}\]
     \caption{Definition of $\isdroppable{A}$ for positive types}
     \label{fig:IsDroppableDefinition}
 \end{figure}
@@ -65,7 +65,7 @@ Additionally, a type is said to be a droppable type if a drop function is define
 
 \begin{figure}
     \centering
-    \begin{align*}
+    \[\begin{aligned}
         &\iscloneable{\lintt} = \guaranteed && \iscloneable{\lboolt} = \guaranteed \\
         &\iscloneable{\lstringt} = \guaranteed && \iscloneable{\closet{}} = \guaranteed \\
         &\iscloneable{\sendt{A}{B}} = \impossible && \iscloneable{\sendtyt{X}{B}} = \impossible \\
@@ -73,7 +73,7 @@ Additionally, a type is said to be a droppable type if a drop function is define
         &\iscloneable{\statet A} = \impossible && \iscloneable{\statelt A} = \impossible \\
         &\iscloneable{\choicet{\labelt a A\ (\dots)\ \labelt z Z}} = \bigwedge\,(\iscloneable{A},\,\dots,\,\iscloneable{Z}) && \iscloneable{X} = \dependent{\depiscloneable{\typeidof{\typeenv}{X}}} \\
         &\iscloneable{A} = \impossible \text{ if } \polarityof{\typeenv}{A} = - \\
-    \end{align*}
+    \end{aligned}\]
     \caption{Definition of $\iscloneable{A}$ for positive types}
     \label{fig:IsCloneableDefinition}
 \end{figure}
@@ -82,7 +82,7 @@ Finally, a type is said to be cloneable if a clone operation is defined for it. 
 
 \subsection{Adding type flags to the compiler}
 
-To generate code which depends on type flags, it is necessary to add a new branching instruction \texttt{branchFlags}, with the exact same syntax as \texttt{branchExpression}, but instead of branching on a boolean expression, it branches on whether some flag requirements are met. For example, the instruction \texttt{branchFlags(if(t0.value), value:1, not\_value:1)} jumps to block \texttt{value} if the type parameter $t_0$ has the value flag set, or to block \texttt{not\_value} otherwise. Most flag requisites are either $\guaranteed$ or $\impossible$, in which case they do not depend on type parameters, and thus can be determined at compile time, avoiding the branch.
+To generate code which depends on type flags, it is necessary to add a new branching instruction \texttt{branchFlags}, with the exact same syntax as \texttt{branchExpression}, but instead of branching on a boolean expression, it branches on whether some flag requirements are met. For example, the instruction \texttt{branchFlags(if(t0.value), value:1, not\_value:1)} jumps to block \texttt{value} if the type parameter $t_0$ has the value flag set, or to block \texttt{not\_value} otherwise. Most flag requisites are either $\guaranteed$ or $\impossible$, and thus can be determined at compile time, avoiding the branch.
 
 To enable different memory representations for session types based on these flags, slot trees also need to be extended with a new definition $\flagsst{R}{T_1}{T_2}$. This tree is similar to $\tagst{\dots}$, but instead of branching on a written tag, it branches on whether some flag requirements $R$ are met - if $R$ is met, $T_1$ is chosen, otherwise, $T_2$ is chosen.
 
@@ -99,7 +99,7 @@ $$
 
 Then, the compilation of both $\sendp$ and $\recvp$ processes must be modified to reflect this new structure. A \texttt{branchFlags} instruction is generated which branches on whether the type of the argument session being sent or received is a positive or negative value, respectively. If it is not a value, the implementation is the same as before.
 
-On the sending side, if the argument is a positive value type, the argument's session is initialized with a writing location set to the main session's writing location. Then, the send's argument code is immediately executed, writing the data to the main session, through the argument session. When it finishes, the right-hand-side of the send continues executing, writing data after the data that has just been written.
+On the sending side, if the argument is a positive value type, the argument's session is initialized with a writing location set to the main session's writing location. Then, the send's argument code is immediately executed, writing the data to the main session, through the argument session. When it finishes, the right-hand-side of the send executes, writing data after the data that has just been written.
 
 On the receiver side, instead of receiving a new session, the data is simply moved from the main session using \texttt{moveSlots} into the local data associated with the argument's name. The right-hand-side continues executing, reading data after the data that was just moved.
 
@@ -110,13 +110,13 @@ The second implemented optimization greatly simplifies the representation of exp
 This optimization changes the semantics of exponentials, as the computation is done immediately and only once, instead of once per exponential call. This transformation may end up worsening performance in cases where the exponential is never called. However, in practice, when exponentials are used, they are often called multiple times, and the performance gain in these cases is significant.
 
 Once again, the mapping from session types to slot trees is modified. If the inner type $A$ of a $\bangt{A}$ type is a cloneable and droppable type, the slots of $A$ are computed and used directly. Otherwise, a single $\exponentials$ slot is used, as before. Formally:
-$$
+\[
     \slots{\theta}{\bangt{A}} = \flagsst{\iscloneable{A} \land \isdroppable{A}}{\slots{\theta}{A}}{\seqst{\exponentials}}
-$$
+\]
 
 This change turns, for example, the representation of $\bangt{\bangt{\lintt}}$ into just $\ints$, instead of an $\exponentials$ which would produce another $\exponentials$ which would finally produce an $\ints$.
 
-The $\bangc{x}{y}{P}$ process, just like the $\sendp$ and $\recvp$ processes, is modified to generate a \texttt{branchFlags} instruction which branches on whether the inner type $A$ is a cloneable and droppable type. If it is not, the implementation is the same as before. Otherwise, the inner process $P$ is executed immediately, with the name $y$ bound as an alias of $x$, leading to the data being written directly where the exponential would be stored.
+The $\bangc{x}{y}{P}$ process, just like the $\sendp$ and $\recvp$ processes, is modified to generate a \texttt{branchFlags} instruction which branches on whether the inner type $A$ is a cloneable and droppable type. If it is not, the implementation is the same as before. Otherwise, the inner process $P$ is executed immediately, with the name $y$ bound as an alias of $x$, and the data is written directly where the exponential would be stored.
 
 On the $\whynotc{x}{P}$ process, nothing changes. The drop of the slots corresponding to the exponential are deferred, as before. Previously these slots would always be a single $\exponentials$ slot, but now they might be the slots of the inner type $A$, if $A$ is a cloneable and droppable type.
 
@@ -144,7 +144,7 @@ The $\usec{x}{P}$ process, where $x: \coaffinet{A}$ is modified to also branch o
 
 Finally, the $\cellc{x}{y}{P}$ and $\putc{x}{y}{P}{Q}$ processes are modified to branch on whether the inner type $A$ (where $y: A$) is a positive droppable type. If it is not, the implementation is the same as before. Otherwise, the process $P$ is executed immediately, with session $y$ initialized such that it writes directly to the cell's storage. The $\takec{x}{y}{P}$ process is also modified, such that if $A$ (where $y: A$) is a negative droppable type, the value is simply moved from cell $x$ to a new local data section for $y$, instead of receiving a new session.
 
-\section{Optimizing single end point processes and tail calls}
+\section{Optimizing single end point processes and tail calls} \label{section:SingleEndPointOptimizations}
 
 In the base version of the compiler, every end point instruction decrements the end point counter of the process environment, and if it reaches zero, the environment is cleaned up and the process terminates. For processes which have only one end point, this is wasteful - there's no need to maintain an end point counter, as it is guaranteed to reach zero when an end point instruction is executed.
 
@@ -156,6 +156,7 @@ Tail calls, i.e., recursive process calls executed when there's a single end poi
 
 The previously mentioned transformations introduce many optimization opportunities in the generated \ac{IR} code itself. For example, below is a result of compiling a send of positive value type, as described in \Cref{subsection:SendValueOptimizations}. A new session $s_2$ is introduced only for writing to session $s_1$. In this case, it could be replaced entirely by writing directly to $s_1$.
 
+\begin{minipage}{0.9\linewidth}
 \begin{lstlisting}[language=IR]
     initializeSession(s2, send_rhs_2, s1)
     writeExpression(s2, 1)
@@ -163,12 +164,11 @@ The previously mentioned transformations introduce many optimization opportuniti
 send_rhs_2:
     ... // send rhs
 \end{lstlisting}
+\end{minipage}
 
-To simplify the generated \ac{IR} code, first each \ac{IR} process is analyzed, and a control flow graph is built. Then a series of optimizations are applied using the information obtained from the analysis.
+To simplify the generated \ac{IR} code, a control flow graph for each \ac{IR} process is built, through a symbolic execution. For each instruction, the known state of the process environment is updated, storing information such as the current continuations and writing locations of each session, or the known values of slots in the local data section. For each visited \ac{IR} block, a node is added to the graph, storing the nodes into which the node may jump to, as well as nodes which become detached from the main control flow, such as blocks referenced by a \texttt{pushTask} instruction. Eventually, all reachable nodes are visited.
 
-\ac{IR} processes are analyzed through a symbolic execution. For each instruction, the known state of the process environment is updated, storing information such as the current continuations and writing locations of each session, or the known values of slots in the local data section. As this execution progresses, a control flow graph where each node is an \ac{IR} block is built. For each node, the nodes into which the node may jump to directly are stored, as well as nodes which become detached from the main control flow, such as blocks referenced by a \texttt{pushTask} instruction. Eventually, all reachable nodes are visited, and the graph is complete.
-
-The first applied optimization is removing jumps to known locations, such as \texttt{jump} instructions, \texttt{continueSession} instructions of sessions with a known continuation or branches with known outcomes. After these instructions are removed, the source and target \ac{IR} blocks are merged. This optimization is applied repeatedly until no more optimizations can be made. The example shown above would be optimized into:
+The first applied optimization removes jumps to known locations, such as \texttt{jump}, or \texttt{continueSession} instructions of sessions with a known continuation, or branches with known outcomes. After removing these instructions, the source and target \ac{IR} blocks are merged. The example above becomes:
 
 \begin{lstlisting}[language=IR]
     initializeSession(s2, -, s1) // no continuation
@@ -176,17 +176,15 @@ The first applied optimization is removing jumps to known locations, such as \te
     ... // send rhs
 \end{lstlisting}
 
-Next, remote data locations are replaced by their known locations. For example, the remote data location $s_2$ in the example above is known to be $s_1$, as it was just initialized as such. Thus, the writing location $s_2$ can be replaced by $s_1$.
+Next, remote data locations are replaced by their known locations. For example, the remote data location $s_2$ was just initialized to be $s_1$. Thus, the writing location $s_2$ can be replaced by $s_1$. This leaves us with a session $s_2$ which is initialized but never used, and thus, can be removed.
 
 \begin{lstlisting}[language=IR]
-    initializeSession(s2, -, s1)
+    initializeSession(s2, -, s1) // s2 is unused, can be removed
     writeExpression(s1, 1) // write directly to s1
     ... // send rhs
 \end{lstlisting}
 
-This leaves us with a session $s_2$ which is initialized but never unused. At the end of the optimization phase, all unused sessions, data locations and \ac{IR} blocks are removed, leaving us with a single \texttt{writeExpression} instruction, which is the optimal result.
-
-Another useful result from the symbolic execution is knowing which end point instructions are guaranteed to not be the last end point instruction executed by the process. For example, in the following code, the \texttt{finishSession} instruction is guaranteed to not be the last end point instruction executed, because there's an outgoing (detached) flow from the \texttt{entry} block to \texttt{rhs} block, introduced by \texttt{pushTask}. In cases like these, the end point markings can be removed from the instructions, and the end point counter of the process decremented. This optimization leads to most processes having a single end point, which can then be optimized as described in the previous section.
+Another useful result from the symbolic execution is knowing which end point instructions are guaranteed to not be the last instruction executed by the process. For example, in the following code, the \texttt{finishSession} instruction will never be the last executed instruction, as there's an outgoing (detached) flow from the \texttt{entry} block to \texttt{rhs} block, introduced by \texttt{pushTask}. In cases like these, the end point markings can be removed from the instructions, and the end point counter of the process decremented. This makes most processes have a single end point, which can be optimized as described in \Cref{section:SingleEndPointOptimizations}.
 
 \begin{lstlisting}[language=IR]
 entry:
@@ -196,4 +194,4 @@ rhs:
     popTask(end point)
 \end{lstlisting}
 
-One final implemented optimization is turning deferred drops into certain drops. I.e., if a given process always passes through a given \texttt{deferDrop} instruction before terminating, the drop is guaranteed to be executed. In that case, the instruction can be removed entirely, and the drop bit of the process environment marked as always set. During C generation, no branching is then necessary when cleaning up the process environment.
+Finally, many deferred drops can be turned into certain drops. If a given \texttt{deferDrop} instruction is guaranteed to be run, the instruction can be removed, and the drop bit of the process environment marked as always set. This saves memory and avoids unnecessary branching on environment cleanup.

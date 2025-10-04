@@ -7,21 +7,21 @@
 % The following line allows to ref this chapter
 \label{chap:evaluation}
 
+This chapter gives an overview of the implementation of the compiler, which is covered on the first section, as well as the testing strategy, on the second section, and the performance evaluation strategy and results, on the third section.
+
 The compiler has been fully implemented in Java, within the existing \ac{CLASS} and \ac{SAM} interpreters code base. The implementation follows the architecture described in \Cref{chap:architecture}, and includes all the optimizations described in \Cref{chap:optimizations}.
 
-The implementation has been extensively tested through a bench of more than 180 incremental unit tests written in the \ac{CLASS} language, which cover all features of the language. Additionally, many of the existing \ac{CLASS} programs used to test the \ac{CLASS} and \ac{SAM} interpreters have also been compiled and executed using the developed compiler, or incorporated into the test suite.
+The implementation has been extensively tested through a bench of more than 180 incremental unit tests written in the \ac{CLASS} language, covering all language features. Additionally, multiple existing \ac{CLASS} programs used to test the original interpreters have also been incorporated into the test suite.
 
 The performance of the generated code has been evaluated through a benchmark program and the results compared with different compiler configurations, the interpreted execution of the same program using both the \ac{CLASS} and \ac{SAM} interpreters, and an equivalent implementation in Haskell.
 
-In the first section of this chapter, an overview of the implementation is given, including the structure of the code and the main classes. The second section describes the testing testing strategy used to ensure the correctness of the generated code. The third section describes the performance evaluation strategy, including the benchmarks used and the metrics measured.
-
 \section{Implementation}
 
-The compiler is contained within a new \texttt{compiler} namespace within the existing \ac{CLASS} and \ac{SAM} interpreters Java code base. The main class of the compiler is \texttt{Compiler}, which provides a method to orchestrate the different compilation phases. This compiler is invoked through a bash script, which also invokes the \texttt{gcc} C compiler to generate the final executable.
+The compiler is contained within a new \texttt{compiler} namespace within the existing \ac{CLASS} and \ac{SAM} interpreters Java code base. The main class of the compiler is \texttt{Compiler}, which orchestrates the different compilation phases. This compiler is invoked through a bash script, which also invokes \texttt{gcc} to generate the final executable from the generated C code.
 
-The compilation method starts by parsing a number of flags and options from the command line. Each of the optimizations described in \Cref{chap:optimizations} is toggled by a flag, making it possible to easily benchmark the impact of each optimization. It is also possible to configure the target architecture (e.g., 32-bits or 64-bits), enable trace logs on generated programs, enable the printing of the \ac{IR} program at different stages, among other options.
+The compiler starts by parsing flags and options from the command line. Each of the implemented optimizations is toggled by a flag, making it possible to easily benchmark the impact of each optimization. It is also possible to configure the target architecture (e.g., 32-bits or 64-bits), enable trace logs on generated programs, enable the printing of the \ac{IR} program at different stages, among other options.
 
-The input \ac{CLASS} source code is parsed using the original parser, generating an \ac{AST}. The \ac{AST} is then type-checked, and visited by the \texttt{IRGenerator} visitor, which generates the initial \ac{IR} program, as described in \Cref{section:IRGeneration}. The enabled optimizations are then applied in sequence, and finally, the optimized \ac{IR} program is translated to C code through the \texttt{CGenerator} visitor, as described in \Cref{section:IRtoC}.
+The input \ac{CLASS} source code is parsed and type-checked using the original code, generating an annotated \ac{AST}. The \ac{AST} is visited by the \texttt{IRGenerator} visitor, producing an \ac{IR} program, as described in \Cref{section:IRGeneration}. Enabled optimizations are then applied, and finally, the optimized \ac{IR} program is translated to C code through the \texttt{CGenerator} visitor, as described in \Cref{section:IRtoC}.
 
 The \ac{IR} is modeled as a set of classes representing the different instructions, expressions, and slots, following the model described in \Cref{section:IR}. Each instruction class provides methods to accept visitors, as well methods to easily transform the instructions during the optimization phases. While \texttt{IRExpression} objects occur as fields of \texttt{IRInstruction} objects, the latter are stored within \texttt{IRBlock} objects. An \texttt{IRProcess} object contains a description of the process header, and a set of labeled \texttt{IRBlock} objects, one of them being the entry block. Finally, an \texttt{IRProgram} object contains a set of \texttt{IRProcess} objects.
 
@@ -29,25 +29,52 @@ On the C generation phase, a number of helper classes are used to make both the 
 
 \section{Testing the compiler}
 
-The project repository includes a comprehensive suite of more than 180 unit tests written in the \ac{CLASS} language, which cover all features of the language, including edge cases relevant to the implemented optimizations. Each test is composed of a \ac{CLASS} source file, and optionally, a number of input and expected output files. Tests are categorized into folders based on the language feature they are testing, such as exponentials, polymorphism, or process calls.
+The project repository includes a comprehensive suite of more than 180 unit tests written in the \ac{CLASS} language, which cover all features of the language, including edge cases relevant to the implemented optimizations. Each test is composed of a \ac{CLASS} source file, and optionally, a number of input and expected output files. Tests are categorized into folders based on the language feature they cover, such as exponentials, polymorphism, or process calls.
 
-In order to easily find memory errors, a compiler flag \texttt{--profiling} can be enabled to compile the programs with counters for keeping track of how many allocations and deallocations have been performed for each type of structure (e.g., processes, tasks, exponentials) and report any memory leaks when the program finishes execution. Additionally, the compilation script provides flags to enable the address and thread sanitizers of \texttt{gcc}, helping troubleshoot memory access errors and data races.
+Multiple complex \ac{CLASS} programs, both existing ones and newly written (such as game of life and merge sort) were also integrated into the test suite, in addition to the smaller unit tests, in order to further validate the correctness of the generate code when many features are combined.
 
-Tests are executed through a bash script \texttt{test\_compiler.sh} which runs each test in the suite, with an optional filter to select specific tests. The script compiles each test using the flags above. If successfully compiled, and if input files are provided, the generated executable is run for each input file and the output is compared with the expected output file (if provided). If there are no input files, the executable is simply run to check for runtime errors. The script reports the results of each test, including compilation errors, runtime errors, memory leaks, and output mismatches.
+In order to easily find memory errors, a compiler flag \texttt{--profiling} can be enabled to compile the programs with allocation counters for each type of structure (e.g., processes, tasks, exponentials) and report any memory leaks when the program finishes execution. Additionally, the compilation script supports passing flags to \texttt{gcc} to enable the address and thread sanitizers, helping find and troubleshoot memory access errors and data races.
 
-Complex \ac{CLASS} programs, both newly written (such as game of life and merge sort) and existing ones were also integrated into the test suite, in addition to the smaller unit tests, in order to further validate the correctness of the generate code when many features are combined.
+Tests are executed through a bash script \texttt{test\_compiler.sh}, which runs each test in the suite, with an optional filter to select specific tests. The script compiles each test using the available debugging flags. If successfully compiled, and if input files are provided, the generated executable is run for each input file and the output is compared with the expected output file (if provided). If there are no input files, the executable is simply run to check for runtime errors. The script reports the results of each test, including compilation errors, runtime errors, memory leaks, and output mismatches. Compiler flags can also be passed to the script to test different configurations. To speed up the testing process, tests are distributed across multiple jobs.
 
 \section{Performance evaluation}
 
-To measure the performance of the compiler, a benchmarking CLASS program was developed which computes prime numbers using the Turner's Sieve algorithm. Additionally, a Haskell implementation of the same algorithm was also developed for comparison purposes.
+To measure the performance of the compiler, three benchmarking CLASS programs were developed along with equivalent Haskell implementations. Different compiler configurations were benchmarked, including the interpreted execution of the same program using both the \ac{CLASS} and \ac{SAM} interpreters, and the equivalent Haskell implementations, compiled with GHC \texttt{-O2}.
 
-% Show plot Images/sieve_interpreters_execution_time.png
-
-\begin{figure}[H]
+\begin{figure}
     \centering
-    \includegraphics[width=0.8\textwidth]{./Images/execution_time_compiler_vs_alternatives.pdf}
-    \caption{Sieve Benchmark: total execution time (user + system) over 3 runs for the baseline compiler (no optimizations), the optimized compiler (all optimizations enabled), the interpreted execution using the CLASS and SAM interpreters, and an equivalent Haskell implementation. The benchmark is parametrized over the number of primes to compute, which is provided as an input parameter.}
-    \label{fig:SieveInterpretersExecutionTime}
+    \begin{subfigure}{0.49\textwidth}
+        \centering
+        \includegraphics[width=0.8\textwidth]{./Images/execution_time_sieve_compiler_vs_alternatives.pdf}
+        \caption{Total execution time}
+    \end{subfigure}
+    \begin{subfigure}{0.49\textwidth}
+        \centering
+        \includegraphics[width=0.8\textwidth]{./Images/memory_usage_sieve_compiler_vs_alternatives.pdf}
+        \caption{Maximum memory usage}
+    \end{subfigure}
+    \caption{Prime sieve benchmarks averaged over 10 runs, parametrized over prime count.}
+    \label{fig:SieveBenchmarkCompilerVsAlternatives}
+\end{figure}
+
+The first benchmark program computes prime sieve numbers using the Turner's Sieve algorithm, generating a list of prime numbers up to a given count, taken as input. This benchmark was chosen because it is a simple yet computationally intensive program. On \Cref{fig:SieveBenchmarkCompilerVsAlternatives}, the execution time and the maximum \ac{RSS}, representing the peak memory usage, are compared between the original \ac{CLASS} interpreter, the \ac{SAM} interpreter, the unoptimized (baseline) compiler, the fully optimized compiler, and the equivalent Haskell implementation. The original interpreter cannot handle more than 150 primes due to operating system limits on the number of threads. The results show that the fully optimized compiler achieves a speed up of more than 100x compared to the \ac{SAM} interpreter, a speedup of more than 5x compared to the unoptimized compiler, and also outperforms the Haskell implementation, while using significantly less memory.
+
+The second benchmark program implements a functional version of the Game of Life cellular automaton \cite{GameOfLife:1970}. All runs were given the same 17x17 initial configuration containing the \textit{Kok's galaxy}\cite{KoksGalaxy} pattern, and were parametrized by the number of generations to compute. In this benchmark, shown in \Cref{fig:GOLBenchmarkCompilerVsGHC}, the optimized compiler performs slower than the Haskell implementation, by a factor of \todo{review after results} 2.5x. The memory usage of the generated program is, however, significantly lower than the Haskell implementation. We suspect that with further optimizations, such as allocating data in registers and reusing sessions and data sections, the Haskell implementation can be matched or even surpassed.
+
+\begin{figure}
+    \centering
+    \begin{subfigure}{0.49\textwidth}
+        \centering
+        \includegraphics[width=0.8\textwidth]{./Images/execution_time_gol_compiler_vs_ghc.pdf}
+        \caption{Total execution time}
+    \end{subfigure}
+    \begin{subfigure}{0.49\textwidth}
+        \centering
+        \includegraphics[width=0.8\textwidth]{./Images/memory_usage_gol_compiler_vs_ghc.pdf}
+        \caption{Maximum memory usage}
+    \end{subfigure}
+    \caption{Game of Life benchmarks averaged over 10 runs, parametrized over generation count. Both the original interpreter and the SAM were unable to run this benchmark.}
+    \label{fig:GOLBenchmarkCompilerVsGHC}
 \end{figure}
 
 % \begin{figure}[H]
@@ -66,12 +93,10 @@ To measure the performance of the compiler, a benchmarking CLASS program was dev
 %     \label{fig:SieveGHCComparison}
 % \end{figure}
 
+Finally, the third benchmark covers the shared state features of \ac{CLASS}, implementing a queue shared between a producer and a consumer running concurrently. The Haskell implementation uses \texttt{MVar} to implement the shared state, as it bears a strong resemblance to the cells of \ac{CLASS}. The benchmark was parametrized by the number of items to be produced and consumed. \todo{discuss results}
 
-First, the performance was compared between the interpreted execution
+The impact of each optimization was also measured individually in all benchmarking programs, by enabling or disabling a single optimization at a time. The results, shown in \todo{ref figure}, indicate that \todo{analyze results}.
 
-\todo{TODO: describe the profiling script}
-\todo{TODO: describe the sieve benchmark}
-\todo{TODO: show the results, compare with the haskell version}
 \todo{TODO: include bench mark source codes in the appendix}
 
 % Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Morbi commodo, ipsum sed pharetra gravida, orci magna rhoncus neque, id pulvinar odio lorem non turpis. Nullam sit amet enim. Suspendisse id velit vitae ligula volutpat condimentum. Aliquam erat volutpat. Sed quis velit. Nulla facilisi. Nulla libero. Vivamus pharetra posuere sapien. Nam consectetuer. Sed aliquam, nunc eget euismod ullamcorper, lectus nunc ullamcorper orci, fermentum bibendum enim nibh eget ipsum. Donec porttitor ligula eu dolor. Maecenas vitae nulla consequat libero cursus venenatis. Nam magna enim, accumsan eu, blandit sed, blandit a, eros. 
