@@ -7,7 +7,7 @@
 % The following line allows to ref this chapter
 \label{chap:conclusion}
 
-This chapter concludes the thesis. On the first section, a summary of the main points discussed in the previous chapters is presented, along with the contributions of this work. The second section discusses the limitations of the current implementation and outlines potential ares for future work and improvements. 
+This chapter concludes the thesis. On the first section, a summary of the main points discussed in the previous chapters is presented, along with the contributions of this work. The second section outlines potential areas for future work and improvements. 
 
 \section{Conclusions}
 
@@ -22,7 +22,7 @@ Communication over channels is compiled into direct memory writes into and reads
 An implementation of the developed scheme was created, covering all of the features of \ac{CLASS}, including polymorphism, recursion and exponentials. The implementation, available on GitHub \footnote{\todo{add link to repo}}, was built in Java, on top of the existing \ac{SAM} codebase. A suite of tests was created to validate the correctness of the implementation, and the performance of the generated code was evaluated through a series of benchmarks, across different configurations. The compiler was shown to generate programs competitive with equivalent Haskell GHC compiled programs, being able to surpass them in some cases.
 
 % #############################################################################
-\section{Limitations and Future Work}
+\section{Future Work}
 
 The developed solution, while already showing promising results, still has several promising avenues for future improvements and optimizations. One such avenue is compiling to a lower level target language, such as LLVM IR, or assembly language. This could allow for, for example, storing frequently accessed data entirely in CPU registers, and committing them to memory only when absolutely necessary.
 
