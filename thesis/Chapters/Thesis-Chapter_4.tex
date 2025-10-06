@@ -3,7 +3,7 @@
 % !TEX root = ../main.tex
 % #############################################################################
 % Change the Name of the Chapter i the following line
-\fancychapter{Optimizing the Compiler}
+\fancychapter{Optimizing the Generated Code}
 % The following line allows to ref this chapter
 \label{chap:optimizations}
 
@@ -130,7 +130,7 @@ This of course, does not always increase performance. While exponentials are use
 
 The biggest benefit of this change is on the shared state types, such as $\statet{A}$. On the base implementation, this type is represented as a $\cells{\sessions}$ slot, due to cell contents being affine, which effectively means all cells store sessions instead of concrete values. With this optimization, if the inner type $A$ of a $\statet{A}$ type is a droppable type, such as another cell, an exponential, or a primitive type such as $\lintt$, the cell can store the value directly, as a $\cells{A}$ slot. The drawbacks for cells are not as big as for affine types, as most values stored in cells, in practice, end up being used - only the last value written to a cell is discarded.
 
-One difficult aspect of this optimization is that, unlike the previous two optimizations, the polarity of the affected $\affinet{A}$ type ends up being dependent on whether the inner type $A$ is a droppable type or not. If $A$ is not droppable, the polarity is negative, as on the base implementation. However if $A$ is a positive droppable type, the polarity becomes positive, as the $\affinep$ process will write the value immediately. This problem was tacked by defining the polarity $\polarityof{\theta}{\affinet{A}}$ as always being positive, and negative for the $\coaffinet{A}$ type. In order to implement the write-to-read adjustment for $\affinet{A}$ types, the compilation of the $\affinep$ process is modified to always generate a \texttt{continueSession} instruction for non-droppable inner types before branching on the use-discard choice.
+One difficult aspect of this optimization is that, unlike the previous two optimizations, the polarity of the affected $\affinet{A}$ type ends up being dependent on whether the inner type $A$ is a droppable type or not. If $A$ is not droppable, the polarity is negative, as on the base implementation. However if $A$ is a positive droppable type, the polarity becomes positive, as the $\affinep$ process will write the value immediately. This problem was tacked by defining the polarity $\polarityof{\theta}{\affinet{A}}$ as always being positive, and negative for the $\coaffinet{A}$ type. In order to implement the write-to-read adjustment for $\affinet{A}$ types, the compilation of the $\affinep$ process is modified to always generate a \texttt{continue} instruction for non-droppable inner types before branching on the use-discard choice.
 
 The mapping from session types to slot trees is modified as follows:
 \begin{align*}
@@ -138,7 +138,7 @@ The mapping from session types to slot trees is modified as follows:
     \slots{\theta}{\coaffinet{A}} &= \flagsst{\isdroppable{A}}{\nilst}{\tagst{\nilst\tagsepst\slots{\theta}{A}}}
 \end{align*}
 
-The compilation of the $\affinec{x}{P}$ process is modified to generate a \texttt{branchFlags} instruction which branches on whether the inner type $A$ is a positive droppable type. If it is not, the implementation is the same as before, with the addition of a \texttt{continueSession} instruction, as mentioned above. Otherwise, the inner process $P$ is executed immediately, writing the value directly to the affine channel.
+The compilation of the $\affinec{x}{P}$ process is modified to generate a \texttt{branchFlags} instruction which branches on whether the inner type $A$ is a positive droppable type. If it is not, the implementation is the same as before, with the addition of a \texttt{continue} instruction, as mentioned above. Otherwise, the inner process $P$ is executed immediately, writing the value directly to the affine channel.
 
 The $\usec{x}{P}$ process, where $x: \coaffinet{A}$ is modified to also branch on whether $A$ is a negative droppable type. If it is not, the implementation is the same as before. Otherwise, the instructions does nothing. The same goes for the $\discardc{x}$ process, but if $A$ is a negative droppable type, a \texttt{dropSlots} instruction is generated to drop the value immediately.
 
@@ -154,13 +154,13 @@ Tail calls, i.e., recursive process calls executed when there's a single exit po
 
 \section{Simplifying the generated IR code}
 
-The previously mentioned transformations introduce many optimization opportunities in the generated \ac{IR} code itself. For example, below is a result of compiling a send of positive value type, as described in \Cref{subsection:SendValueOptimizations}. A new session $s_2$ is introduced only for writing to session $s_1$. In this case, it could be replaced entirely by writing directly to $s_1$.
+The previously mentioned transformations introduce many optimization opportunities in the generated \ac{IR} code itself. For example, below is a result of compiling a send of positive value type, as described in \Cref{subsection:SendValueOptimizations}. A new session $c_2$ is introduced only for writing to session $c_1$. In this case, it could be replaced entirely by writing directly to $c_1$.
 
 \begin{minipage}{0.9\linewidth}
 \begin{lstlisting}[language=IR]
-    initializeSession(s2, send_rhs_2, s1)
-    writeExpression(s2, 1)
-    finishSession(s2, exit point)
+    initContinuation(c2, send_rhs_2, c1)
+    writeExpression(c2, 1)
+    finish(c2, exit point)
 send_rhs_2:
     ... // send rhs
 \end{lstlisting}
@@ -168,28 +168,28 @@ send_rhs_2:
 
 To simplify the generated \ac{IR} code, a control flow graph for each \ac{IR} process is built, through a symbolic execution. For each instruction, the known state of the process environment is updated, storing information such as the current continuations and writing locations of each session, or the known values of slots in the local data section. For each visited \ac{IR} block, a node is added to the graph, storing the nodes into which the node may jump to, as well as nodes which become detached from the main control flow, such as blocks referenced by a \texttt{pushTask} instruction. Eventually, all reachable nodes are visited.
 
-The first applied optimization removes jumps to known locations, such as \texttt{jump}, or \texttt{continueSession} instructions of sessions with a known continuation, or branches with known outcomes. After removing these instructions, the source and target \ac{IR} blocks are merged. The example above becomes:
+The first applied optimization removes jumps to known locations, such as \texttt{jump}, or \texttt{continue} instructions of sessions with a known continuation, or branches with known outcomes. After removing these instructions, the source and target \ac{IR} blocks are merged. The example above becomes:
 
 \begin{lstlisting}[language=IR]
-    initializeSession(s2, -, s1) // no continuation
-    writeExpression(s2, 1)
+    initContinuation(c2, -, c1) // no continuation
+    writeExpression(c2, 1)
     ... // send rhs
 \end{lstlisting}
 
-Next, remote data locations are replaced by their known locations. For example, the remote data location $s_2$ was just initialized to be $s_1$. Thus, the writing location $s_2$ can be replaced by $s_1$. This leaves us with a session $s_2$ which is initialized but never used, and thus, can be removed.
+Next, remote data locations are replaced by their known locations. For example, the remote data location $c_2$ was just initialized to be $c_1$. Thus, the writing location $c_2$ can be replaced by $c_1$. This leaves us with a session $c_2$ which is initialized but never used, and thus, can be removed.
 
 \begin{lstlisting}[language=IR]
-    initializeSession(s2, -, s1) // s2 is unused, can be removed
-    writeExpression(s1, 1) // write directly to s1
+    initContinuation(c2, -, c1) // c2 is unused, can be removed
+    writeExpression(c1, 1) // write directly to c1
     ... // send rhs
 \end{lstlisting}
 
-Another useful result from the symbolic execution is knowing which exit point instructions are guaranteed to not be the last instruction executed by the process. For example, in the following code, the \texttt{finishSession} instruction will never be the last executed instruction, as there's an outgoing (detached) flow from the \texttt{entry} block to \texttt{rhs} block, introduced by \texttt{pushTask}. In cases like these, the exit point markings can be removed from the instructions, and the exit point counter of the process decremented. This makes most processes have a single exit point, which can be optimized as described in \Cref{section:SingleExitPointOptimizations}.
+Another useful result from the symbolic execution is knowing which exit point instructions are guaranteed to not be the last instruction executed by the process. For example, in the following code, the \texttt{finish} instruction will never be the last executed instruction, as there's an outgoing (detached) flow from the \texttt{entry} block to \texttt{rhs} block, introduced by \texttt{pushTask}. In cases like these, the exit point markings can be removed from the instructions, and the exit point counter of the process decremented. This makes most processes have a single exit point, which can be optimized as described in \Cref{section:SingleExitPointOptimizations}.
 
 \begin{lstlisting}[language=IR]
 entry:
     pushTask(rhs)
-    finishSession(s1, exit point) // becomes just finishSession(s1)
+    finish(c1, exit point) // becomes just finish(c1)
 rhs:
     popTask(exit point)
 \end{lstlisting}

@@ -3,7 +3,7 @@
 % !TEX root = ../main.tex
 % #############################################################################
 % Change the Name of the Chapter i the following line
-\fancychapter{A CLASS Compiler}
+\fancychapter{Compiling Session-Based Languages}
 % The following line allows to ref this chapter
 \label{chap:architecture}
 
@@ -18,17 +18,17 @@ an overview is given on how the \ac{IR} is translated to C code.
 
 One of the main contributions of this work is the design and implementation of a novel \acf{IR} for session-based languages which can be translated to efficient C code. The \ac{IR} is an imperative stateful language, inspired by the execution model of the \ac{SAM}, sequentially executing session-based programs through buffered communication.
 
-An \ac{IR} program is a set of named processes, each consisting of a header and a set of instruction blocks. The header defines various properties necessary for the execution of the process in the \ac{IR} abstract machine, such as the declaration of local data sections, used as local variables, or continuation names to model the flow of control between two end points of a session.
+An \ac{IR} program is a set of named processes, each consisting of a header and a set of instruction blocks. The header defines various properties necessary for the execution of the process in the \ac{IR} abstract machine, such as the declaration of local data sections, used as local variables, or continuation names, employed to model the flow of control between two end points of a session.
 
 \begin{lstlisting}[language=IR]
 main:
     exit points: 2
     types: none
-    continuations: s0
-    data d0: <[]> (s0)
+    continuations: c0
+    data d0: <[]> (c0)
 entry:
-    initializeSession(s0, cut_lhs_0, d0)
-    callProcess(p, exit point, s0 <- s0)
+    initContinuation(c0, cut_lhs_0, d0)
+    callProcess(p, exit point, c0 <- c0)
 cut_lhs_0:
     printLine("wait")
     popTask(exit point)
@@ -42,11 +42,11 @@ cut_lhs_0:
 main:
     exit points: 2
     types: none
-    continuations: s0
-    data d0: <[]> (s0)
+    continuations: c0
+    data d0: <[]> (c0)
 entry:
-    initializeSession(s0, cut_lhs_0, d0)
-    callProcess(p, exit point, s0 <- s0)
+    initContinuation(c0, cut_lhs_0, d0)
+    callProcess(p, exit point, c0 <- c0)
 cut_lhs_0:
     printLine("wait")
     popTask(exit point)
@@ -58,11 +58,11 @@ cut_lhs_0:
 p:
     exit points: 1
     types: none
-    continuations: s0
-    data d0: <[]> (s0)
+    continuations: c0
+    data d0: <[]> (c0)
 entry:
     printLine("close")
-    finishSession(s0, exit point)
+    finish(c0, exit point)
     \end{lstlisting}
     \end{minipage}
     \caption{An example \ac{IR} program with two processes}
@@ -82,38 +82,38 @@ All instructions in a process implicitly operate on its environment. When an ins
 \ac{IR} sessions are similar to both return addresses and coroutines. They are used to model the flow of control between two end points of a \ac{CLASS} channel.
 A session is described by four properties: a reference to its opposite end point session (which might be itself), a data location to write to when sending data to it, and a continuation address and environment to switch to when passing control to it.
 
-Sessions are stored in the environment of each process, and are referenced by their index in the environment's session section. For example, $s_0$ refers to the first session in the environment, $s_1$ to the second session, and so on. Additionally, references to sessions can be passed around as data through the \texttt{session} slot.
+Sessions are stored in the environment of each process, and are referenced by their index in the environment's session section. For example, $c_0$ refers to the first session in the environment, $c_1$ to the second session, and so on. Additionally, references to sessions can be passed around as data through the \texttt{session} slot.
 
-Sessions are manipulated through three main instructions: \texttt{initializeSession}, \texttt{continueSession} and \texttt{finishSession}. An example flow of control using a session is shown below:
+Sessions are manipulated through three main instructions: \texttt{initContinuation}, \texttt{continue} and \texttt{finish}. An example flow of control using a session is shown below:
 \begin{lstlisting}[language=IR]
 entry:
-    initializeSession(s0, rhs, d0) // 1
-    continueSession(s0, cont)      // 2
+    initContinuation(c0, rhs, d0) // 1
+    continue(c0, cont)      // 2
 rhs:
-    finishSession(s0)              // 3
+    finish(c0)              // 3
 cont:
     ...                            // 4
 \end{lstlisting}
 
-The \texttt{initializeSession(s0, rhs, d0)} instruction initializes the session $s_0$ in the current environment such that its remote counterpart (opposite end point) is itself, its writing data location is $d_0$ and its continuation is the block \texttt{rhs} on the current process.
+The \texttt{initContinuation(c0, rhs, d0)} instruction initializes the session $c_0$ in the current environment such that its remote counterpart (opposite end point) is itself, its writing data location is $d_0$ and its continuation is the block \texttt{rhs} on the current process.
 
-Then, the \texttt{continueSession(s0)} instruction is executed, which jumps to the continuation of $s_0$ and replaces the continuation of $s_0$'s remote session (itself in this case) with the block \texttt{cont} on the current process. This means that when $s_0$ is continued again, control will be passed to \texttt{cont}.
+Then, the \texttt{continue(c0)} instruction is executed, which jumps to the continuation of $c_0$ and replaces the continuation of $c_0$'s remote session (itself in this case) with the block \texttt{cont} on the current process. This means that when $c_0$ is continued again, control will be passed to \texttt{cont}.
 
-Finally, the \texttt{finishSession(s0)} instruction is executed, which passes control to the continuation of $s_0$, which is \texttt{cont}. Additionally, it detaches $s_0$ from its remote session by setting its remote session reference to \texttt{NULL}. This instruction is similar to continue, but with the difference that flow of control won't ever return.
+Finally, the \texttt{finish(c0)} instruction is executed, which passes control to the continuation of $c_0$, which is \texttt{cont}. Additionally, it detaches $c_0$ from its remote session by setting its remote session reference to \texttt{NULL}. This instruction is similar to continue, but with the difference that flow of control won't ever return.
 
 Additionally, the instruction \texttt{forwardSessions} is used to model forwarding of \ac{CLASS} channels. An example snippet using this instruction is shown below:
 \begin{lstlisting}[language=IR]
 entry:
-    initializeSession(s0, lhs, d0) // 1
-    initializeSession(s1, rhs, d1) // 2
-    forwardSessions(s0, s1)        // 3
+    initContinuation(c0, lhs, d0) // 1
+    initContinuation(c1, rhs, d1) // 2
+    forwardSessions(c0, c1)        // 3
 lhs:
     ...                            // 5
 rhs:
-    finishSession(s1)              // 4
+    finish(c1)              // 4
 \end{lstlisting}
 
-In this example two sessions $s_0$ and $s_1$ are initialized as before. Then, the \texttt{forwardSessions(s0, s1)} instruction is executed, which makes the remote session of $s_0$ be the remote session of $s_1$, and vice-versa. After linking the sessions, the instruction jumps to the continuation of its second argument ($s_1$ in this case, and thus, the block \texttt{rhs}). On the \texttt{rhs} block, the instruction \texttt{finishSession(s1)} is executed, which just like before passes control to the continuation of $s_1$, which was set to \texttt{lhs} by the forwarding instruction.
+In this example two sessions $c_0$ and $c_1$ are initialized as before. Then, the \texttt{forwardSessions(c0, c1)} instruction is executed, which makes the remote session of $c_0$ be the remote session of $c_1$, and vice-versa. After linking the sessions, the instruction jumps to the continuation of its second argument ($c_1$ in this case, and thus, the block \texttt{rhs}). On the \texttt{rhs} block, the instruction \texttt{finish(c1)} is executed, which just like before passes control to the continuation of $c_1$, which was set to \texttt{lhs} by the forwarding instruction.
 
 \subsection{Data Storage}
 
@@ -133,17 +133,17 @@ T ::= \nilst \mid \seqst{S_1; \dots; S_n; T} \mid \tagst{T_1 \tagsepst \dots \ta
 \]
 where $\nilst$ is the empty slot tree, $\seqst{S_1; \dots; S_n; T}$ is a sequence of a slots $S_1; \dots; S_n$ followed by a slot tree $T$, and $\tagst{T_1 \tagsepst \dots \tagsepst T_n}$ is a $\tags$ slot followed by a choice between the slot trees $T_1$ to $T_n$. For example, $\seqst{\ints; \tagst{\seqst{\bools} \tagsepst \seqst{\strings}}}$ describes an integer followed by a tag, which, if $0$, is followed by a boolean, or if $1$, is followed by a string.
 
-Local data sections are described within process headers by their identifier and by a sum of slot trees describing the possible layouts of data that can be stored on them. For example, $\texttt{data d0:}\ \combst{\seqst{\ints; \bools} + \seqst{\strings}}$ describes a local data section $d_0$ which can either store an $\ints$ followed by a $\bools$, or a $\strings$. Additionally, data sections may be associated to a session, indicating that a session passed as an argument to a process should receive data from that data section (e.g., $\texttt{data d0:}\ \combst{\seqst{\ints}}\ \texttt{(s0)}$).
+Local data sections are described within process headers by their identifier and by a sum of slot trees describing the possible layouts of data that can be stored on them. For example, $\texttt{data d0:}\ \combst{\seqst{\ints; \bools} + \seqst{\strings}}$ describes a local data section $d_0$ which can either store an $\ints$ followed by a $\bools$, or a $\strings$. Additionally, data sections may be associated to a session, indicating that a session passed as an argument to a process should receive data from that data section (e.g., $\texttt{data d0:}\ \combst{\seqst{\ints}}\ \texttt{(c0)}$).
 
 \subsubsection{Addressing Data} \label{subsection:DataAddressing}
 
-A \textit{data location} is denoted as $\dataol{b}{o}$, where $b$ is a base address and $o$ an offset. A base address can be either a local data section (e.g., $d_0$), remote data referenced by a session (e.g., $s_0$), or a cell location (e.g., $c(d0)$). An offset is defined by two slot trees, written as $\offs{P}{F}$, $P$ describing the data being skipped (named \textit{past}), and $F$ describing the data that may come next (named \textit{future}). The future slot tree is necessary to determine the alignment of the data being accessed. For example, $\offs{\seqst{\ints; \bools}}{\seqst{\strings}}$ is an offset which skips an integer followed by a boolean, and expects a string to come next. When the past slot tree is empty, the future slot tree is unnecessary, and the offset is simply written as $0$. 
+A \textit{data location} is denoted as $\dataol{b}{o}$, where $b$ is a base address and $o$ an offset. A base address can be either a local data section (e.g., $d_0$), remote data referenced by a session (e.g., $c_0$), or a cell location (e.g., $c(d0)$). An offset is defined by two slot trees, written as $\offs{P}{F}$, $P$ describing the data being skipped (named \textit{past}), and $F$ describing the data that may come next (named \textit{future}). The future slot tree is necessary to determine the alignment of the data being accessed. For example, $\offs{\seqst{\ints; \bools}}{\seqst{\strings}}$ is an offset which skips an integer followed by a boolean, and expects a string to come next. When the past slot tree is empty, the future slot tree is unnecessary, and the offset is simply written as $0$. 
 
-For example, the location $\datal{d_0}{\seqst{\ints}}{\seqst{\ints}}$ refers to the second integer stored in the local data section $d_0$, while the location $\datal{s_0}{\seqst{\bools}}{\seqst{\strings}}$ refers to a string stored in the remote data of the session $s_0$, after a boolean. When the offset is zero, it is omitted for brevity. For example, $d_0$ as a data location is equivalent to $\datal{d_0}{\nilst}{\nilst}$ or just $d_0.0$ - the future slot trees are unnecessary for empty past slot trees.
+For example, the location $\datal{d_0}{\seqst{\ints}}{\seqst{\ints}}$ refers to the second integer stored in the local data section $d_0$, while the location $\datal{c_0}{\seqst{\bools}}{\seqst{\strings}}$ refers to a string stored in the remote data of the session $c_0$, after a boolean. When the offset is zero, it is omitted for brevity. For example, $d_0$ as a data location is equivalent to $\datal{d_0}{\nilst}{\nilst}$ or just $d_0.0$ - the future slot trees are unnecessary for empty past slot trees.
 
 \subsection{Moving data}
 
-The \texttt{moveSlots} instruction allows moving data from one location to another. It takes as arguments a destination location, a source location and a slot tree describing the data to be moved. To exemplify, \texttt{moveSlots(s1, $\datal{d_0}{\seqst{\bools}}{\seqst{\strings; \ints}}, \seqst{\strings, \ints}$)} moves a string followed by an integer from the local data section $d_0$ after a boolean to the start of the remote data section of session $s_1$.
+The \texttt{moveSlots} instruction allows moving data from one location to another. It takes as arguments a destination location, a source location and a slot tree describing the data to be moved. To exemplify, \texttt{moveSlots(c1, $\datal{d_0}{\seqst{\bools}}{\seqst{\strings; \ints}}, \seqst{\strings, \ints}$)} moves a string followed by an integer from the local data section $d_0$ after a boolean to the start of the remote data section of session $c_1$.
 
 The \texttt{cloneSlots} instruction is used to clone data from one location to another, taking the same arguments. This instruction is only defined for cloneable slots, which are $\ints$, $\bools$, $\strings$, $\tags$ and $\exponentials$. In addition to copying the memory, it also increments reference counts for exponentials and allocates new strings as necessary. It used to model the exponential part of \ac{CLASS}.
 
@@ -193,17 +193,17 @@ entry:
 References to sessions ($\sessions$ slots) can be written to and read from data locations using the instructions \texttt{writeSession} and \texttt{bindSession}, respectively. The first instruction takes a data location and a session identifier as arguments. The second takes a data location to read from, a session identifier to bind to, and a data location to set as the writing location of the session's remote end point. An example of writing a session to local data and then binding it to another session is shown below.
 
 \begin{lstlisting}[language=IR]
-    initializeSession(s1, d1, s1_cont) // 1
-    writeSession(d0, s1)               // 2
-    bindSession(d0, s2, d2)            // 3
-    continueSession(s2, s2_cont)       // 4
+    initContinuation(c1, d1, s1_cont) // 1
+    writeSession(d0, c1)               // 2
+    bindSession(d0, c2, d2)            // 3
+    continue(c2, s2_cont)       // 4
 s1_cont:
-    finishSession(s1)                  // 5
+    finish(c1)                  // 5
 s2_cont:
     ...                                // 6
 \end{lstlisting}
 
-First, a session $s_1$ is initialized with its remote end point being itself, its writing location being $d_1$ and its continuation being the block \texttt{s1\_cont}. Then, a reference to the remote counterpart of session $s_1$ is written to the local data section $d_0$. Next, the reference stored at $d_0$ is read and bound to the session $s_2$, with its remote writing location being modified to $d_2$. At this point, the remote session of $s_2$ is $s_1$, and vice-versa. Finally, $s_2$ is continued, jumping to \texttt{s1\_cont}, and setting the continuation of $s_1$ to the current block. Thus, when executing \texttt{finishSession(s1)}, control will jump to \texttt{s2\_cont}.
+First, a session $c_1$ is initialized with its remote end point being itself, its writing location being $d_1$ and its continuation being the block \texttt{c1\_cont}. Then, a reference to the remote counterpart of session $c_1$ is written to the local data section $d_0$. Next, the reference stored at $d_0$ is read and bound to the session $c_2$, with its remote writing location being modified to $d_2$. At this point, the remote session of $c_2$ is $c_1$, and vice-versa. Finally, $c_2$ is continued, jumping to \texttt{c1\_cont}, and setting the continuation of $c_1$ to the current block. Thus, when executing \texttt{finish(c1)}, control will jump to \texttt{c2\_cont}.
 
 \subsection{Tags and branching} \label{subsection:Branching}
 
@@ -273,27 +273,27 @@ Processes can be invoked through the \texttt{callProcess} instruction, which tak
 
 A type parameter is described by the target type parameter identifier on the new process, and by either a data location containing a $\types$ slot, or by a slot tree directly. For example, \texttt{t0 <- [int]} initializes the type parameter $t_0$ of the new process to be a type which stores an integer, while \texttt{t1 <- d3.[int]$\mathtt{\sim}$[type]} initializes $t_1$ to the type parameter stored after an integer at $d_3$.
 
-A session argument is described by the target session identifier on the new process, by either a source session identifier or a data location containing a \texttt{session} slot, and finally, by a data offset to apply to the writing location of the session. For example, \texttt{s0 <- s1+[int]$\mathtt{\sim}$[int]} initializes the session parameter $s_0$ of the new process to be the same as session $s_1$ of the current process, but with its writing location pointing at $\datal{s_1}{\seqst{\ints}}{\seqst{\ints}}$. If the offset is zero, it is omitted for brevity.
+A session argument is described by the target session identifier on the new process, by either a source session identifier or a data location containing a \texttt{session} slot, and finally, by a data offset to apply to the writing location of the session. For example, \texttt{c0 <- c1+[int]$\mathtt{\sim}$[int]} initializes the session parameter $c_0$ of the new process to be the same as session $c_1$ of the current process, but with its writing location pointing at $\datal{c_1}{\seqst{\ints}}{\seqst{\ints}}$. If the offset is zero, it is omitted for brevity.
 
 Finally, a data argument is described by the target data identifier on the new process, by a source data location, by a slot tree describing the data, and by a flag indicating whether to clone the data or not. For example, \texttt{d0 =[string] d1} writes to $d_0$ a clone of the string stored at $d_1$, while \texttt{d1 <-[string] d2} moves to $d_1$ the string stored at $d_2$ without cloning it.
 
-An example of calling a process with type, session and data arguments is shown below. First, the session $s_0$ is initialized to have its remote end point be itself, its writing location be $d_0$ and its continuation be the block \texttt{rhs}. Then, the integer \texttt{42} is written to the remote data of $s_0$ (which is $d_0$) Next, the process \texttt{foo} is called, with its type parameter $t_0$ being set to an integer, its session $s_0$ being set to the current session $s_0$, and its data section $d_0$ being initialized by a move of the local data section $d_0$. Inside \texttt{foo}, the integer stored at its local data section $d_0$ (received from \texttt{main}) is moved to the remote data of its session $s_0$ (which is still $d_0$ from the \texttt{main} process), and then, the session is finished, passing control back to the block \texttt{rhs} of the calling process. Finally, the integer stored at $d_0$ is printed.
+An example of calling a process with type, session and data arguments is shown below. First, the session $c_0$ is initialized to have its remote end point be itself, its writing location be $d_0$ and its continuation be the block \texttt{rhs}. Then, the integer \texttt{42} is written to the remote data of $c_0$ (which is $d_0$) Next, the process \texttt{foo} is called, with its type parameter $t_0$ being set to an integer, its session $c_0$ being set to the current session $c_0$, and its data section $d_0$ being initialized by a move of the local data section $d_0$. Inside \texttt{foo}, the integer stored at its local data section $d_0$ (received from \texttt{main}) is moved to the remote data of its session $c_0$ (which is still $d_0$ from the \texttt{main} process), and then, the session is finished, passing control back to the block \texttt{rhs} of the calling process. Finally, the integer stored at $d_0$ is printed.
 \begin{lstlisting}[language=IR]
 foo:
     types: t0
-    continuations: s0
+    continuations: c0
     data d0: <[t0]>
 entry:
-    moveSlots(s0, d0, [t0]) // 4
-    finishSession(s0)       // 5
+    moveSlots(c0, d0, [t0]) // 4
+    finish(c0)       // 5
 
 main:
-    continuations: s0
+    continuations: c0
     data d0: <[int]>
 entry:
-    initializeSession(s0, d0, rhs)                         // 1
-    writeExpression(s0, 42)                                // 2
-    callProcess(foo, t0 <- [int], s0 <- s0, d0 <-[int] d0) // 3
+    initContinuation(c0, d0, rhs)                         // 1
+    writeExpression(c0, 42)                                // 2
+    callProcess(foo, t0 <- [int], c0 <- c0, d0 <-[int] d0) // 3
 rhs:
     printLine(move(d0, int)) // 6
 \end{lstlisting}
@@ -302,7 +302,7 @@ rhs:
 
 Exponentials in \ac{CLASS} can be modeled through the $\exponentials$ slot, which stores the necessary data to dynamically call a process closure, taking care of any captured data. Exponentials are created through the \texttt{writeExponential} instruction, which takes the same arguments as \texttt{callProcess}, with the exception that session arguments are not allowed, and that passed data must be cloneable. Additionally, the referenced process is expected to follow the exponential process convention.
 
-The convention for exponential processes is simply that they must take a single session argument, $s_0$, which will be used to communicate with the caller. This session is initialized by the \texttt{callExponential} instruction, which invokes the process. This instruction takes as arguments a data location containing an $\exponentials$ slot, a session identifier to bind the exponential process session to, and a data location to set as the writing location on the exponential process.
+The convention for exponential processes is simply that they must take a single session argument, $c_0$, which will be used to communicate with the caller. This session is initialized by the \texttt{callExponential} instruction, which invokes the process. This instruction takes as arguments a data location containing an $\exponentials$ slot, a session identifier to bind the exponential process session to, and a data location to set as the writing location on the exponential process.
 
 One important detail is that exponentials are reference counted data, and the \texttt{exponential} slot must be dropped when no longer needed, or at the end of the process, if it was not moved. This is done through the \texttt{dropSlots} or \texttt{deferDrop} instructions, as explained in the \Cref{subsection:IRDroppingData} section. Drops of exponentials decrement this reference count, and clones increment it.
 
@@ -310,14 +310,14 @@ Below is an example of creating and calling an exponential.
 \begin{lstlisting}[language=IR]
 foo:
     types: t0
-    continuations: s0
+    continuations: c0
     data d0: <[t0]>
 entry:
-    moveSlots(s0, d0, [t0]) // 6, 10
-    finishSession(s0)       // 7, 11
+    moveSlots(c0, d0, [t0]) // 6, 10
+    finish(c0)       // 7, 11
 
 main:
-    continuations: s0 s1
+    continuations: c0 c1
     data d0: <[string]>
     data d1: <[exponential]>
     data d2: <[string]>
@@ -327,38 +327,38 @@ entry:
     writeExpression(d0, "Hello, World!")                        // 1
     writeExponential(d1, foo, t0 <- [string], d0 <-[string] d0) // 2
     deferDrop(e0)               // 3
-    callExponential(d1, s0, d2) // 4
-    callExponential(d1, s1, d3) // 4
-    continueSession(s0, rhs0)   // 5
+    callExponential(d1, c0, d2) // 4
+    callExponential(d1, c1, d3) // 4
+    continue(c0, rhs0)   // 5
 rhs0:
     printLine(move(d2, string)) // 8
-    continueSession(s1, rhs1)   // 9
+    continue(c1, rhs1)   // 9
 rhs1:
     printLine(move(d3, string)) // 12
 \end{lstlisting}
 
-In this example, the process \texttt{foo} is a simple polymorphic process which takes a type parameter $t_0$, a session $s_0$ and a data section $d_0$. It moves data of type $\seqst{\strings}$ from its local data section $d_0$ to the remote data of its session $s_0$, and then finishes the session, passing control back to the caller.
+In this example, the process \texttt{foo} is a simple polymorphic process which takes a type parameter $t_0$, a session $c_0$ and a data section $d_0$. It moves data of type $\seqst{\strings}$ from its local data section $d_0$ to the remote data of its session $c_0$, and then finishes the session, passing control back to the caller.
 
 The \texttt{main} process writes a new string to $d_0$, and then creates a new exponential at $d_1$ for the process \texttt{foo}, moving the just written string to it. This string will be cloned every time the exponential is called, and dropped when the exponential is freed. The exponential will be dropped at the end of the process through the drop bit \texttt{e0}, which is set by the \texttt{deferDrop(e0)} instruction.
 
-The exponential is then called twice, first binding its argument session to $s_0$ and its writing location to $d_2$, and then binding its session to $s_1$ and its writing location to $d_3$. Each call will clone the string stored at $d_0$ and pass it to the exponential process. Control is not immediately passed to the exponential process. Instead, it is passed when the argument sessions, either $s_0$ or $s_1$, are continued, as their continuations were set by the \texttt{callExponential} instruction to be the entry block of the exponential process.
+The exponential is then called twice, first binding its argument session to $c_0$ and its writing location to $d_2$, and then binding its session to $c_1$ and its writing location to $d_3$. Each call will clone the string stored at $d_0$ and pass it to the exponential process. Control is not immediately passed to the exponential process. Instead, it is passed when the argument sessions, either $c_0$ or $c_1$, are continued, as their continuations were set by the \texttt{callExponential} instruction to be the entry block of the exponential process.
 
-Finally, within the exponential process, the string is moved from $d_0$ to the remote data of $s_0$, which is either $d_2$ or $d_3$ of the caller, depending on which call was continued. Finally, the session is finished, passing control back to the caller, which prints the received string.
+Finally, within the exponential process, the string is moved from $d_0$ to the remote data of $c_0$, which is either $d_2$ or $d_3$ of the caller, depending on which call was continued. Finally, the session is finished, passing control back to the caller, which prints the received string.
 
 \subsection{Exit points} \label{subsection:ExitPoints}
 
 One important aspect of the \ac{IR} not mentioned yet is the concept of exit points. These are used to ensure proper deallocation of the process environment when there's no more code left to execute within it. Each environment maintains a count of the number of remaining exit points, which is specified in the process header (omitted in previous examples for brevity).
 
-Each instruction which passes control to another block without a continuation might be marked as an exit point. These instructions are \texttt{finishSession}, \texttt{forwardSessions}, \texttt{popTask} and \texttt{callProcess}. When such an instruction is executed, the environment's exit point count is decremented. When it reaches zero, the environment is deallocated, and any remaining data is dropped according to the drop bits defined in the process header. A simple example of this mechanism is shown below.
+Each instruction which passes control to another block without a continuation might be marked as an exit point. These instructions are \texttt{finish}, \texttt{forwardSessions}, \texttt{popTask} and \texttt{callProcess}. When such an instruction is executed, the environment's exit point count is decremented. When it reaches zero, the environment is deallocated, and any remaining data is dropped according to the drop bits defined in the process header. A simple example of this mechanism is shown below.
 
 \begin{lstlisting}[language=IR]
 main:
     exit points: 2
-    continuations: s0
+    continuations: c0
     data d0: <[]>
 entry:
-    initializeSession(s0, d0, rhs)
-    finishSession(s0, exit point) // exit points decremented to 1
+    initContinuation(c0, d0, rhs)
+    finish(c0, exit point) // exit points decremented to 1
 rhs:
     popTask(exit point) // exit points decremented to 0, environment is freed
 \end{lstlisting}
@@ -455,11 +455,11 @@ The slot tree corresponding to the first segment of a session type $A$ is design
 
 The \ac{IR} instructions generated from a \ac{CLASS} process $P$ on a given environment $(\theta, \Delta)$ are denoted by $\getinstructions{\theta}{\Delta}{P}$. This function produces a sequence of \ac{IR}, optionally followed by blocks with more instructions, and is defined incrementally in the following sections.
 
-The generated code implements the write-to-read adjustment of the \ac{SAM}, by placing the instruction \texttt{continueSession} whenever the polarity of a session changes from positive to negative. To simplify the definition of the generation rules, a pseudo-instruction $\texttt{continueIfNegative}(\theta, x, A)$ is used, which is replaced by a \texttt{continueSession} instruction and a new block for its proceeding instructions if and only if $\polarityof{\theta}{A} = -$.
+The generated code implements the write-to-read adjustment of the \ac{SAM}, by placing the instruction \texttt{continue} whenever the polarity of a session changes from positive to negative. To simplify the definition of the generation rules, a pseudo-instruction $\texttt{continueIfNegative}(\theta, x, A)$ is used, which is replaced by a \texttt{continue} instruction and a new block for its proceeding instructions if and only if $\polarityof{\theta}{A} = -$.
 
 All writing operations to a channel $x$ write to an offset within the remote data of the session, i.e.,  $\writelocof{\Delta}{x}$. All reading operations read from an offset within the local data of the session, i.e., $\readlocof{\Delta}{x}$. Through the mechanism above, whenever the writing side finishes writing data,, the session is continued, and the reading side reads from the same location the writing side wrote to.
 
-For example, consider two processes communicating over a session of type $\sendt{A}{\recvt{B}{\waitt}}$, where the positive channel is named $x$ and the negative channel is named $y$. The writing process, with a channel environment $\Delta^1$ first writes a session of type $A$ to $\writelocof{\Delta^1}{x}$, which is equal to $\readlocof{\Delta^2}{y}$. Since $\recvt{B}{\waitt}$ is negative, a write-to-read adjustment is performed, and thus, a \texttt{continueSession} instruction is executed on $\sessionof{\Delta^1}{x}$.
+For example, consider two processes communicating over a session of type $\sendt{A}{\recvt{B}{\waitt}}$, where the positive channel is named $x$ and the negative channel is named $y$. The writing process, with a channel environment $\Delta^1$ first writes a session of type $A$ to $\writelocof{\Delta^1}{x}$, which is equal to $\readlocof{\Delta^2}{y}$. Since $\recvt{B}{\waitt}$ is negative, a write-to-read adjustment is performed, and thus, a \texttt{continue} instruction is executed on $\sessionof{\Delta^1}{x}$.
 
 The reading process, with a channel environment $\Delta^2$, reads a session of type $A$ from $\readlocof{\Delta^2}{y}$. Then, it will write to $\writelocof{\Delta^2}{y}$ a session of type $B$. The writing offset is zero, since we performed a read-to-write adjustment after reading $A$. Finally, it finishes the session $\sessionof{\Delta^2}{y}$, passing control back to the writing process. The writing process then reads from $\readlocof{\Delta^1}{x}$ a session of type $B$, which is equal to $\writelocof{\Delta^2}{y}$, and the communication is complete.
 
@@ -567,7 +567,7 @@ To compile the $\printp$ and $\printlnp$ processes, a single instruction is gene
 
 \subsection{Choice and branching}
 
-The compilation of choice processes is shown below. Code is generated which writes a tag to the remote data of the channel $x$. We define $i(\#a)$ as the index of the tag \texttt{a} in the alphabetically sorted list of tags in the offer process. Then, the pseudo-instruction \texttt{continueIfNegative} is inserted, which adds a \texttt{continueSession} instruction if the remainder type of $x$ is negative. Finally, the process recurses on its continuation $P$, advancing the offset of channel $x$ to skip over the written tag, taking into account the remainder type of the channel, as explained in \Cref{subsubsection:AdvancingOffsets}.
+The compilation of choice processes is shown below. Code is generated which writes a tag to the remote data of the channel $x$. We define $i(\#a)$ as the index of the tag \texttt{a} in the alphabetically sorted list of tags in the offer process. Then, the pseudo-instruction \texttt{continueIfNegative} is inserted, which adds a \texttt{continue} instruction if the remainder type of $x$ is negative. Finally, the process recurses on its continuation $P$, advancing the offset of channel $x$ to skip over the written tag, taking into account the remainder type of the channel, as explained in \Cref{subsubsection:AdvancingOffsets}.
 \begin{compilation}{\theta}{\Delta}{\choosec{a}{x}{P}}
 {\getendpoints{\theta}{P}}
     \writetag{\writelocof{\Delta}{x}}{i(\#a)}
@@ -963,10 +963,10 @@ The \texttt{popTask} instruction, whose generation is shown below, removes the f
 
 \subsection{Session manipulation}
 
-The \texttt{initializeSession} instruction is compiled as shown below. The session at $\envlayoutsession{\texttt{env}}{s_0}$ (in this example, $\texttt{env} + 8$) is initialized with the given continuation label, the current environment as its continuation environment, the address $\envlayoutlocal{\texttt{env}}{d_0}$ (in this case, $\texttt{env} + 40$) as its continuation data, and a pointer to itself as its continuation session.
+The \texttt{initContinuation} instruction is compiled as shown below. The session at $\envlayoutsession{\texttt{env}}{c_0}$ (in this example, $\texttt{env} + 8$) is initialized with the given continuation label, the current environment as its continuation environment, the address $\envlayoutlocal{\texttt{env}}{d_0}$ (in this case, $\texttt{env} + 40$) as its continuation data, and a pointer to itself as its continuation session.
 
 \begin{lstlisting}[language=C]
-    /* initializeSession(s0, cut_lhs_0, d0) */
+    /* initContinuation(c0, cut_lhs_0, d0) */
     (*(struct session*)(env + 8)) = (struct session){
         .cont=&&main_cut_lhs_0,
         .cont_env=env,
@@ -975,10 +975,10 @@ The \texttt{initializeSession} instruction is compiled as shown below. The sessi
     };
 \end{lstlisting}
 
-The compilation of the \texttt{finishSession} instruction is shown below. First, the remote session of the finished session is unlinked from the current session by setting its \texttt{cont\_session} field to itself. This is necessary to avoid use after free errors in instructions such as \texttt{forwardSessions} and \texttt{callProcess}. Then, the continuation is stored on the registers and the environment's exit point counter is decremented atomically (when concurrency is disabled, a normal integer is used instead). If the counter reaches zero, the environment cleanup code described in \Cref{subsubsection:CEnvironmentCleanup} is executed. Finally, the environment and program address are switched to the continuation values, and a jump is performed.
+The compilation of the \texttt{finish} instruction is shown below. First, the remote session of the finished session is unlinked from the current session by setting its \texttt{cont\_session} field to itself. This is necessary to avoid use after free errors in instructions such as \texttt{forwardSessions} and \texttt{callProcess}. Then, the continuation is stored on the registers and the environment's exit point counter is decremented atomically (when concurrency is disabled, a normal integer is used instead). If the counter reaches zero, the environment cleanup code described in \Cref{subsubsection:CEnvironmentCleanup} is executed. Finally, the environment and program address are switched to the continuation values, and a jump is performed.
 
 \begin{lstlisting}[language=C]
-    /* finishSession(s0, exit point) */
+    /* finish(c0, exit point) */
     (*(*(struct session*)(env + 8)).cont_session).cont_session = (*(struct session*)(env + 8)).cont_session;
     tmp_ptr1 = (*(struct session*)(env + 8)).cont;
     tmp_ptr2 = (*(struct session*)(env + 8)).cont_env;
@@ -989,10 +989,10 @@ The compilation of the \texttt{finishSession} instruction is shown below. First,
     goto *tmp_ptr1;
 \end{lstlisting}
 
-The \texttt{continueSession} instruction is compiled similarly to \texttt{finishSession}, as shown below, except that the exit point counter is not decremented, and that the continuation of the remote session must be updated so that it eventually jumps back to the correct label.
+The \texttt{continue} instruction is compiled similarly to \texttt{finish}, as shown below, except that the exit point counter is not decremented, and that the continuation of the remote session must be updated so that it eventually jumps back to the correct label.
 
 \begin{lstlisting}[language=C]
-    /* continueSession(s0, continue_12) */
+    /* continue(c0, continue_12) */
     tmp_ptr1 = (*(struct session*)(env + 8)).cont;
     (*(*(struct session*)(env + 8)).cont_session).cont = &&main_continue_12;
     env = (*(struct session*)(env + 8)).cont_env;
@@ -1002,7 +1002,7 @@ The \texttt{continueSession} instruction is compiled similarly to \texttt{finish
 The \texttt{forwardSessions} instruction first stores the continuation of its second argument in the temporary registers. Then, it sets the remote sessions of both arguments to point to each other, ensuring no references are left to the local sessions. A temporary variable is used to store the first argument's session, as its value may be overwritten due to the possibility of a session being its own remote session. Finally, the exit point counter is decremented, and control is passed to the continuation stored in the temporary registers.
 
 \begin{lstlisting}[language=C]
-    /* forwardSessions(s0, s1, exit point) */
+    /* forwardSessions(c0, c1, exit point) */
     tmp_ptr1 = (*(struct session*)(env + 40)).cont;
     tmp_ptr2 = (*(struct session*)(env + 40)).cont_env;
     tmp_session = *(struct session*)(env + 8);
@@ -1062,7 +1062,7 @@ main_exp0_exp_manager:
 The \texttt{callExponential} instruction, compiled as shown below, first allocates a new environment for the exponential call with the size stored in the exponential structure. This environment is initialized through a memory copy from the exponential's template environment, and is set as the continuation environment of the argument session on the current environment. Then, the argument session and data is connected to the argument session in the new environment, and finally the exponential manager is jumped to, with \texttt{tmp\_int} set to $0$ to indicate a clone operation. When the clone finishes, control is passed back to the label \texttt{main\_exp\_call\_return\_0}.
 
 \begin{lstlisting}[language=C]
-    /* callExponential(d0, s0, d1) */
+    /* callExponential(d0, c0, d1) */
 #define exp (*(struct exponential**)(env + 64))
 #define exp_env (*(struct session*)(env + 0)).cont_env
 #define exp_session (*(struct session*)(exp_env + exp->entry_session_offset))
@@ -1116,7 +1116,7 @@ To clone or drop polymorphic slots $t_i$, type information for each type paramet
 Process calls are performed through the \texttt{callProcess} instruction. This instruction receives the identifier of the process to be called, a list of type arguments, a list of session arguments and a list of data arguments. The generated C code for this instruction is shown below.
 
 \begin{lstlisting}[language=C]
-    /* callProcess(foo, exit point, s0 <- s0) */
+    /* callProcess(foo, exit point, c0 <- c0) */
     tmp_ptr1 = managed_alloc(40);
     (*(atomic_int*)(((char*)(tmp_ptr1)))) = 1; // setup exit points
     /* (...) pass type, session and data arguments */
