@@ -9,7 +9,7 @@
 
 During the course of this project, several optimizations on various parts of the compiler were implemented to produce more efficient code. Code transformations such as \textit{inlining} and polymorphic process \textit{monomorphization} were implemented with great results, but are not described in this chapter, as they are well-known techniques. Instead, this chapter focuses on optimizations specific to the language and its intermediate representation.
 
-The first section goes over the transformations made to the compiler to produce more efficient code when handling types with certain properties. The second section describes optimizations specific to the C code generation phase, focused on simplifying the counting of end points and tail calls. Finally, the last section introduces a new compilation phase which applies a series of transformations to the generated \ac{IR} code before passing it to the C code generation phase.
+The first section goes over the transformations made to the compiler to produce more efficient code when handling types with certain properties. The second section describes optimizations specific to the C code generation phase, focused on simplifying the counting of exit points and tail calls. Finally, the last section introduces a new compilation phase which applies a series of transformations to the generated \ac{IR} code before passing it to the C code generation phase.
 
 \section{Making use of type properties}
 
@@ -144,13 +144,13 @@ The $\usec{x}{P}$ process, where $x: \coaffinet{A}$ is modified to also branch o
 
 Finally, the $\cellc{x}{y}{P}$ and $\putc{x}{y}{P}{Q}$ processes are modified to branch on whether the inner type $A$ (where $y: A$) is a positive droppable type. If it is not, the implementation is the same as before. Otherwise, the process $P$ is executed immediately, with session $y$ initialized such that it writes directly to the cell's storage. The $\takec{x}{y}{P}$ process is also modified, such that if $A$ (where $y: A$) is a negative droppable type, the value is simply moved from cell $x$ to a new local data section for $y$, instead of receiving a new session.
 
-\section{Optimizing single end point processes and tail calls} \label{section:SingleEndPointOptimizations}
+\section{Optimizing single exit point processes and tail calls} \label{section:SingleExitPointOptimizations}
 
-In the base version of the compiler, every end point instruction decrements the end point counter of the process environment, and if it reaches zero, the environment is cleaned up and the process terminates. For processes which have only one end point, this is wasteful - there's no need to maintain an end point counter, as it is guaranteed to reach zero when an end point instruction is executed.
+In the base version of the compiler, every exit point instruction decrements the exit point counter of the process environment, and if it reaches zero, the environment is cleaned up and the process terminates. For processes which have only one exit point, this is wasteful - there's no need to maintain an exit point counter, as it is guaranteed to reach zero when an exit point instruction is executed.
 
-To take advantage of this, the C code generation phase omits any end point handling code when the \ac{IR} process has only one end point, avoiding unnecessary memory accesses and branches.
+To take advantage of this, the C code generation phase omits any exit point handling code when the \ac{IR} process has only one exit point, avoiding unnecessary memory accesses and branches.
 
-Tail calls, i.e., recursive process calls executed when there's a single end point left, can also be greatly optimized to reuse the current process environment instead of allocating a new one, avoiding the overhead of memory allocation and deallocation. Without the first optimization, or in cases where a process has more than one end point, this optimizations requires branching on the end point count. Otherwise, it can be done unconditionally.
+Tail calls, i.e., recursive process calls executed when there's a single exit point left, can also be greatly optimized to reuse the current process environment instead of allocating a new one, avoiding the overhead of memory allocation and deallocation. Without the first optimization, or in cases where a process has more than one exit point, this optimizations requires branching on the exit point count. Otherwise, it can be done unconditionally.
 
 \section{Simplifying the generated IR code}
 
@@ -160,7 +160,7 @@ The previously mentioned transformations introduce many optimization opportuniti
 \begin{lstlisting}[language=IR]
     initializeSession(s2, send_rhs_2, s1)
     writeExpression(s2, 1)
-    finishSession(s2, end point)
+    finishSession(s2, exit point)
 send_rhs_2:
     ... // send rhs
 \end{lstlisting}
@@ -184,14 +184,14 @@ Next, remote data locations are replaced by their known locations. For example, 
     ... // send rhs
 \end{lstlisting}
 
-Another useful result from the symbolic execution is knowing which end point instructions are guaranteed to not be the last instruction executed by the process. For example, in the following code, the \texttt{finishSession} instruction will never be the last executed instruction, as there's an outgoing (detached) flow from the \texttt{entry} block to \texttt{rhs} block, introduced by \texttt{pushTask}. In cases like these, the end point markings can be removed from the instructions, and the end point counter of the process decremented. This makes most processes have a single end point, which can be optimized as described in \Cref{section:SingleEndPointOptimizations}.
+Another useful result from the symbolic execution is knowing which exit point instructions are guaranteed to not be the last instruction executed by the process. For example, in the following code, the \texttt{finishSession} instruction will never be the last executed instruction, as there's an outgoing (detached) flow from the \texttt{entry} block to \texttt{rhs} block, introduced by \texttt{pushTask}. In cases like these, the exit point markings can be removed from the instructions, and the exit point counter of the process decremented. This makes most processes have a single exit point, which can be optimized as described in \Cref{section:SingleExitPointOptimizations}.
 
 \begin{lstlisting}[language=IR]
 entry:
     pushTask(rhs)
-    finishSession(s1, end point) // becomes just finishSession(s1)
+    finishSession(s1, exit point) // becomes just finishSession(s1)
 rhs:
-    popTask(end point)
+    popTask(exit point)
 \end{lstlisting}
 
 Finally, many deferred drops can be turned into certain drops. If a given \texttt{deferDrop} instruction is guaranteed to be run, the instruction can be removed, and the drop bit of the process environment marked as always set. This saves memory and avoids unnecessary branching on environment cleanup.

@@ -170,7 +170,7 @@ There are many variations of linear logic. One particularly relevant to this pro
 
 \section{Process Calculus}
 
-Process calculi are formal languages for modeling concurrent systems, where processes interact by sending and receiving messages. One of the most well-known process calculus is CCS (Calculus of Communicating Systems) \cite{Milner:1980}, which introduced the notion of parallel composition, restriction and communication.
+Process calculi are formal languages for modeling concurrent systems, where processes interact by sending and receiving messages. One of the most well-known process calculus is \acf{CCS} \cite{Milner:1980}, which introduced the notion of parallel composition, restriction and communication.
 
 In the 90s, Milner et al \cite{Milner:1992:1,Milner:1992:2} introduced $\pi$-calculus, a process calculus that allows for mobility of processes - channels, through which processes communicate, can themselves be sent and received. It unifies data with communication channels, treating them as first-class citizens. This allows for more complex communication patterns, where the topology of the network can change dynamically. $\pi$-calculus can be used to encode various computation paradigms, such as $\lambda$-calculus and Turing machines, and thus, is a universal model of computation.
 
@@ -330,13 +330,6 @@ The syntax of \ac{CLASS} used on this thesis differs slightly from $\mu$CLL. Add
         |\         & \sendt{A}{B}  & & |\ \sendtyt{X}{A} & & |\ \statet{A} & & |\ \statelt{A} \\
         |\         & \recvt{A}{B} & & |\ \recvtyt{X}{A} & & |\ \usaget{A} & & |\ \usagelt{A} \\
         |\         & \rect{X}{A}  & & |\ \corect{X}{A}   \\ 
-        % |\         & \sendt{A}{B}                              &  & |\ \recvt{A}{B}                               \\
-        % |\         & \bangt{A}                                 &  & |\ \whynott{A}                                \\
-        % |\         & \sendtyt{X}{A}                            &  & |\ \recvtyt{X}{A}                             \\
-        % |\         & \affinet{A}                               &  & |\ \coaffinet{A}                              \\
-        % |\         & \statet{A}                                &  & |\ \usaget{A}                                 \\
-        % |\         & \statelt{A}                               &  & |\ \usagelt{A}                                \\
-        % |\         & \rect{X}{A}                               &  & |\ \corect{X}{A}                              \\
     \end{aligned}\]
     \caption{CLASS Type Grammar}
     \label{fig:CLASSTypesGrammar}
@@ -373,7 +366,9 @@ The syntax of \ac{CLASS} used on this thesis differs slightly from $\mu$CLL. Add
     \end{tabular}
 \end{table}
 
-The $\lintt$, $\colintt$, $\lboolt$, $\colboolt$, $\lstringt$, $\colstringt$, $\classt{affine}$, $\classt{coaffine}$, $\classt{state}$, $\classt{usage}$, $\classt{statel}$ and $\classt{usagel}$ types are not present in $\mu$CLL and are used for basic values, defining affine sessions and reference cells. A \ac{CLASS} program is composed of a collection of type and process definitions, with the following BNF grammar:
+The $\lintt$, $\colintt$, $\lboolt$, $\colboolt$, $\lstringt$, $\colstringt$, $\classt{affine}$, $\classt{coaffine}$, $\classt{state}$, $\classt{usage}$, $\classt{statel}$ and $\classt{usagel}$ types are not present in $\mu$CLL and are used for basic values, defining affine sessions and reference cells.
+
+A \ac{CLASS} program is composed of a collection of type and process definitions, with the following BNF grammar:
 \[\begin{aligned}
     \text{Program} ::=\  & \text{ProcDef}\ \text{Program} &  & |\ \text{ProcDef} \\
     |\                   & \text{TypeDef}\ \text{Program} &  & |\ \text{TypeDef}

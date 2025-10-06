@@ -2,137 +2,58 @@
 % This is Appendix A
 % !TEX root = ../main.tex
 % #############################################################################
-\chapter{Code of Project}
-\label{chapter:appendixA}
+\chapter{IR Instruction Reference}
+\label{chapter:appendixIR}
 
-Nulla dui purus, eleifend vel, consequat non, dictum porta, nulla. Duis ante mi, laoreet ut, commodo eleifend, cursus nec, lorem. Aenean eu est. Etiam imperdiet turpis. Praesent nec augue. Curabitur ligula quam, rutrum id, tempor sed, consequat ac, dui. Vestibulum accumsan eros nec magna. Vestibulum vitae dui. Vestibulum nec ligula et lorem consequat ullamcorper. 
+This appendix contains full list of \ac{IR} instructions used in this thesis, along with a brief description of each instruction and its arguments. \texttt{<dloc>} refers to a data location, \texttt{<cloc>} refers to a code location, \texttt{<expr>} refers to an expression and \texttt{<slots>} refers to a slot tree.
 
-\begin{lstlisting}[frame=lines,style=XML,caption={Example of a XML file.},label=xmlEx]
-<?xml version="1.0" encoding="UTF-8"?>
-<StreamInfo version="2.0">
-    <Clip duration="PT01M0.00S">
-        <BaseURL>videos/</BaseURL>
-        <Description>svc_1</Description>
-        <Representation mimeType="video/SVC" codecs="svc" frameRate="30.00" bandwidth="401.90"
-            width="176" height="144" id="L0">
-            <BaseURL>svc_1/</BaseURL>
-            <SegmentInfo from="0" to="11" duration="PT5.00S">
-                <BaseURL>svc_1-L0-</BaseURL>
-            </SegmentInfo>
-        </Representation>
-        <Representation mimeType="video/SVC" codecs="svc" frameRate="30.00" bandwidth="1322.60"
-            width="352" height="288" id="L1">
-            <BaseURL>svc_1/</BaseURL>
-            <SegmentInfo from="0" to="11" duration="PT5.00S">
-                <BaseURL>svc_1-L1-</BaseURL>
-            </SegmentInfo>
-        </Representation>
-    </Clip>
-</StreamInfo>
-\end{lstlisting}
+\todo{add slot, slot tree and slot combinations BNF definitions}
 
-Etiam imperdiet turpis. Praesent nec augue. Curabitur ligula quam, rutrum id, tempor sed, consequat ac, dui. Maecenas tincidunt velit quis orci. Sed in dui. Nullam ut mauris eu mi mollis luctus. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos hymenaeos. Sed cursus cursus velit. Sed a massa. Duis dignissim euismod quam.
+\section{IR Instructions}
 
+\todo{Also add a table for expressions and another for slots}
 
-Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos hymenaeos. Phasellus eget nisl ut elit porta ullamcorper. Maecenas tincidunt velit quis orci. Sed in dui. Nullam ut mauris eu mi mollis luctus. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos hymenaeos.
+\begin{center}
+\begin{longtable}{|p{3in}|p{3in}|}
+\caption{IR Instruction Types} \label{table:irInstructions} \\
 
-Nullam ut mauris eu mi mollis luctus. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos hymenaeos. Sed cursus cursus velit. Sed a massa. Duis dignissim euismod quam. Nullam euismod metus ut orci.
+\hline \multicolumn{1}{|c|}{\textbf{Syntax}} & \multicolumn{1}{c|}{\textbf{Description}} \\ \hline 
+\endfirsthead
 
-Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos hymenaeos. Phasellus eget nisl ut elit porta ullamcorper. Maecenas tincidunt velit quis orci. Sed in dui. Nullam ut mauris eu mi mollis luctus. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos hymenaeos. Sed cursus cursus velit. Sed a massa. Duis dignissim euismod quam. Nullam euismod metus ut orci. Vestibulum erat libero, scelerisque et, porttitor et, varius a, leo.
+\multicolumn{2}{c}%
+{{\bfseries \tablename\ \thetable{} -- continued from previous page}} \\
+\hline \multicolumn{1}{|c|}{\textbf{Syntax}} &
+\multicolumn{1}{c|}{\textbf{Description}} \\ \hline 
+\endhead
 
-\begin{lstlisting}[style=htmlcssjs,caption={HTML with CSS Code}]
-<!DOCTYPE html>
-<html>
-  <head>
-    <title>Listings Style Test</title>
-    <meta charset="UTF-8">
-    <style>
-      /* CSS Test */
-      * {
-        padding: 0;
-        border: 0;
-        margin: 0;
-      }
-    </style>
-    <link rel="stylesheet" href="css/style.css" />
-  </head>
-  <header> hey </header>
-  <article> this is a article </article>
-  <body>
-    <!-- Paragraphs are fine -->
-    <div id="box">			
-			<p>
-			  Hello World
-			</p>
-      <p>Hello World</p>
-      <p id="test">Hello World</p>
-			<p></p>
-    </div>
-    <div>Test</div>
-    <!-- HTML script is not consistent -->
-    <script src="js/benchmark.js"></script>
-    <script>
-      function createSquare(x, y) {
-        // This is a comment.
-        var square = document.createElement('div');
-        square.style.width = square.style.height = '50px';
-        square.style.backgroundColor = 'blue';
-        
-        /*
-         * This is another comment.
-         */
-        square.style.position = 'absolute';
-        square.style.left = x + 'px'; 
-        square.style.top = y + 'px';
-        
-        var body = document.getElementsByTagName('body')[0];
-        body.appendChild(square);
-      };
-      
-      // Please take a look at +=
-      window.addEventListener('mousedown', function(event) {
-        // German umlaut test: Berührungspunkt ermitteln
-        var x = event.touches[0].pageX;
-        var y = event.touches[0].pageY;
-        var lookAtThis += 1;
-      });
-    </script>
-  </body>
-</html>
-\end{lstlisting}
+\hline \multicolumn{2}{|r|}{{Continued on next page}} \\ \hline
+\endfoot
 
-Nulla dui purus, eleifend vel, consequat non, dictum porta, nulla. Duis ante mi, laoreet ut, commodo eleifend, cursus nec, lorem. Aenean eu est. Etiam imperdiet turpis. Praesent nec augue. Curabitur ligula quam, rutrum id, tempor sed, consequat ac, dui. Vestibulum accumsan eros nec magna. Vestibulum vitae dui. Vestibulum nec ligula et lorem consequat ullamcorper.
+\hline \hline
+\endlastfoot
+\texttt{acquireCell(<target: dloc>)} & Increments the reference count of the cell at target \\
+\hline 
+\texttt{releaseCell(<target:\ dloc>)} & Decrements the reference count of the cell at target \\
+\texttt{lockCell(<target:\ dloc>)} & Locks the mutex of the cell at the target location \\
+\texttt{unlockCell(<target:\ dloc>)} & Unlocks the mutex of the cell at the target location \\
+\texttt{launchThread(<entry: cloc>,\ <cells: dloc[]>)} & Launches a new thread starting at the given code location within the current process \\
+\texttt{\todo{all other instructions}} & \todo{describe} \\
+\end{longtable}
+\end{center}
 
-\begin{lstlisting}[style=htmlcssjs,caption={HTML CSS Javascript Code}]
+% An example of a large Table that autofits the size to the page margins is illustrated in \Cref{tab:very-widetab}. Please notice the text size that is shrunken in order fot the table to adjust to the page:
 
-@media only screen and (min-width: 768px) and (max-width: 991px) {
-	
-	#main {
-		width: 712px;
-		padding: 100px 28px 120px;
-	}
-	
-	/* .mono {
-		font-size: 90%;
-	} */
-	
-	.cssbtn a {
-		margin-top: 10px;
-		margin-bottom: 10px;
-		width: 60px;  
-		height: 60px;   
-		font-size: 28px;
-		line-height: 62px;
-	}
-\end{lstlisting}
-
-Nulla dui purus, eleifend vel, consequat non, dictum porta, nulla. Duis ante mi, laoreet ut, commodo eleifend, cursus nec, lorem. Aenean eu est. Etiam imperdiet turpis. Praesent nec augue. Curabitur ligula quam, rutrum id, tempor sed, consequat ac, dui. Vestibulum accumsan eros nec magna. Vestibulum vitae dui. Vestibulum nec ligula et lorem consequat ullamcorper.
-
-\begin{lstlisting} [style=py,caption={PYTHON Code}]
-class TelgramRequestHandler(object):
-    def handle(self):
-        addr = self.client_address[0]         # Client IP-adress
-        telgram = self.request.recv(1024)     # Recieve telgram
-        print "From: %s, Received: %s" % (addr, telgram)
-        return
-\end{lstlisting}
+% \begin{table}[htbp]
+% \caption{Sample Table.}\label{tab:very-widetab}
+% \resizebox{\columnwidth}{!}{\begin{tabular}{|l|l|l|l|l|l|}
+% \hline
+% URL &  First Time Visit & Last Time Visit & URL Counts & Value & Reference\\
+% \hline
+% https://web.facebook.com/ & 1521241972 & 1522351859 & 177 & 56640 & [facebook-2021]\\
+% http://localhost/phpmyadmin/ & 1518413861 & 1522075694 & 24 & 39312 & database-management\\
+% https://mail.google.com/mail/u/ & 1516596003 & 1522352010 & 36 & 33264 & Google-Gmail-2021\\
+% https://github.com/shawon100& 1517215489 & 1522352266 & 37 & 27528 & Code-Repository\\
+% https://www.youtube.com/ & 1517229227 & 1521978502 & 24 & 14792 & Youtube-video-2021\\
+% \hline
+% \end{tabular}}
+% \end{table}

@@ -104,7 +104,24 @@
 \usepackage{anyfontsize}
 \usepackage{listings}
 \usepackage[nolist]{acronym}
+\usepackage{cleveref}
 \input{../commands.tex}
+
+\lstset{
+  basicstyle=\linespread{0.9}\ttfamily\small, % smaller and tighter
+  columns=fixed,                              % prevents extra letter spacing
+  frame=lines,                               % simple frame around code
+  numbers=left,                               % line numbers on the left
+  numberstyle=\tiny,                          % small line numbers
+  stepnumber=1,                               % number every line
+  numbersep=5pt,                              % space between numbers and code
+  backgroundcolor=\color{white},              % optional: light background
+  keywordstyle=[1]\color{darkblue}\bfseries,         % color keywords
+  keywordstyle=[2]\color{forestgreen}\bfseries,       % color keywords
+  commentstyle=\color{gray}\itshape,          % color comments
+  stringstyle=\color{orange},                 % color strings
+  showstringspaces=false                      % no visible spaces
+}
 
 \begin{acronym}
 	\acro{IR}{Intermediate Representation}
@@ -114,12 +131,14 @@
 	\acro{AST}{Abstract Syntax Tree}
 	\acro{RSS}{Resident Set Size}
 	\acro{FFI}{Foreign Function Interface}
+	\acro{CCS}{Calculus of Communicating Systems}
 	\acro{IST}{Instituto Superior Tecnico}
 \end{acronym}
 
 %%
 %% end of the preamble, start of the body of the document source.
 \begin{document}
+\settopmatter{printfolios=true}
 
 %%
 %% The "title" command has an optional parameter,
@@ -146,7 +165,7 @@
 %% other information printed in the page headers. This command allows
 %% the author to define a more concise list
 %% of authors' names for this purpose.
-\renewcommand{\shortauthors}{Trovato et al.}
+\renewcommand{\shortauthors}{Ricardo Antunes}
 
 %%
 %% The abstract is a short summary of the work to be presented in the
@@ -181,19 +200,638 @@ During this work, a compilation scheme supporting all features of \ac{CLASS} was
 
 \subsection{Compilation Overview}
 
-\subsection{Document Structure}
+\ac{CLASS} programs are linearly typed session-based programs. Programs are constructed by composing processes which communicate through channels. Channels are first-class citizens of the language, replacing variables from traditional imperative languages. Communication through channels is regulated by the channel's session type, which describes the communication protocol followed by the channel. The linearity of the type system ensures that all communication is carried out exactly once, preventing leakage of resources, and guaranteeing memory safety.
+
+An example \ac{CLASS} program is shown below. This program defines a process called \texttt{main} which will be executed when the programs is run. Within it, the $\cutp$ process creates a new channel $x$ through which both sides of the cut can communicate. On the right hand side of the cut, $x$ is typed by $\colintt$, and on the left hand side of the cut, by its dual, $\lintt$. Semantically, the left hand side of the cut must produce an integer, which the right hand side must then consume. In this case, the left hand side produces the integer 1, through the $\letp$ process, and the right hand side consumes it by printing it to the standard output, through the $\printp$ process. The $\printp$ process requires a continuation, which in this case is the $\emptyp$ process, which represents end of computation.
+
+
+\begin{lstlisting}[language=CLASS]
+proc main() {
+  cut {
+    let x 1
+    |x: colint|
+    print(x); ()
+  }
+};;
+\end{lstlisting}
+
+An \acf{IR} was developed to serve as an intermediate step between \ac{CLASS} and C code, greatly simplifying the compilation process. This \ac{IR} is based on the \ac{SAM} execution model, sequentially executing the processes of the \ac{CLASS} program with buffered communication. The final compilation scheme is divided into three main phases: the translation from \ac{CLASS} to \ac{IR}, optimization of the \ac{IR}, and generation of C code from the optimized \ac{IR}. The unoptimized \ac{IR} generated from the example \ac{CLASS} program is shown below.
+
+\begin{lstlisting}[language=IR]
+main:
+  end points: 2
+  types: none
+  sessions: s0
+  data d0: <[int]> (s0)
+entry:
+  initializeSession(s0, cut_0, d0)
+  writeExpression(s0, 1)
+  finishSession(s0, end point)
+cut_0:
+  print(move(d0, int))
+  popTask(end point)
+\end{lstlisting}
+
+The process $\texttt{main}$ is translated into an \ac{IR} process of the same name, composed of an header, and a set of blocks of instructions. In this case, the header specifies that the process has two end points, no type parameters, one session $s_0$, used to implement channel $x$, and a data variable $d_0$, which will store the integer sent through $x$.
+
+The \texttt{entry} block of the \ac{IR} process is generated from the $\cutp$ process. It starts by initializing the session $s_0$, indicating its writing location to be $d_0$, and that when the session is finished, control should be transferred to the block \texttt{cut\_0}. The writing side is always executed first, so the next instructions are generated from the $\letp$ process, writing the integer $1$ to the session $s_0$ (and thus to $d_0$), and finishing the session, passing control to the block \texttt{cut\_0}, as specified earlier. The \texttt{cut\_0} block is generated from the right hand side of the cut. The $\printp$ process generates a \texttt{print} instructions, which reads the integer from $d_0$ and prints it to the standard output. Finally, the $\emptyp$ process generates a \texttt{popTask} instruction, which passes control to the next task, if any, or ends the program if there are no more tasks to execute, as is the case here.
+
+A set of transformations are applied to the \ac{IR} program to improve its performance, producing the final version of the \ac{IR}, shown below. In this case, through analysis of the \ac{IR} program, optimizations were able to remove the session $s_0$ entirely, leaving only the data variable $d_0$. This is possible in this example due to the session's state being completely known at compile time. For example, the \texttt{finishSession} must pass control to the \texttt{cut\_0} block, and thus, it can be removed and the blocks concatenated. Furthermore, the writing location of $s_0$ is known to be $d_0$, and thus \texttt{writeExpression} can write directly to it.
+
+\begin{lstlisting}[language=IR]
+main:
+  end points: 1
+  types: none
+  sessions: none
+  data d0: <[int]>
+entry:
+  writeExpression(d0, 1)
+  print(move(d0, int))
+  popTask(end point)
+\end{lstlisting}
+
+Finally, the optimized \ac{IR} program is compiled into C code. Due to the continuation-based nature of the \ac{SAM} execution model, processes are not represented as functions, but instead as code blocks within a single function, with control being transferred between them through the use of \texttt{goto} statements. Stack frames are replaced by heap-allocated environments, linked together to form a spaghetti stack. These environments contain all local variables and state used by the process. A set of variables are used as registers to keep the current execution state, such as a pointer \texttt{task} to the next task, and a pointer \texttt{env} to the active environment. A segment of the generated code is shown below.
+
+\begin{lstlisting}[language=C]
+main_entry:
+  /* writeExpression(d0, 1) */
+  *(int*)(env + 0) = 1;
+  /* print(move(d0, int)) */
+  printf("%d", *(int*)(env + 0));
+  /* popTask(end point) */
+  managed_free(env);
+  tmp_ptr1 = task;
+  tmp_ptr2 = task->cont;
+  env = task->cont_env;
+  task = task->next;
+  managed_free(tmp_ptr1);
+  goto *tmp_ptr2;
+\end{lstlisting}
+
+The \texttt{main\_entry} label represents the \texttt{entry} block of the \ac{IR} \texttt{main} process. At the start of the program, an environment \texttt{env} is allocated and control is passed to this label. The \texttt{writeExpression} instruction is compiled into a simple assignment to the location of $d_0$ in the environment, which in this case is at offset $0$. The \texttt{print} instruction is compiled into a call to the C \texttt{printf} function, reading the integer from the same location. Finally, the \texttt{popTask} instruction is compiled into code which frees the current environment, and transfers control to the next task. In this case, the only task left is the end of the program, and thus, the program ends immediately.
 
 \section{Background and Related Work}
 
-\subsection{Linear Logic and Session Types}
+\subsection{Foundations of Linear Session Types}
+
+\subsubsection{Process Calculi}
+
+Multiple paradigms have been developed to model concurrent systems. One of the most well-known is \acf{CCS} \citep{Milner:1980}, which introduced the notion of parallel composition, restriction and communication. In the 90s, \citet{Milner:1992:1,Milner:1992:2} introduced $\pi$-calculus, a process calculus that allows for mobility of processes - channels, through which processes communicate, can themselves be sent and received. It unifies data with communication channels, treating them as first-class citizens. This allows for more complex communication patterns, where the topology of the network can change dynamically. $\pi$-calculus can be used to encode various computation paradigms, such as $\lambda$-calculus and Turing machines, and thus, is a universal model of computation.
+
+Processes can be seen as a generalization of functions, where the input and output can be sent over a channel - a function call can be seen as sending the input over a channel, and then receiving the output over the same channel. Additionally, coroutine constructs and generator expressions common in modern languages such as Python can also be easily modeled as a process calculus, where calls to \textit{yield} statements can be seen as sending values over a channel. Channels in $\pi$-calculus can also be replicated, which makes it possible to model services that can be accessed by multiple clients, such as web servers.
+
+\subsubsection{Linear Logic}
+
+Introduced by \citet{Girard:1987} in the 80s, linear logic is a logic where propositions are consumed exactly once, as opposed to classical logic where propositions can be used any number of times. This property makes linear a logic ideal for modeling resources on real-world systems, opening pathways for multiple optimizations, such as in-place updates in functional languages \citep{Hofmann:2000}. Since its inception, linear logic has been seen as a good candidate for modeling the foundations of concurrent stateful systems \citep{Wadler:1990}. In fact, through the works of \citet{Abramsky:1993}, it has been found that classical linear logic can be interpreted computationally, and since then, this connection has been developed further by multiple authors \citep{Turner:1999}. More importantly for this work, the propositions-as-types correspondence of linear logic has proven useful for modeling concurrent systems \cite{Caires:2010}.
+
+\subsubsection{Session Types}
+
+Introduced by \citet{Honda:1993}, and expanded upon by \citet{Honda:1998}, session types are a type discipline for communication-based programming that ensures that the communication between two parties is well-typed. Essentially, session types are a type discipline for process calculi, such as $\pi$-calculus, where operations on channels must follow the protocol defined by the session type. While in typed $\lambda$-calculus types are associated with terms, which denote functions and values, session types are associated with channel names.
+
+Operations on session types include sending and receiving, selection and branching, and recursion. Session types have been used to model and verify communication protocols, enforcing their correctness \citep{Huttel:2016}. They have been implemented in various programming languages, either as a language feature, such as in Scribble \citep{Yoshida:2014} and Effpi \citep{Scalas:2019}, or as a library, such as in Rust \citep{Jespersen:2015} and Haskell \citep{Pucella:2008}.
+
+More recently, a direct correspondence between session types and linear logic has been established \citep{Caires:2010, Wadler:2012, Caires:2012, Caires:2016, Giunti:2016}, where session types can be interpreted as linear propositions, and vice-versa. The connectives of linear logic are enough to describe the communication patterns of finite sessions.
 
 \subsection{The CLASS Language}
 
+\acf{CLASS} is an experimental language for session-based programs \citep{Rocha:2023, Rocha:2022, Rocha:2021}. It expands on the correspondence between session types and linear logic, adding affine types, reference cells and shared state. In \ac{CLASS}, well-typed programs are guaranteed to never deadlock on communication or reference cell acquisition, and to not leak any memory. Additionally, programs always terminate, while still allowing for higher-order polymorphic functional code and even recursion.
+
+As usual in session based programming languages, in \ac{CLASS} processes communicate through sessions $x, y, z, \ldots$. Each session has two end points (also referred to as channels), and each end point is associated with a session type, which describes the communication protocol that the end point must follow. $x: A$ denotes that the channel $x$ obeys type $A$. These types describe the direction, order and content of the messages exchanged. For example
+\[
+    x : \recvt{\dualt{\lintt}}{\sendt{\lboolt}{\closet}}
+\]
+describes a channel $x$ through which first an integer is received, then a boolean sent, and finally, be closed, after which no more data can be exchanged. The dual connective $\dualt{A}$ is used to represent the dual of a type $A$, and describes the type of the other end point of the session. The dual of the type before, for example, is
+\[
+    y : \sendt{\lintt}{\recvt{\dualt{\lboolt}}{\waitt}}
+\]
+which describes a channel $y$ through which an integer must first be sent, then a boolean received, and finally, the close of the session must be waited for.
+
+Session types can be seen as dynamic entities which evolve as the communication progresses. For example, after sending an integer, the type of the channel $y$ in the previous example would become
+\[
+    y : \recvt{\dualt{\lboolt}}{\waitt}
+\]
+
+The most fundamental process composition operation in \ac{CLASS} is the $\cutp$ operator
+\[
+    \cutc{P}{x: A}{Q}
+\]
+which composes two processes $P$ and $Q$ that run concurrently and communicate through a session $x$, where the end point $x$ in $Q$ obeys type $A$, and the end point $x$ in $P$ obeys type $\dualt{A}$. This composition corresponds to the cut rule of linear logic, i.e., no session other than $x$ appears simultaneously in both $P$ and $Q$. It thus restricts interactions between $P$ and $Q$ to the session $x$, which is essential to achieve desirable metatheoretical properties such as deadlock freedom.
+
+One other way of composing processes is through the $\parp$ construct, which allows for parallel composition of processes. The process
+$$
+    \parc{P}{Q}
+$$
+runs $P$ and $Q$ concurrently, without any communication between them. This composition corresponds to the mix rule of linear logic, i.e., no session appears simultaneously in both $P$ and $Q$.
+
+\begin{figure}
+    \[\begin{aligned}&\begin{aligned}
+        P, Q ::=\ &\cutc{P}{x: A}{Q}                                          &  & |\ \parc{P}{Q}                                                 \\
+        |\         & \fwdc{x}{y}                                                &  & |\ \emptyc                                                     \\
+        |\         & \closec{x}                                                 &  & |\ \waitc{x}{P}                                                \\
+        |\         & \choosec{c}{x}{P} &  & |\ \casec{x}{\labelc{c$_1$}{P_1}\ \dots\ \labelc{c$_n$}{P_n}}                                           \\
+        |\         & \sendc{x}{y}{P}{Q}                                         &  & |\ \recvc{x}{y}{Q}                                             \\
+        |\         & \bangc{x}{y}{P}                                            &  & |\ \whynotc{x}{P}                                              \\
+        |\         & \sendtyc{x}{B}{P}                                          &  & |\ \recvtyc{x}{X}{P}                                           \\
+        |\         & \unfoldmuc{x}{P}                                           &  & |\ \unfoldnuc{x}{P}                                            \\
+        |\         & \affinec{x}P                                               &  & |\ \discardc{x}                                                \\
+        |\         & \usec{x}P                                                  &  & |\ \cellc{x}{y}{P}                                             \\
+        |\         & \releasec{x}                                               &  & |\ \takec{x}{y}{P}                                             \\
+        |\         & \putc{x}{y}{P}Q                                            &  & |\ \scanc{x}                                                   \\
+        |\         & \printc{E}{P}                                              &  & |\ \printlnc{E}{P}                                             \\
+        |\         & \letc{x}{E}                                                &  & |\ \ifc{E}{P}{Q} \\
+        |\         & \callc{x}{y} & & |\ \proccallc{proc\_id}{x_1,\,\dots\,,x_n} \\
+    \end{aligned}\\
+        & \makebox[\widthof{P, Q ::=}][r]{|}\ \proccallgc{proc\_id}{X_1,\,\dots,\,X_n}{x_1,\,\dots,\,x_m} \\
+    \end{aligned}\]
+    \caption{CLASS process grammar, where $x$ and $y$ are channels, $E$ is an expression, and $c$, $c_1$, and $c_n$ are choice labels.}
+    \label{fig:CLASSProcessGrammar}
+    \Description{CLASS process grammar}
+\end{figure}
+
+\begin{figure}
+    \[\begin{aligned}
+        A, B ::=\  & X \text{ (type variable)}              &  & |\ \closet \\
+        |\ & \dualt{X} \text{ (dual type variable)} &  & |\ \waitt \\
+        |\ & \choicet{\labelt{$c_1$}{A}\dots\labelt{$c_n$}{B}} & & |\ \affinet{A} \\
+        |\ & \offert{\labelt{$c_1$}{A}\dots\labelt{$c_n$}{B}} & & |\ \coaffinet{A} \\
+        |\ & \sendt{A}{B}  & & |\ \sendtyt{X}{A} \\
+        |\ & \recvt{A}{B} & & |\ \recvtyt{X}{A} \\
+        |\ & \rect{X}{A}  & & |\ \bangt{A} \\ 
+        |\ & \corect{X}{A} & & |\ \whynott{A} \\
+        |\ & \lintt &  & |\ \colintt \\
+        |\ & \lboolt &  & |\ \colboolt \\
+        |\ & \lstringt &  & |\ \colstringt \\
+        |\ & \statet{A} & & |\ \usaget{A} \\
+        |\ & \statelt{A} & & |\ \usagelt{A} \\
+    \end{aligned}\]
+    \caption{CLASS type grammar where $c_1$, $c_n$ are choice labels.}
+    \label{fig:CLASSTypeGrammar}
+    \Description{CLASS type grammar}
+\end{figure}
+
+For each session type, there is a corresponding action process which performs the action described by the type. For example, the process $\closec{x}$ closes a channel $x: \closet$, and the process $\sendc{x}{y}{P}{Q}$ sends a new channel $y: A$ through a channel $x: \sendt{A}{B}$. The full process grammar is shown in \Cref{fig:CLASSProcessGrammar}.
+
+A \ac{CLASS} program is composed of a collection of type and process definitions, with the following BNF grammar:
+\[\begin{aligned}
+    \text{Program} ::=\  & \text{ProcDef}\ \text{Program} &  & |\ \text{ProcDef} \\
+    |\                   & \text{TypeDef}\ \text{Program} &  & |\ \text{TypeDef}
+\end{aligned}\]
+
+A type definition associates a name $X$ to a session type $A$, and can either be a simple type definition, or a recursive type definition. Optionally, type definitions may also receive type parameters, which are bound in $A$. The BNF grammar for type definitions is as follows:
+\[\begin{aligned}
+    & \text{TypeDef} ::=\  \typedefc{X}{A}                     &  & |\ \rectypedefc{X}{A}                     \\
+    &|\ \typedefgc{X}{X_1,\,\dots,\,X_n}{A} &  & |\ \rectypedefgc{X}{X_1,\,\dots,\,X_n}{A} \\
+\end{aligned}\]
+
+A process definition associates a name $\texttt{proc\_id}$ to a process $P$, which receives a list of channels $x_1,\,\ldots,\,x_n$ to be bound in $P$, with types $A_1, \ldots, A_n$, respectively. As with type definitions, process definitions may also receive type parameters. The BNF grammar for process definitions is as follows:
+\[\begin{aligned}
+    & \text{ProcDef} ::=\  \procdefc{proc\_id}{x_1: A_1,\ \dots,\ x_n: A_n}{P}                        \\
+    & |\                   \procdefgc{proc\_id}{X_1,\ \dots,\ X_n}{x_1: A_1,\ \dots,\ x_n: A_n}{P}    \\
+    & |\                   \recprocdefc{proc\_id}{x_1: A_1,\ \dots,\ x_n: A_n}{P}                     \\
+    & |\                   \recprocdefgc{proc\_id}{X_1,\ \dots,\ X_n}{x_1: A_1,\ \dots,\ x_n: A_n}{P}
+\end{aligned}\]
+
+\subsubsection{Example programs}
+
+The following example sends a channel $y$ of type $\colintt$ through a channel $x$, which then continues with type $\colboolt$. The sent channel $y$ is employed by the closure $\printlnc{y}{\emptyc}$, which prints the integer received through it and terminates. On the right-hand side of the cut, the session $y$ is received and bound as $z$. The type system forces an integer and a boolean to be produced on $x$ and $z$, respectively. Since $\letp$ has no continuation, the $\parp$ construct is used to compose the two $\letp$ processes.
+
+\begin{lstlisting}[language=CLASS]
+proc main() {
+  cut {
+    send x(y. println(y); ());
+    println(x); ()
+    |x: @recv@ lint; lbool|
+    recv x(z); par { let x 1 || let z true }
+  }
+};;
+\end{lstlisting}
+
+Channels can branch and select between multiple options. The following example shows a server $x$ that offers a choice between two options: either sending an integer, or simply immediately closing the channel. The client selects the first option, sending the integer $1$ through the channel. The server receives it and prints it.
+
+\begin{lstlisting}[language=CLASS]
+proc main() {
+  cut {
+    case x of {
+      |#int: println(x); ()
+      |#nop: wait x; ()
+    }
+    |x: @choice of@ { @|#int@: lint @|#nop@: @close@ }|
+    #int x; let x 1
+  }
+};;
+\end{lstlisting}
+
+One of the distinguishing features of \ac{CLASS} is its shared state cells, which can hold mutable shared state while still preserving deadlock-freedom guarantees. The following example creates a shared state cell $x$ holding an initial integer value of $1$. This cell is then shared between two processes, which both take the value in the cell, print it, put a new value in the cell, and finally release the cell. With a fair scheduler, the output of this program will always be either $1$ followed by $2$, or $1$ followed by $3$.
+
+\begin{lstlisting}[language=CLASS]
+proc main() {
+  cut {
+    cell x(1);
+    |x: usage colint|
+    share x {
+      take x(a); println(a); put x(2); release x
+      ||
+      take x(b); println(b); put x(3); release x
+    }
+  }
+};;
+\end{lstlisting}
+
 \subsection{The Linear Session Abstract Machine (SAM)}
+
+The \acf{SAM}, introduced by \citet{Caires:2024}, is a virtual machine for executing session processes typed by (classical) linear logic. It provides an ``efficient deterministic execution model for the implicitly sequential session-typed program idioms''. Essentially, its goal is to provide a performant execution model for the sequential parts of session-typed programs, which make up the majority of the code in practice, while still seamlessly integrating with the concurrent parts. A proof-of-concept implementation of the \ac{SAM} \cite{Caires:2024:artifact} was integrated as an alternative backend for \ac{CLASS} \cite{Rocha:2022,Rocha:2021:artifact}.
+
+The core components of the \ac{SAM} are session references $x, y$, values $V ::= \checkmark\ |\ \labelp{c}\ |\ \text{clos}(x, P)$, queues $q ::= \text{nil}\ |\ V\ |\ V@q$, session records $R ::= x\langle q,P\rangle y$ and the heap $H ::= x \mapsto R$, where $P$ is a process. Values $V$ can either be the close token $\checkmark$, a label $\#c$, or a closure $\text{clos}(x, P)$, where $x$ is a session reference and $P$ is a process. Queues $q$ are sequences of values, and session records $R$ are tuples of session references $x, y$, a queue $q$ and a process $P$. The heap $H$ maps session references to session records.
+
+\subsubsection{Reduction rules}
+
+The Linear \ac{SAM} is a state transition system, where the state is a tuple $(P, H)$, with the heap $H$ and a process $P$. The transition relation is defined by a set of rules, some of which are presented in this section.
+
+The $\cutp$ rule, shown below, inserts a new session record in the heap, associated to the session reference $x$, for executing the continuation $Q$ of the process $P$, assuming, without loss of generality, that $A$ is a positive type, i.e., that $P$ will push values into the session queue, and $Q$ will later pop them. Essentially, the rule transitions to a state where $P$ will be executed immediately, and where $Q$ is delayed to a later time. If $A$ is a negative type, the same rule is applied but with $P$ and $Q$ swapped.
+\[
+    (\cutc{P}{x: A^+}{Q}, H)
+    \Mapsto
+    (P, H[x: A^+\langle\text{nil},\{y/x\}Q\rangle y:\dual{A^+}])
+\]
+
+The $\closep$ rule, shown below, pushes the close token $\checkmark$ into the session queue, and then transitions to the continuation $P$ previously stored in the session record. $P$ will eventually pop the close token from the queue and free the session record. Note that the queue $q$ might not be empty - other positive actions might have preceded the close action and pushed values into the queue. The close token is appended to the end of the queue, and thus will be the last value to be popped.
+\[
+        (\closec{x}, H[x:\closet\langle q, P\rangle y:B])
+        \Mapsto
+        (P,H[x:\emptyset\langle q@\checkmark, \emptyp\rangle y:B])
+\]
+
+The $\waitp$ rule, shown below, pops the close token $\checkmark$ from the session queue, frees the session record, and transitions to the continuation of the $\waitp$ action.
+\[
+        (\waitc{y}P, H[x:\emptyset\langle\checkmark, \emptyp\rangle y:\waitt])
+        \Mapsto
+        (P,H)
+\]
+
+The choice rule, shown below, given an action $\choosec{c}{x}P$, pushes the label $\labelp{c}$ into the session queue and changes the process to $P$. Note that in this rule, a write-to-read adjustment is performed, denoted by $(P,H[x:A\langle q,Q\rangle y:B])^{wr}$. This operation swaps $P$ with $Q$, if and only if the continuation type $A$ is a negative type. This operation ensures that the next action will be executed by the positive end point of the session. In this specific rule, the write-to-read adjustment is performed because the choice action is a positive action, which means values are being pushed for the other end point to pop later on. If the continuation process $P$ on this end point will next perform a read action on $x$, i.e., $A$ is negative, then, for that action to be executed, the other end point must first perform the corresponding write action.
+\[\begin{aligned}
+    &(\choosec{c}{x}P, H[x:\choicet{\labelt{c}{A},\ \dots}\langle q, Q\rangle y:B])
+    \Mapsto\\
+    \Mapsto&
+    (P,H[x:A\langle q@\labelp{c}, Q\rangle y:B])^{wr}
+\end{aligned}\]
+
+The offer rule, shown below, performs the dual operation of the choice rule - it pops a label from the session queue, and transitions to the continuation of the $\casep$ action corresponding to the label. The rule performs a read-to-write adjustment, denoted by $[x:A\langle q, Q\rangle y:B]^{rw}$. This adjustment swaps the two end points of the session record, $x:A$ and $y:B$, if and only if $q$ is empty. Since processes are well-typed, then, if $q$ is empty, $P$ should have no more reads to perform. This adjustment then allows $P$ to start writing to the session.
+\[\begin{aligned}
+        &(\casec{x}{\dots}, H[x:A\langle \labelp{c}@q, Q\rangle y:\offert{\dots}])
+        \Mapsto\\
+        \Mapsto&
+        (P_c,H[x:A\langle q, Q\rangle y:B_c]^{rw})
+\end{aligned}\]
+
+Finally, the $\fwdp$ rule is shown below, where it is assumed that, without loss of generality, $B^+$ is a positive type. The rule merges two session records, $(z:A\langle q_1, Q\rangle x:\dual{B^+})$ and $(y:B^+\langle q_2, Q\rangle w:C)$, into a single session record with continuation $P$ and queue $q_2@q_1$. If $B^+$ is a negative type, $x$ and $y$ can be swapped, producing the equivalent process $\fwdc{y}{x}$. Since $x$ is the read end point of the session and $y$ is the write end point, then $Q$ must have written through $z$ the contents of $q_1$. and the current process will have written through $y$ the contents of $q_2$. Thus, $P$ is waiting to read the contents of $q_2@q_1$.
+\[\begin{aligned}
+        &(\fwdc{x}{y}, H[z:A\langle q_1, Q\rangle x:\dual{B^+}][y:B^+\langle q_2, P\rangle w:C])
+        \Mapsto\\
+        \Mapsto&
+        (P,H[z:A\langle q_2@q_1, Q\rangle w:C])
+\end{aligned}\]
+
+\subsubsection{Example Execution}
+
+In this section two simple examples of process execution are presented. These examples iteratively apply the reduction rules shown in the previous section. The type annotations are omitted for brevity. Consider the process $P$ shown below:
+\[
+    P \equiv \cutc{\waitc{x}{\emptyc}}{x}{\closec{x}}
+\]
+
+The execution of $P$ is shown below. The initial state of the \ac{SAM} is $(P, \emptyset)$. First, the $\cutp$ rule is applied, which allocates a new session record in the heap, and transitions to $\closep$, as it corresponds to the positive type $\closet$. Then, the $\closep$ rule is applied, which pushes the close token $\checkmark$ into the queue, and transitions to the session record continuation $\waitp$. Finally, the $\waitp$ rule is applied, which pops the close token $\checkmark$ from the queue, and transitions to the continuation $\emptyc$, reaching the final state $(\emptyc, \emptyset)$.
+\[\begin{aligned}
+        (P, \emptyset)
+         & \equiv
+        (\cutc{\waitc{x}{\emptyc}}{x}{\closec{x}}, \emptyset)                \\
+         & \Mapsto
+        (\closec{x}, x\langle nil, \waitc{y}\emptyc\rangle y)                \\
+         & \Mapsto (\waitc{y}\emptyc, x\langle \checkmark, \emptyp\rangle y) \\
+         & \Mapsto
+        (\emptyc, \emptyset)
+\end{aligned}\]
+
+The second example is the process $Q$ whose definition and execution is shown below. First, the $\cutp$ rule is applied, which inserts a new session record in the heap. Then, the choice rule is applied, which pushes the label $\labelp{inl}$ into the queue of the session record, after which, a write-to-read adjustment and a transition to the continuation $\casep$ is performed. Then, the $\casep$ reduction rule is applied, which pops the label $\labelp{inl}$ from the queue, and transitions to the continuation matching the label. Next, a read-to-write adjustment is performed, which means the session end points are swapped. With the end points swapped, the $\closep$ and $\waitp$ rules are applied as in the previous example and the final state $(\emptyc, \emptyset)$ is finally reached.
+\[\begin{aligned}
+    &&&(\cutc{
+        \choosec{inl}{x}
+        \waitc{x}\emptyc
+    }{x}{
+        \casec{x}{
+            \labelc{inl}{\closec{x}}
+            \dots
+        }
+    }, \emptyset)\\
+         & \Mapsto &&
+        (\choosec{inl}{x}\waitc{x}\emptyc, x\langle nil, \casec{y}{\labelc{inl}{\closec{y}}\dots}\rangle y)          \\
+        & \Mapsto && (\waitc{x}\emptyc, x\langle \labelp{inl}, \casec{y}{\labelc{inl}{\closec{y}}\dots}\rangle y)^{wr} \\
+          & \equiv && (\casec{y}{\labelc{inl}{\closec{y}}\dots}, x\langle \labelp{inl}, \waitc{x}\emptyc\rangle y)       \\
+          &\Mapsto && (\closec{y}, x\langle nil, \waitc{x}\emptyc\rangle y)^{rw}                                                                 \\
+         & \equiv && (\closec{y}, y\langle nil, \waitc{x}\emptyc\rangle x)                                                                       \\
+         & \Mapsto && (\waitc{x}\emptyc, x\langle \checkmark, \emptyp\rangle y)                                                                  \\
+         & \Mapsto && (\emptyc, \emptyset)
+\end{aligned}\]
 
 \section{Compilation Scheme}
 
+The base compilation scheme developed on this thesis generates native code which executes in a sequential and deterministic manner, closely resembling the execution of the \ac{SAM}, implementing continuation-based coroutining. Associated to each process is a block of data called an environment, similar to a stack frame of traditional imperative languages. This environment stores the continuations of each session, as well as any data received through them. Whenever a process finishes writing data to a session, a jump is made to its other end point, which will read the data and continue execution.
+
+At a high-level, the compilation scheme is divided into four phases. First, the source \ac{CLASS} program is parsed and type-checked. This phase is not discussed in this report, as its implementation has been reused from the previous work \cite{Rocha:2023, Caires:2024} on the \ac{SAM} and \ac{CLASS} interpreters. Then, the program is compiled to an \acf{IR} which abstracts some details of the target language. Next, the \ac{IR} is analyzed and optimized by a series of passes. Finally, the optimized \ac{IR} is translated to C code, which is then compiled to native code using the \acf{GCC}.
+
+This section starts by describing the \ac{IR}'s constructs and its abstract machine. Then, the compilation from \ac{CLASS} to the \ac{IR} is described. Finally, an overview is given on how the \ac{IR} is translated to C code.
+
 \subsection{Intermediate Representation}
+
+The \ac{IR} is an imperative stateful language meant to act as a bridge between the high-level session-based language \ac{CLASS} and the low-level imperative language C.
+
+\subsubsection{Program Structure}
+
+\begin{figure}
+    \begin{minipage}[t]{0.5\textwidth}
+    \begin{lstlisting}[language=IR,firstnumber=1]
+main:
+    end points: 2
+    types: none
+    sessions: s0
+    data d0: <[]> (s0)
+entry:
+    initializeSession(s0, cut_lhs_0, d0)
+    callProcess(p, end point, s0 <- s0)
+cut_lhs_0:
+    printLine("wait")
+    popTask(end point)
+    \end{lstlisting}
+    \end{minipage}
+    \hfill
+    \begin{minipage}[t]{0.4\textwidth}
+    \begin{lstlisting}[language=IR,firstnumber=12]
+p:
+    end points: 1
+    types: none
+    sessions: s0
+    data d0: <[]> (s0)
+entry:
+    printLine("close")
+    finishSession(s0, end point)
+    \end{lstlisting}
+    \end{minipage}
+    \caption{An example \ac{IR} program with two processes}
+    \label{fig:IRProcessExample}
+\end{figure}
+
+An \ac{IR} program is a set of named processes, each consisting of a header and a body. The header contains the number of end points of the process, the names of the type parameters, the names of the session parameters, the names of the data sections and their data layouts, and finally, the data to be dropped when the process finishes execution (see \Cref{fig:IRProcessExample} for an example).
+
+\subsubsection{Environments}
+
+Each process invocation creates an \textit{environment} which holds its dynamic state, similarly to a stack frame in a traditional function call. This state includes the number of remaining end points, the properties of any type parameters, the state of all sessions, the local data being used by the process and finally, a bitset indicating which data locations should be dropped when the process terminates. All instructions in a process implicitly operate on its environment. When an instruction refers to a session or a data location, it is referring to the respective section in the current environment.
+
+\subsubsection{Sessions}
+
+\ac{IR} sessions are similar to both return addresses and coroutines. They are used to model the flow of control between two end points of a \ac{CLASS} session.
+A session is described by four properties: a reference to its opposite end point session (which might be itself), a data location to write to when sending data to it, and a continuation address and environment to switch to when passing control to it.
+
+Sessions are stored in the environment of each process, and are referenced by their index in the environment's session section. For example, $s_0$ refers to the first session in the environment, $s_1$ to the second session, and so on. Additionally, references to sessions can be passed around as data through the \texttt{session} slot.
+
+Sessions are manipulated through the three main instructions: \texttt{initializeSession}, \texttt{continueSession} and \texttt{finishSession}. An example control flow using a session is shown below:
+\begin{lstlisting}[language=IR]
+entry:
+    initializeSession(s0, rhs, d0) // 1
+    continueSession(s0, cont)      // 2
+rhs:
+    finishSession(s0)              // 3
+cont:
+    ...                            // 4
+\end{lstlisting}
+
+The \texttt{initializeSession(s0, rhs, d0)} instruction initializes the session $s_0$ in the current environment such that its remote counterpart (opposite end point) is itself, its writing data location is $d_0$ and its continuation is the block \texttt{rhs} on the current process.
+
+Then, the \texttt{continueSession(s0)} instruction is executed, which jumps to the continuation of $s_0$ and replaces the continuation of $s_0$'s remote session (itself in this case) with the block \texttt{cont} on the current process. This means that when $s_0$ is continued again, control will be passed to \texttt{cont}.
+
+Finally, the \texttt{finishSession(s0)} instruction is executed, which passes control to the continuation of $s_0$, which is \texttt{cont}. Additionally, it detaches $s_0$ from its remote session by setting its remote session reference to \texttt{NULL}. This instruction is similar to continue, but with the difference that flow of control won't ever return.
+
+Additionally, the instruction \texttt{forwardSessions} is used to model forwarding of \ac{CLASS} channels. An example snippet using this instruction is shown below:
+\begin{lstlisting}[language=IR]
+entry:
+    initializeSession(s0, lhs, d0) // 1
+    initializeSession(s1, rhs, d1) // 2
+    forwardSessions(s0, s1)        // 3
+lhs:
+    ...                            // 5
+rhs:
+    finishSession(s1)              // 4
+\end{lstlisting}
+
+In this example two sessions $s_0$ and $s_1$ are initialized as before. Then, the \texttt{forwardSessions(s0, s1)} instruction is executed, which makes the remote session of $s_0$ be the remote session of $s_1$, and vice-versa. After linking the sessions, the instruction jumps to the continuation of its second argument ($s_1$ in this case, and thus, the block \texttt{rhs}). On the \texttt{rhs} block, the instruction \texttt{finishSession(s1)} is executed, which just like before passes control to the continuation of $s_1$, which was set to \texttt{lhs} by the forwarding instruction.
+
+\subsubsection{Data Storage}
+
+All data in \ac{IR} programs (excluding meta data such as sessions and type information) is stored in one of two places: within a local data section on an environment, or within a cell. Local data sections are referenced by identifiers such as $d_0$ and $d_1$, similarly to sessions, while cells are referenced through cell slots (see \Cref{subsection:Cells}).
+
+\paragraph{Slots} \label{subsection:IRSlots}
+
+\ac{IR} programs are completely platform agnostic, and thus, data types and addresses are described through their composition of \textit{slots}, instead of concrete byte sizes and offsets. A slot $S$ is a unit of data in the \ac{IR}, as is defined as
+\[
+S ::= \ints \mid \bools \mid \strings \mid \tags \mid \sessions \mid \cells{T} \mid \exponentials \mid \vars{i}
+\]
+where $\ints$, $\bools$ and $\strings$ represent the basic data types, $\tags$ represents a \ac{CLASS} choice, $\sessions$ a session reference, $\cells{T}$ a reference to a cell with contents described by the slot tree $T$, $\exponentials$ an exponential reference, and $\vars{i}$ a type parameter, identified by the index $i$ of the type parameter in the process header. 
+
+In order to model branching data types (such as choices from \ac{CLASS}), data layouts are described through trees of slots, instead of plain sequences. A slot tree $T$ is defined recursively as
+\[
+T ::= \nilst \mid \seqst{S_1; \dots; S_n; T} \mid \tagst{T_1 \tagsepst \dots \tagsepst T_n}
+\]
+where $\nilst$ is the empty slot tree, $\seqst{S_1; \dots; S_n; T}$ is a sequence of a slots $S_1; \dots; S_n$ followed by a slot tree $T$, and $\tagst{T_1 \tagsepst \dots \tagsepst T_n}$ is a $\tags$ slot followed by a choice between the slot trees $T_1$ to $T_n$. For example, $\seqst{\ints; \tagst{\seqst{\bools} \tagsepst \seqst{\strings}}}$ describes an integer followed by a tag, which, if $0$, is followed by a boolean, or if $1$, is followed by a string.
+
+Local data sections are described in process headers by their identifier and by a slot tree sum representing the possible data layouts to be stored on them. For example, $\texttt{data d0:}\ \combst{\seqst{\ints; \bools} + \seqst{\strings}}$ describes a local data section $d_0$ which can either store an $\ints$ followed by a $\bools$, or a $\strings$. Additionally, data sections may be associated to a session, indicating that a session passed as an argument to a process should receive data from that data section (e.g., $\texttt{data d0:}\ \combst{\seqst{\ints}}\ \texttt{(s0)}$).
+
+Data is addressed through \textit{data locations}, which are denoted as $\dataol{b}{o}$, where $b$ is a base address and $o$ an offset. A base address can be either a local data section (e.g., $d_0$), remote data referenced by a session (e.g., $s_0$), or a cell location (e.g., $c(d0)$). An offset is defined by two slot trees, written as $\offs{P}{F}$, $P$ describing the data being skipped (named \textit{past}), and $F$ describing the data that may come next (named \textit{future}). The future slot tree is necessary to determine the alignment of the data being accessed. For example, $\offs{\seqst{\ints; \bools}}{\seqst{\strings}}$ is an offset which skips an integer followed by a boolean, and expects a string to come next. When the past slot tree is empty, the future slot tree is unnecessary, and the offset is simply written as $0$.  For example, the location $\datal{d_0}{\seqst{\ints}}{\seqst{\ints}}$ refers to the second integer stored in the local data section $d_0$, while the location $\datal{s_0}{\seqst{\bools}}{\seqst{\strings}}$ refers to a string stored in the remote data of the session $s_0$, after a boolean. When the offset is zero, it is omitted for brevity. For example, $d_0$ as a data location is equivalent to $\datal{d_0}{\nilst}{\nilst}$ or just $d_0.0$ - the future slot trees are unnecessary for empty past slot trees.
+
+\subsubsection{Handling data}
+
+The \texttt{moveSlots} and \texttt{cloneSlots} instructions allow moving and cloning data from one location to another. Both takes as arguments a destination location, a source location and a slot tree describing the data. For example,
+\[\texttt{moveSlots(s1, $\datal{d_0}{\seqst{\bools}}{\seqst{\strings; \ints}}, \seqst{\strings; \ints}$)}\] moves a $\strings$ followed by an $\ints$ from the local data section $d_0$ after a $\bools$ to the start of the remote data section of session $s_1$.
+
+Although \ac{CLASS} is a linear language, it also supports both affine and exponential types. Thus, it is necessary to be able to drop some types of data if they are no longer needed. To this end, two instructions are provided: \texttt{dropSlots} and \texttt{deferDrop}. The first instruction immediately drops data from a location and a slot tree, while the second marks data to be dropped when the process terminates.
+
+\subsubsection{Writing and binding sessions}
+
+References to sessions ($\sessions$ slots) can be written to and read from data locations using the instructions \texttt{writeSession} and \texttt{bindSession}, respectively. An example of writing a session to local data and then binding it to another session is shown below.
+
+\begin{lstlisting}[language=IR]
+    initializeSession(s1, d1, s1_cont) // 1
+    writeSession(d0, s1)               // 2
+    bindSession(d0, s2, d2)            // 3
+    continueSession(s2, s2_cont)       // 4
+s1_cont:
+    finishSession(s1)                  // 5
+s2_cont:
+    ...                                // 6
+\end{lstlisting}
+
+First, a session $s_1$ is initialized with its remote end point being itself, its writing location being $d_1$ and its continuation being the block \texttt{s1\_cont}. Then, a reference to the remote counterpart of session $s_1$ is written to the local data section $d_0$. Next, the reference stored at $d_0$ is read and bound to the session $s_2$, with its remote writing location being modified to $d_2$. At this point, the remote session of $s_2$ is $s_1$, and vice-versa. Finally, $s_2$ is continued, jumping to \texttt{s1\_cont}, and setting the continuation of $s_1$ to the current block. Thus, when executing \texttt{finishSession(s1)}, control will jump to \texttt{s2\_cont}.
+
+\subsubsection{Tags and branching} \label{subsection:Branching}
+
+Branching is done through the \texttt{branchTag} and \texttt{branchExpression} instructions. The first instruction branches on a tag stored a data location, similarly to a switch statement in C, and the second instruction branches on the result of a boolean expression, similarly to an if statement in C. Each possible branch is defined by a code location (block label) and an integer indicating how many end points are behind that branch. This is used to keep track of the number of remaining end points in the environment, and is explained in more detail in \Cref{subsection:EndPoints}.
+
+Tags are written to data locations through the \texttt{writeTag} instruction, which takes as arguments a data location and a constant tag value. Below is an example of writing a tag and then branching on it.
+
+\begin{lstlisting}[language=IR]
+main:
+    data d0: <tag[[int] | [string]]>
+entry:
+    writeTag(d0, 1)
+    branchTag(d0, if_int:1, if_string:1)
+if_int: // ...
+if_string: // ...
+\end{lstlisting}
+
+\subsubsection{Tasks}
+
+Tasks are a flow control mechanism completely separate from sessions, used to model the $\parp$ construct from \ac{CLASS}. For each thread of execution, there's a stack of tasks, where each task stores a continuation to be executed when the current task is finished.
+
+Tasks can be pushed to the stack through the \texttt{pushTask} instruction, which takes a code location as argument. To finish the current task and jump to the continuation of the topmost task, the \texttt{popTask} instruction is used.
+
+At the start of a thread, the task stack is initialized with a single task responsible for terminating the thread. Thus, the last instruction to be executed in a thread is always \texttt{popTask}.
+
+\subsubsection{Cells} \label{subsection:Cells}
+
+Cells are used to model the shared state part of \ac{CLASS}. They're mutable memory locations which can be safely shared between multiple threads of execution. Cells are referenced through $\cells{T}$ slots, and maintain a mutex to ensure safe concurrent access, as well as a reference count to guarantee proper deallocation.
+
+A new cell can be created through the \texttt{writeCell} instruction, which takes as arguments a data location to write the $\cells{T}$ slot to, and a slot tree $T$ describing the data that will be stored in the cell. The reference count of a cell can be incremented and decremented through the \texttt{acquireCell} and \texttt{releaseCell} instructions, respectively. Finally, the mutex of a cell can be locked and unlocked through the \texttt{lockCell} and \texttt{unlockCell} instructions, respectively.
+
+Below is an example of creating a cell, writing data to it, acquiring and releasing references to it, and finally deallocating it:
+\begin{lstlisting}[language=IR]
+main:
+    data d0: <cell[int]>
+entry:
+    writeCell(d0, [int]) // create int cell
+    lockCell(c(d0)) // lock the cell mutex
+    writeExpression(c(d0), 42) // store 42
+    unlockCell(c(d0)) // unlock the cell mutex
+    acquireCell(c(d0)) // reference count is now 2
+    releaseCell(c(d0)) // reference count is now 1
+    releaseCell(c(d0)) // cell is deallocated
+\end{lstlisting}
+
+While other slots are described solely by their kind, $\cells{T}$ slots require a slot tree $T$ as an argument. This slot tree describes the data that will be stored in the cell, and is necessary to properly drop the data when the cell is deallocated.
+
+\subsubsection{Threads} \label{subsection:IRThreads}
+
+New threads of execution can be launched through the \texttt{launchThread} instruction, which takes as arguments a code location to start executing at. The new thread starts with a single task responsible for terminating it, and shares the same environment as the parent thread, but a separate task stack.
+
+Accesses to the environment are not synchronized except for reference and end point counting, and it is the responsibility of the \ac{IR} generator to ensure different threads do not access the same data concurrently.
+
+\subsubsection{Writing type parameters}
+
+Processes in the \ac{IR} may be type parametrized. These type parameters are identified by names which start with \texttt{t} followed by a number, such as $t_0$ and $t_1$, and are assigned when the process is called. Within the process, types parameters may be used directly as slots in slot trees (e.g.: $\seqst{t_2; \ints; t_0}$). To model the \ac{CLASS} $\sendtyp$ and $\recvtyp$ constructs, it is necessary to send type information dynamically through sessions. To achieve this, the \texttt{writeType} instruction takes as arguments a target data location and a slot tree describing the data layout of the type. This instruction writes the necessary type information to the data location, producing a $\types$ slot. For example, \texttt{writeType(d0, [int; t1])} writes information to $d_0$ describing the slot tree $\seqst{\ints; t_1}$. The written $\types$ slot can then later be passed as a type parameter when calling a process.
+
+\subsubsection{Process calls}
+
+The \texttt{callProcess} instruction can be used to call processes, taking as arguments the name of the process to invoke, a list of type parameters, and lists of session and data arguments to initialize the new process environment.
+
+A type parameter is described by the target type parameter identifier on the new process, and by either a data location containing a $\types$ slot, or by a slot tree directly. For example, \texttt{t0 <- [int]} initializes the type parameter $t_0$ of the new process to be a type which stores an integer, while \texttt{t1 <- d3.[int]$\mathtt{\sim}$[type]} initializes $t_1$ to the type parameter stored after an integer at $d_3$.
+
+A session argument is described by the target session identifier on the new process, by either a source session identifier or a data location containing a \texttt{session} slot, and finally, by a data offset to apply to the writing location of the session. For example, \texttt{s0 <- s1+[int]$\mathtt{\sim}$[int]} initializes the session parameter $s_0$ of the new process to be the same as session $s_1$ of the current process, but with its writing location pointing at $\datal{s_1}{\seqst{\ints}}{\seqst{\ints}}$. If the offset is zero, it is omitted for brevity.
+
+Finally, a data argument is described by the target data identifier on the new process, by a source data location, by a slot tree describing the data, and by a flag indicating whether to clone the data or not. For example, \texttt{d0 =[string] d1} writes to $d_0$ a clone of the string stored at $d_1$, while \texttt{d1 <-[string] d2} moves to $d_1$ the string stored at $d_2$ without cloning it.
+
+An example of calling a process with type, session and data arguments is shown below. First, the session $s_0$ is initialized to have its remote end point be itself, its writing location be $d_0$ and its continuation be the block \texttt{rhs}. Then, the integer \texttt{42} is written to the remote data of $s_0$ (which is $d_0$) Next, the process \texttt{foo} is called, with its type parameter $t_0$ being set to an integer, its session $s_0$ being set to the current session $s_0$, and its data section $d_0$ being initialized by a move of the local data section $d_0$. Inside \texttt{foo}, the integer stored at its local data section $d_0$ (received from \texttt{main}) is moved to the remote data of its session $s_0$ (which is still $d_0$ from the \texttt{main} process), and then, the session is finished, passing control back to the block \texttt{rhs} of the calling process. Finally, the integer stored at $d_0$ is printed.
+\begin{lstlisting}[language=IR]
+foo:
+    types: t0
+    sessions: s0
+    data d0: <[t0]>
+entry:
+    moveSlots(s0, d0, [t0]) // 4
+    finishSession(s0)       // 5
+
+main:
+    sessions: s0
+    data d0: <[int]>
+entry:
+    initializeSession(s0, d0, rhs)  // 1
+    writeExpression(s0, 42)         // 2
+    callProcess(foo, t0 <- [int], s0 <- s0,
+                     d0 <-[int] d0) // 3
+rhs:
+    printLine(move(d0, int)) // 6
+\end{lstlisting}
+
+\subsubsection{Exponentials}
+
+Exponentials in \ac{CLASS} can be modeled through the $\exponentials$ slot, which stores the necessary data to dynamically call a process closure, taking care of any captured data. Exponentials are created through the \texttt{writeExponential} instruction, which takes the same arguments as \texttt{callProcess}, with the exception that session arguments are not allowed, and that passed data must be cloneable. Additionally, the referenced process is expected to follow the exponential process convention.
+
+The convention for exponential processes is simply that they must take a single session argument, $s_0$, which will be used to communicate with the caller. This session is initialized by the \texttt{callExponential} instruction, which invokes the process. This instruction takes as arguments a data location containing an $\exponentials$ slot, a session identifier to bind the exponential process session to, and a data location to set as the writing location on the exponential process.
+
+One important detail is that exponentials are reference counted data, and the \texttt{exponential} slot must be dropped when no longer needed, or at the end of the process, if it was not moved. This is done through the \texttt{dropSlots} or \texttt{deferDrop} instructions, as explained in the \Cref{subsection:IRDroppingData} section. Drops of exponentials decrement this reference count, and clones increment it.
+
+Below is an example of creating and calling an exponential.
+\begin{lstlisting}[language=IR]
+foo:
+    types: t0
+    sessions: s0
+    data d0: <[t0]>
+entry:
+    moveSlots(s0, d0, [t0]) // 6, 10
+    finishSession(s0)       // 7, 11
+
+main:
+    sessions: s0 s1
+    data d0: <[string]>
+    data d1: <[exponential]>
+    data d2: <[string]>
+    data d3: <[string]>
+    drop e0: [exponential] at d1
+entry:
+    writeExpression(d0, "Hello, World!")                        // 1
+    writeExponential(d1, foo, t0 <- [string], d0 <-[string] d0) // 2
+    deferDrop(e0)               // 3
+    callExponential(d1, s0, d2) // 4
+    callExponential(d1, s1, d3) // 4
+    continueSession(s0, rhs0)   // 5
+rhs0:
+    printLine(move(d2, string)) // 8
+    continueSession(s1, rhs1)   // 9
+rhs1:
+    printLine(move(d3, string)) // 12
+\end{lstlisting}
+
+In this example, the process \texttt{foo} is a simple polymorphic process which takes a type parameter $t_0$, a session $s_0$ and a data section $d_0$. It moves data of type $\seqst{\strings}$ from its local data section $d_0$ to the remote data of its session $s_0$, and then finishes the session, passing control back to the caller.
+
+The \texttt{main} process writes a new string to $d_0$, and then creates a new exponential at $d_1$ for the process \texttt{foo}, moving the just written string to it. This string will be cloned every time the exponential is called, and dropped when the exponential is freed. The exponential will be dropped at the end of the process through the drop bit \texttt{e0}, which is set by the \texttt{deferDrop(e0)} instruction.
+
+The exponential is then called twice, first binding its argument session to $s_0$ and its writing location to $d_2$, and then binding its session to $s_1$ and its writing location to $d_3$. Each call will clone the string stored at $d_0$ and pass it to the exponential process. Control is not immediately passed to the exponential process. Instead, it is passed when the argument sessions, either $s_0$ or $s_1$, are continued, as their continuations were set by the \texttt{callExponential} instruction to be the entry block of the exponential process.
+
+Finally, within the exponential process, the string is moved from $d_0$ to the remote data of $s_0$, which is either $d_2$ or $d_3$ of the caller, depending on which call was continued. Finally, the session is finished, passing control back to the caller, which prints the received string.
+
+\subsubsection{End points} \label{subsection:EndPoints}
+
+One important aspect of the \ac{IR} not mentioned yet is the concept of end points. These are used to ensure proper deallocation of the process environment when there's no more code left to execute within it. Each environment maintains a count of the number of remaining end points, which is specified in the process header (omitted in previous examples for brevity).
+
+Each instruction which passes control to another block without a continuation might be marked as an end point. These instructions are \texttt{finishSession}, \texttt{forwardSessions}, \texttt{popTask} and \texttt{callProcess}. When such an instruction is executed, the environment's end point count is decremented. When it reaches zero, the environment is deallocated, and any remaining data is dropped according to the drop bits defined in the process header. A simple example of this mechanism is shown below.
+
+\begin{lstlisting}[language=IR]
+main:
+    end points: 2
+    sessions: s0
+    data d0: <[]>
+entry:
+    initializeSession(s0, d0, rhs)
+    finishSession(s0, end point) // end points decremented to 1
+rhs:
+    popTask(end point) // end points decremented to 0, environment is freed
+\end{lstlisting}
+
+The only other instructions which interact with the end point mechanism are the branching instructions mentioned in \Cref{subsection:Branching}. Each possible branch of a branching instruction is marked with the number of end points behind that branch. When a given branch is taken, the environment's end point count is decremented by the difference between the maximum end point count across all branches and the end point count of the chosen branch. An example of this mechanism is shown below.
+\begin{lstlisting}[language=IR]
+foo:
+    end points: 2
+    data d0: <[int]>
+entry:
+    branchExpression(move(d0, int) > 0, if_true:2, if_false:1) // max = 2
+if_true: // ... 0 end points removed (max - curr = 2 - 2 = 0)
+if_false: // ... 1 end point removed (max - curr = 2 - 1 = 1)
+\end{lstlisting}
 
 \subsection{From CLASS to the IR}
 

@@ -34,8 +34,10 @@
 
 % Useful for CLASS snippets
 \lstdefinelanguage{CLASS}{
-    morekeywords={proc, cut, close, wait, case, of, send, recv, choice, offer, !, ?},
+    morekeywords={proc, cut, close, wait, case, of, send, recv, choice, offer, !, ?, print, println, par, let, share, put, take, cell},
+    morekeywords=[2]{lint, colint, lbool, colbool, state, usage},
     sensitive=true,
+    moredelim=[is][keywordstyle2]{@}{@},
 }
 
 % Useful for IR snippets

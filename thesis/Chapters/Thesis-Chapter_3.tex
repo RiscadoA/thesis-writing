@@ -16,11 +16,23 @@ an overview is given on how the \ac{IR} is translated to C code.
 
 \section{Intermediate Representation} \label{section:IR}
 
-In this section, we introduce the intermediate representation (\ac{IR}) used by the compiler and its abstract machine. The \ac{IR} is an imperative stateful language meant to act as a bridge between the high-level session-based language \ac{CLASS} and the low-level imperative language C.
+One of the main contributions of this work is the design and implementation of a novel \acf{IR} for session-based languages which can be translated to efficient C code. The \ac{IR} is an imperative stateful language, inspired by the execution model of the \ac{SAM}, sequentially executing session-based programs through buffered communication.
 
-We start by describing the syntax and layout of \ac{IR} programs. Then, we define the data structures and other necessary concepts used by the abstract machine, as we go through the semantics of each \ac{IR} instruction.
+An \ac{IR} program is a set of named processes, each consisting of a header and a set of instruction blocks. The header defines various properties necessary for the execution of the process in the \ac{IR} abstract machine, such as the declaration of local data sections, used as local variables, or continuation names to model the flow of control between two end points of a session.
 
-A complete specification of the \ac{IR} can be found in \Cref{chapter:appendixIR}. \todo{remove this line if the appendix is not included}
+\begin{lstlisting}[language=IR]
+main:
+    exit points: 2
+    types: none
+    continuations: s0
+    data d0: <[]> (s0)
+entry:
+    initializeSession(s0, cut_lhs_0, d0)
+    callProcess(p, exit point, s0 <- s0)
+cut_lhs_0:
+    printLine("wait")
+    popTask(exit point)
+\end{lstlisting}
 
 \subsection{Program Structure}
 
@@ -28,40 +40,40 @@ A complete specification of the \ac{IR} can be found in \Cref{chapter:appendixIR
     \begin{minipage}[t]{0.5\textwidth}
     \begin{lstlisting}[language=IR,firstnumber=1]
 main:
-    end points: 2
+    exit points: 2
     types: none
-    sessions: s0
+    continuations: s0
     data d0: <[]> (s0)
 entry:
     initializeSession(s0, cut_lhs_0, d0)
-    callProcess(p, end point, s0 <- s0)
+    callProcess(p, exit point, s0 <- s0)
 cut_lhs_0:
     printLine("wait")
-    popTask(end point)
+    popTask(exit point)
     \end{lstlisting}
     \end{minipage}
     \hfill
     \begin{minipage}[t]{0.4\textwidth}
     \begin{lstlisting}[language=IR,firstnumber=12]
 p:
-    end points: 1
+    exit points: 1
     types: none
-    sessions: s0
+    continuations: s0
     data d0: <[]> (s0)
 entry:
     printLine("close")
-    finishSession(s0, end point)
+    finishSession(s0, exit point)
     \end{lstlisting}
     \end{minipage}
     \caption{An example \ac{IR} program with two processes}
     \label{fig:IRProcessExample}
 \end{figure}
 
-An \ac{IR} program is a set of named processes, each consisting of a header and a body. The header contains the number of end points of the process, the names of the type parameters, the names of the session parameters, the names of the data sections and their data layouts, and finally, the data to be dropped when the process finishes execution (see \Cref{fig:IRProcessExample} for an example).
+An \ac{IR} program is a set of named processes, each consisting of a header and a body. The header contains the number of exit points of the process, the names of the type parameters, the names of the session parameters, the names of the data sections and their data layouts, and finally, the data to be dropped when the process finishes execution (see \Cref{fig:IRProcessExample} for an example).
 
 \subsection{Environments}
 
-Each process invocation creates an \textit{environment} which holds its dynamic state, similarly to a stack frame in a traditional function call. This state includes the number of remaining end points, the properties of any type parameters, the state of all sessions, the local data being used by the process and finally, a bitset indicating which data locations should be dropped when the process terminates.
+Each process invocation creates an \textit{environment} which holds its dynamic state, similarly to a stack frame in a traditional C function call. This state includes the number of remaining exit points, the properties of any type parameters, the state of all sessions, the local data being used by the process and finally, a bitset indicating which data locations should be dropped when the process terminates.
 
 All instructions in a process implicitly operate on its environment. When an instruction refers to a session or a data location, it is referring to the respective section in the current environment.
 
@@ -72,7 +84,7 @@ A session is described by four properties: a reference to its opposite end point
 
 Sessions are stored in the environment of each process, and are referenced by their index in the environment's session section. For example, $s_0$ refers to the first session in the environment, $s_1$ to the second session, and so on. Additionally, references to sessions can be passed around as data through the \texttt{session} slot.
 
-Program flow through session is manipulated through three main instructions: \texttt{initializeSession}, \texttt{continueSession} and \texttt{finishSession}. An example flow of control through a session is shown below:
+Sessions are manipulated through three main instructions: \texttt{initializeSession}, \texttt{continueSession} and \texttt{finishSession}. An example flow of control using a session is shown below:
 \begin{lstlisting}[language=IR]
 entry:
     initializeSession(s0, rhs, d0) // 1
@@ -121,7 +133,7 @@ T ::= \nilst \mid \seqst{S_1; \dots; S_n; T} \mid \tagst{T_1 \tagsepst \dots \ta
 \]
 where $\nilst$ is the empty slot tree, $\seqst{S_1; \dots; S_n; T}$ is a sequence of a slots $S_1; \dots; S_n$ followed by a slot tree $T$, and $\tagst{T_1 \tagsepst \dots \tagsepst T_n}$ is a $\tags$ slot followed by a choice between the slot trees $T_1$ to $T_n$. For example, $\seqst{\ints; \tagst{\seqst{\bools} \tagsepst \seqst{\strings}}}$ describes an integer followed by a tag, which, if $0$, is followed by a boolean, or if $1$, is followed by a string.
 
-Local data sections are described within process headers by their identifier and by a sum of slot trees describing the possible layouts of data that can be stored on them. For example, $\texttt{data d0:}\ \combst{\seqst{\ints; \bools} + \seqst{\strings}}$ describes a local data section $d_0$ which can either store an integer followed by an $\ints$, or a $\strings$. Additionally, data sections may be associated to a session, indicating that a session passed as an argument to a process should receive data from that data section (e.g., $\texttt{data d0:}\ \combst{\seqst{\ints}}\ \texttt{(s0)}$).
+Local data sections are described within process headers by their identifier and by a sum of slot trees describing the possible layouts of data that can be stored on them. For example, $\texttt{data d0:}\ \combst{\seqst{\ints; \bools} + \seqst{\strings}}$ describes a local data section $d_0$ which can either store an $\ints$ followed by a $\bools$, or a $\strings$. Additionally, data sections may be associated to a session, indicating that a session passed as an argument to a process should receive data from that data section (e.g., $\texttt{data d0:}\ \combst{\seqst{\ints}}\ \texttt{(s0)}$).
 
 \subsubsection{Addressing Data} \label{subsection:DataAddressing}
 
@@ -195,7 +207,7 @@ First, a session $s_1$ is initialized with its remote end point being itself, it
 
 \subsection{Tags and branching} \label{subsection:Branching}
 
-Branching is done through the \texttt{branchTag} and \texttt{branchExpression} instructions. The first instruction branches on a tag stored a data location, similarly to a switch statement in C, and the second instruction branches on the result a boolean expression, similarly to an if statement in C. Each possible branch is defined by a code location (block label) and an integer indicating how many end points are behind that branch. This is used to keep track of the number of remaining end points in the environment, and is explained in more detail in \Cref{subsection:EndPoints}.
+Branching is done through the \texttt{branchTag} and \texttt{branchExpression} instructions. The first instruction branches on a tag stored a data location, similarly to a switch statement in C, and the second instruction branches on the result of a boolean expression, similarly to an if statement in C. Each possible branch is defined by a code location (block label) and an integer indicating how many exit points are behind that branch. This is used to keep track of the number of remaining exit points in the environment, and is explained in more detail in \Cref{subsection:ExitPoints}.
 
 Tags are written to data locations through the \texttt{writeTag} instruction, which takes as arguments a data location and a constant tag value. Below is an example of writing a tag and then branching on it.
 
@@ -211,7 +223,7 @@ if_string: // ...
 
 \subsection{Tasks}
 
-Tasks are a flow control mechanism completely separate from sessions, used to model the mix construct from \ac{CLASS}. For each thread of execution, there's a stack of tasks, where each task stores a continuation to be executed when the current task is finished.
+Tasks are a flow control mechanism completely separate from sessions, used to model the $\parp$ construct from \ac{CLASS}. For each thread of execution, there's a stack of tasks, where each task stores a continuation to be executed when the current task is finished.
 
 Tasks can be pushed to the stack through the \texttt{pushTask} instruction, which takes a code location as argument. To finish the current task and jump to the continuation of the topmost task, the \texttt{popTask} instruction is used.
 
@@ -223,9 +235,9 @@ A simple jump to a constant code location is also possible through the \texttt{j
 
 \subsection{Cells} \label{subsection:Cells}
 
-Cells are used to model the shared state part of \ac{CLASS}. They're mutable memory locations which can be safely shared between multiple threads of execution. Cells are referenced through \texttt{cell} slots, and maintain a mutex to ensure safe concurrent access, as well as a reference count to guarantee proper deallocation.
+Cells are used to model the shared state part of \ac{CLASS}. They're mutable memory locations which can be safely shared between multiple threads of execution. Cells are referenced through $\cells{T}$ slots, and maintain a mutex to ensure safe concurrent access, as well as a reference count to guarantee proper deallocation.
 
-A new cell can be created through the \texttt{writeCell} instruction, which takes as arguments a data location to write the \texttt{cell} slot to, and a slot tree describing the data that will be stored in the cell. The reference count of a cell can be incremented and decremented through the \texttt{acquireCell} and \texttt{releaseCell} instructions, respectively. Finally, the mutex of a cell can be locked and unlocked through the \texttt{lockCell} and \texttt{unlockCell} instructions, respectively. The data stored in a cell can be accessed through any data location, by using a cell location as the base address, as explained in \Cref{subsection:DataAddressing}.
+A new cell can be created through the \texttt{writeCell} instruction, which takes as arguments a data location to write the $\cells{T}$ slot to, and a slot tree $T$ describing the data that will be stored in the cell. The reference count of a cell can be incremented and decremented through the \texttt{acquireCell} and \texttt{releaseCell} instructions, respectively. Finally, the mutex of a cell can be locked and unlocked through the \texttt{lockCell} and \texttt{unlockCell} instructions, respectively. The data stored in a cell can be accessed through any data location, by using a cell location as the base address, as explained in \Cref{subsection:DataAddressing}.
 
 Below is an example of creating a cell, writing data to it, acquiring and releasing references to it, and finally deallocating it:
 \begin{lstlisting}[language=IR]
@@ -247,7 +259,7 @@ While other slots are described solely by their kind, $\cells{T}$ slots require 
 
 New threads of execution can be launched through the \texttt{launchThread} instruction, which takes as arguments a code location to start executing at. The new thread starts with a single task responsible for terminating it, and shares the same environment as the parent thread, but a separate task stack.
 
-Accesses to the environment are not synchronized except for reference and end point counting, and it is the responsibility of the \ac{IR} generator to ensure different threads do not access the same data concurrently.
+Accesses to the environment are not synchronized except for reference and exit point counting, and it is the responsibility of the \ac{IR} generator to ensure different threads do not access the same data concurrently.
 
 \subsection{Writing type parameters}
 
@@ -269,14 +281,14 @@ An example of calling a process with type, session and data arguments is shown b
 \begin{lstlisting}[language=IR]
 foo:
     types: t0
-    sessions: s0
+    continuations: s0
     data d0: <[t0]>
 entry:
     moveSlots(s0, d0, [t0]) // 4
     finishSession(s0)       // 5
 
 main:
-    sessions: s0
+    continuations: s0
     data d0: <[int]>
 entry:
     initializeSession(s0, d0, rhs)                         // 1
@@ -298,14 +310,14 @@ Below is an example of creating and calling an exponential.
 \begin{lstlisting}[language=IR]
 foo:
     types: t0
-    sessions: s0
+    continuations: s0
     data d0: <[t0]>
 entry:
     moveSlots(s0, d0, [t0]) // 6, 10
     finishSession(s0)       // 7, 11
 
 main:
-    sessions: s0 s1
+    continuations: s0 s1
     data d0: <[string]>
     data d1: <[exponential]>
     data d2: <[string]>
@@ -333,33 +345,33 @@ The exponential is then called twice, first binding its argument session to $s_0
 
 Finally, within the exponential process, the string is moved from $d_0$ to the remote data of $s_0$, which is either $d_2$ or $d_3$ of the caller, depending on which call was continued. Finally, the session is finished, passing control back to the caller, which prints the received string.
 
-\subsection{End points} \label{subsection:EndPoints}
+\subsection{Exit points} \label{subsection:ExitPoints}
 
-One important aspect of the \ac{IR} not mentioned yet is the concept of end points. These are used to ensure proper deallocation of the process environment when there's no more code left to execute within it. Each environment maintains a count of the number of remaining end points, which is specified in the process header (omitted in previous examples for brevity).
+One important aspect of the \ac{IR} not mentioned yet is the concept of exit points. These are used to ensure proper deallocation of the process environment when there's no more code left to execute within it. Each environment maintains a count of the number of remaining exit points, which is specified in the process header (omitted in previous examples for brevity).
 
-Each instruction which passes control to another block without a continuation might be marked as an end point. These instructions are \texttt{finishSession}, \texttt{forwardSessions}, \texttt{popTask} and \texttt{callProcess}. When such an instruction is executed, the environment's end point count is decremented. When it reaches zero, the environment is deallocated, and any remaining data is dropped according to the drop bits defined in the process header. A simple example of this mechanism is shown below.
+Each instruction which passes control to another block without a continuation might be marked as an exit point. These instructions are \texttt{finishSession}, \texttt{forwardSessions}, \texttt{popTask} and \texttt{callProcess}. When such an instruction is executed, the environment's exit point count is decremented. When it reaches zero, the environment is deallocated, and any remaining data is dropped according to the drop bits defined in the process header. A simple example of this mechanism is shown below.
 
 \begin{lstlisting}[language=IR]
 main:
-    end points: 2
-    sessions: s0
+    exit points: 2
+    continuations: s0
     data d0: <[]>
 entry:
     initializeSession(s0, d0, rhs)
-    finishSession(s0, end point) // end points decremented to 1
+    finishSession(s0, exit point) // exit points decremented to 1
 rhs:
-    popTask(end point) // end points decremented to 0, environment is freed
+    popTask(exit point) // exit points decremented to 0, environment is freed
 \end{lstlisting}
 
-The only other instructions which interact with the end point mechanism are the branching instructions mentioned in \Cref{subsection:Branching}. Each possible branch of a branching instruction is marked with the number of end points behind that branch. When a given branch is taken, the environment's end point count is decremented by the difference between the maximum end point count across all branches and the end point count of the chosen branch. An example of this mechanism is shown below.
+The only other instructions which interact with the exit point mechanism are the branching instructions mentioned in \Cref{subsection:Branching}. Each possible branch of a branching instruction is marked with the number of exit points behind that branch. When a given branch is taken, the environment's exit point count is decremented by the difference between the maximum exit point count across all branches and the exit point count of the chosen branch. An example of this mechanism is shown below.
 \begin{lstlisting}[language=IR]
 foo:
-    end points: 2
+    exit points: 2
     data d0: <[int]>
 entry:
     branchExpression(move(d0, int) > 0, if_true:2, if_false:1) // max = 2
-if_true: // ... 0 end points removed (max - curr = 2 - 2 = 0)
-if_false: // ... 1 end point removed (max - curr = 2 - 1 = 1)
+if_true: // ... 0 exit points removed (max - curr = 2 - 2 = 0)
+if_false: // ... 1 exit point removed (max - curr = 2 - 1 = 1)
 \end{lstlisting}
 
 \section{Generating IR programs from CLASS} \label{section:IRGeneration}
@@ -459,11 +471,11 @@ Apart from generating instructions for processes, \ac{IR} expressions must be ge
 \]
 where $S$ is the slot corresponding to the type of the channel $x$, which is guaranteed be a basic type (e.g., $\ints$ for $\colintt$, $\strings$ for $\colstringt$).
 
-\subsection{End point counting}
+\subsection{Exit point counting}
 
-One other important aspect of the compilation is counting the number of end points of the generated \ac{IR} code for a given \ac{CLASS} process. This is necessary to ensure that the generated code properly deallocates the process environment when there's no more code left to execute within it, as explained in \Cref{subsection:EndPoints}.
+One other important aspect of the compilation is counting the number of exit points of the generated \ac{IR} code for a given \ac{CLASS} process. This is necessary to ensure that the generated code properly deallocates the process environment when there's no more code left to execute within it, as explained in \Cref{subsection:ExitPoints}.
 
-The number of end points in a process $P$ is denoted by $\getendpoints{\theta}{P}$, and is defined by pattern matching on processes. It will be incrementally defined along with the instruction generation function in the following sections.
+The number of exit points in a process $P$ is denoted by $\getendpoints{\theta}{P}$, and is defined by pattern matching on processes. It will be incrementally defined along with the instruction generation function in the following sections.
 
 \subsection{Process Definitions} \label{subsection:ProcessDefinitions}
 
@@ -475,11 +487,11 @@ The channel environment $\Delta$ maps each argument channel name to a channel st
 
 For each of the exponential arguments of the process, an always set drop bit is also added to the process header, to ensure that the exponential data is dropped when the process ends.
 
-Finally, we generate the instructions for the process body $P$ (starting by the entry block) through $\getinstructions{\theta}{\Delta}{P}$, and set the number of end points of the process to $\getendpoints{\theta}{P}$. As instructions are generated, the process header is modified incrementally to include any new sessions, local data sections or drop bits which are necessary for the generated code to work.
+Finally, we generate the instructions for the process body $P$ (starting by the entry block) through $\getinstructions{\theta}{\Delta}{P}$, and set the number of exit points of the process to $\getendpoints{\theta}{P}$. As instructions are generated, the process header is modified incrementally to include any new sessions, local data sections or drop bits which are necessary for the generated code to work.
 
 \subsection{Cut, Parallel and Empty}
 
-We start by defining the compilation of a $\cutp$ process, which can be seen below. We assume, without loss of generality, that $A$ is a positive type, and thus, that $P$ will be writing to $x$ before $Q$ executes - if $A$ were negative, we could simply swap $P$ and $Q$. The number of end points of the generated code is the sum of the number of end points of both $P$ and $Q$.
+We start by defining the compilation of a $\cutp$ process, which can be seen below. We assume, without loss of generality, that $A$ is a positive type, and thus, that $P$ will be writing to $x$ before $Q$ executes - if $A$ were negative, we could simply swap $P$ and $Q$. The number of exit points of the generated code is the sum of the number of exit points of both $P$ and $Q$.
 \begin{compilation}{\theta}{\Delta}{\cutc{P}{x: A}{Q}}
 {\getendpoints{\theta}{P} + \getendpoints{\theta}{Q}}
     \initsession{s}{\texttt{rhs}}{d}
@@ -492,7 +504,7 @@ First, a fresh session identifier $s$ is generated and added to the process head
 
 The process initializes the session $s$ with a new block \texttt{rhs} as continuation, and $d$ as a writing location. Then, it recursively compiles both $P$ and $Q$ with a new environment where the name $x$ is bound to $(s, d, 0)$. $P$ is placed on the original block, and $Q$ placed on the new block \texttt{rhs}.
 
-The compilation of a $\parp$ process is shown below. The process starts by generating code to push a new task for executing $Q$ into the task stack. Then, it compiles $P$, which will be executed immediately. AS with the $\cutp$ process, the number of end points of the generated code is the sum of the number of end points of both $P$ and $Q$. Since the task stack is a stack, task pop instructions always execute the most recently pushed task. Thus, it is guaranteed that $Q$ will only execute after $P$ has finished executing completely.
+The compilation of a $\parp$ process is shown below. The process starts by generating code to push a new task for executing $Q$ into the task stack. Then, it compiles $P$, which will be executed immediately. AS with the $\cutp$ process, the number of exit points of the generated code is the sum of the number of exit points of both $P$ and $Q$. Since the task stack is a stack, task pop instructions always execute the most recently pushed task. Thus, it is guaranteed that $Q$ will only execute after $P$ has finished executing completely.
 \begin{compilation}{\theta}{\Delta}{\parc{P}{Q}}
 {\getendpoints{\theta}{P} + \getendpoints{\theta}{Q}}
     \pushtask{rhs}
@@ -626,7 +638,7 @@ Finally, the list of data arguments $D_1,\,\dots,\,D_{m+k}$ is generated similar
 
 \subsection{Creating and calling exponentials}
 
-The right-hand-side $P$ of a $\bangc{x}{y}{P}$ process is compiled as a separate \ac{IR} process, with a unique identifier generated from the identifier of the process definition being compiled. This new process inherits the same type variables as the current process. The argument session $y$ is bound to a new session identifier $s$ in the new process header, along with a new local data section $d$ with layout $\alllocalslots{\theta}{A}$, where $A$ is the type of channel $y$. The number of end points of the new process' header is set to $\getendpoints{\theta}{P}$.
+The right-hand-side $P$ of a $\bangc{x}{y}{P}$ process is compiled as a separate \ac{IR} process, with a unique identifier generated from the identifier of the process definition being compiled. This new process inherits the same type variables as the current process. The argument session $y$ is bound to a new session identifier $s$ in the new process header, along with a new local data section $d$ with layout $\alllocalslots{\theta}{A}$, where $A$ is the type of channel $y$. The number of exit points of the new process' header is set to $\getendpoints{\theta}{P}$.
 
 All free names in $P$ which are not $y$ are exponentials (guaranteed by the typing rules of \ac{CLASS}), and should be passed to the new process as arguments. For each of them, a data section is created in the new process header, with layout $\alllocalslots{\theta}{\whynott{\tau}}$, where $\tau$ is the type of the free name. The environment used to compile $P$ is also updated to bind these names to their respective data sections, with offset $0$.
 
@@ -680,7 +692,7 @@ In both cases, the process finishes by recursing on the right-hand-side $P$ of t
 
 Polymorphism in the \ac{IR} is modeled through process type parameters. Thus, to compile $\recvtyc{x}{X}P$, a new \ac{IR} process must be called in which $X$ is a type parameter. This mechanism is similar to the one used for exponentials, but in this case, the process is immediately called instead of writing an exponential, and it may have free linear names which must be passed as arguments. Additionally, two \ac{IR} processes are generated: one for when $X$ is negative, another for when $X$ is positive.
 
-The compilation definition of the $\recvtyc{x}{X}P$ process is shown below. Two new process identifiers $id^-$ and $id^+$ are generated from the identifier of the current process. For each of them, a new process is generated with the same type parameters as the current process, plus a new type parameter $X$ with polarity negative for $id^-$ and positive for $id^+$. The end point count of both is set to $\getendpoints{\theta}{P}$.
+The compilation definition of the $\recvtyc{x}{X}P$ process is shown below. Two new process identifiers $id^-$ and $id^+$ are generated from the identifier of the current process. For each of them, a new process is generated with the same type parameters as the current process, plus a new type parameter $X$ with polarity negative for $id^-$ and positive for $id^+$. The exit point count of both is set to $\getendpoints{\theta}{P}$.
 \begin{compilation}{\theta}{\Delta}{\recvtyc{x}{X}P}{1}
     \branchtag{\concatst{\readlocof{\Delta}{x}}{\slotoffset{\seqst{\types; \sessions}}}{\seqst{\tags}}}{\texttt{neg:1},\,\texttt{pos:1}}
     \labelir{neg}
@@ -821,7 +833,7 @@ The definition of $\slotlayout{\sigma}{s}$ is extended below to support both tre
 
 The main data structure used to implement the execution state of the \ac{IR} abstract machine is the environment, which stores all state related to a process invocation. In the generated code, environments are compiled to heap allocated byte arrays, which are indexed through an environment layout $\envlayout$.
 
-An environment layout $\envlayout$ is a compile-time data structure which describes the byte offsets at which each entry of the environment can be found, and is computed from the header of the \ac{IR} process being compiled. The address of the end point counter (a C integer or atomic integer if concurrency is enabled) is given by $\envlayouteps{\texttt{env}}$ where \texttt{env} is a pointer to the environment. Drop bits are stored at $\envlayoutdrop{\texttt{env}}$, type information for type variable $t_i$ is stored at $\envlayouttype{\texttt{env}}{t_i}$, sessions $s_i$ are stored at $\envlayoutsession{\texttt{env}}{s_i}$, and local data $d_i$ at $\envlayoutlocal{\texttt{env}}{d_i}$.
+An environment layout $\envlayout$ is a compile-time data structure which describes the byte offsets at which each entry of the environment can be found, and is computed from the header of the \ac{IR} process being compiled. The address of the exit point counter (a C integer or atomic integer if concurrency is enabled) is given by $\envlayouteps{\texttt{env}}$ where \texttt{env} is a pointer to the environment. Drop bits are stored at $\envlayoutdrop{\texttt{env}}$, type information for type variable $t_i$ is stored at $\envlayouttype{\texttt{env}}{t_i}$, sessions $s_i$ are stored at $\envlayoutsession{\texttt{env}}{s_i}$, and local data $d_i$ at $\envlayoutlocal{\texttt{env}}{d_i}$.
 
 The layout of the environment is computed trivially by concatenating the layouts of each of its entries, in the order they appear in the process header. The layout for for data entries is the most noteworthy, as it depends on the stored data type. This layout is computed from $\slotlayout{\sigma}{S}$, where $S$ is the set of slot trees of the data being stored, and $\sigma$ is a mapping between type variables and their layouts, fetched from the environment itself (e.g., $\sigma(t_i) = \texttt{access}(\envlayouttype{\texttt{env}}{t_i})$). Its formal definition is omitted for brevity.
 
@@ -847,7 +859,7 @@ struct type {
 
 \subsubsection{Cleaning up an environment} \label{subsubsection:CEnvironmentCleanup}
 
-When the end point counter of an environment reaches zero, any set drop bits must be processed, dropping their associated data. Thus, whenever an instruction decrements the end point counter, it must check if it reached zero, and if so, run the cleanup code. Only then can the environment itself be freed. For example, the code below decrements the end point counter, checking if it reached zero, and if so, checks if the drop bit $0$ is set, dropping its associated data if so, before freeing the environment itself.
+When the exit point counter of an environment reaches zero, any set drop bits must be processed, dropping their associated data. Thus, whenever an instruction decrements the exit point counter, it must check if it reached zero, and if so, run the cleanup code. Only then can the environment itself be freed. For example, the code below decrements the exit point counter, checking if it reached zero, and if so, checks if the drop bit $0$ is set, dropping its associated data if so, before freeing the environment itself.
 
 \begin{lstlisting}[language=C]
 if (atomic_fetch_sub(&(*(atomic_int*)(env)), 1) == 1) {
@@ -963,10 +975,10 @@ The \texttt{initializeSession} instruction is compiled as shown below. The sessi
     };
 \end{lstlisting}
 
-The compilation of the \texttt{finishSession} instruction is shown below. First, the remote session of the finished session is unlinked from the current session by setting its \texttt{cont\_session} field to itself. This is necessary to avoid use after free errors in instructions such as \texttt{forwardSessions} and \texttt{callProcess}. Then, the continuation is stored on the registers and the environment's end point counter is decremented atomically (when concurrency is disabled, a normal integer is used instead). If the counter reaches zero, the environment cleanup code described in \Cref{subsubsection:CEnvironmentCleanup} is executed. Finally, the environment and program address are switched to the continuation values, and a jump is performed.
+The compilation of the \texttt{finishSession} instruction is shown below. First, the remote session of the finished session is unlinked from the current session by setting its \texttt{cont\_session} field to itself. This is necessary to avoid use after free errors in instructions such as \texttt{forwardSessions} and \texttt{callProcess}. Then, the continuation is stored on the registers and the environment's exit point counter is decremented atomically (when concurrency is disabled, a normal integer is used instead). If the counter reaches zero, the environment cleanup code described in \Cref{subsubsection:CEnvironmentCleanup} is executed. Finally, the environment and program address are switched to the continuation values, and a jump is performed.
 
 \begin{lstlisting}[language=C]
-    /* finishSession(s0, end point) */
+    /* finishSession(s0, exit point) */
     (*(*(struct session*)(env + 8)).cont_session).cont_session = (*(struct session*)(env + 8)).cont_session;
     tmp_ptr1 = (*(struct session*)(env + 8)).cont;
     tmp_ptr2 = (*(struct session*)(env + 8)).cont_env;
@@ -977,7 +989,7 @@ The compilation of the \texttt{finishSession} instruction is shown below. First,
     goto *tmp_ptr1;
 \end{lstlisting}
 
-The \texttt{continueSession} instruction is compiled similarly to \texttt{finishSession}, as shown below, except that the end point counter is not decremented, and that the continuation of the remote session must be updated so that it eventually jumps back to the correct label.
+The \texttt{continueSession} instruction is compiled similarly to \texttt{finishSession}, as shown below, except that the exit point counter is not decremented, and that the continuation of the remote session must be updated so that it eventually jumps back to the correct label.
 
 \begin{lstlisting}[language=C]
     /* continueSession(s0, continue_12) */
@@ -987,10 +999,10 @@ The \texttt{continueSession} instruction is compiled similarly to \texttt{finish
     goto *tmp_ptr1;
 \end{lstlisting}
 
-The \texttt{forwardSessions} instruction first stores the continuation of its second argument in the temporary registers. Then, it sets the remote sessions of both arguments to point to each other, ensuring no references are left to the local sessions. A temporary variable is used to store the first argument's session, as its value may be overwritten due to the possibility of a session being its own remote session. Finally, the end point counter is decremented, and control is passed to the continuation stored in the temporary registers.
+The \texttt{forwardSessions} instruction first stores the continuation of its second argument in the temporary registers. Then, it sets the remote sessions of both arguments to point to each other, ensuring no references are left to the local sessions. A temporary variable is used to store the first argument's session, as its value may be overwritten due to the possibility of a session being its own remote session. Finally, the exit point counter is decremented, and control is passed to the continuation stored in the temporary registers.
 
 \begin{lstlisting}[language=C]
-    /* forwardSessions(s0, s1, end point) */
+    /* forwardSessions(s0, s1, exit point) */
     tmp_ptr1 = (*(struct session*)(env + 40)).cont;
     tmp_ptr2 = (*(struct session*)(env + 40)).cont_env;
     tmp_session = *(struct session*)(env + 8);
@@ -1104,9 +1116,9 @@ To clone or drop polymorphic slots $t_i$, type information for each type paramet
 Process calls are performed through the \texttt{callProcess} instruction. This instruction receives the identifier of the process to be called, a list of type arguments, a list of session arguments and a list of data arguments. The generated C code for this instruction is shown below.
 
 \begin{lstlisting}[language=C]
-    /* callProcess(foo, end point, s0 <- s0) */
+    /* callProcess(foo, exit point, s0 <- s0) */
     tmp_ptr1 = managed_alloc(40);
-    (*(atomic_int*)(((char*)(tmp_ptr1)))) = 1; // setup end points
+    (*(atomic_int*)(((char*)(tmp_ptr1)))) = 1; // setup exit points
     /* (...) pass type, session and data arguments */
     if (atomic_fetch_sub(&(*(atomic_int*)(env)), 1) == 1) {
         /* environment cleanup code */
@@ -1117,7 +1129,7 @@ Process calls are performed through the \texttt{callProcess} instruction. This i
 
 Type arguments are passed by writing their information to the appropriate offsets in the new environment. Session arguments are passed by initializing the session entries in the environment, and connecting them to the sessions passed as arguments. This implies updating the remote session of the argument sessions to point to the sessions in the new environment. Finally, data arguments are passed by simply moving or cloning the data from the current environment to the new environment, in the same way as the \texttt{moveSlots} and \texttt{cloneSlots} instructions.
 
-Before jumping to the entry block of the called process, the end point counter of the current environment is decremented, and if it reaches zero, the current environment is cleaned up and freed, as described in \Cref{subsubsection:CEnvironmentCleanup}. Control is then passed to the entry block of the called process, with the new environment set as the current environment.
+Before jumping to the entry block of the called process, the exit point counter of the current environment is decremented, and if it reaches zero, the current environment is cleaned up and freed, as described in \Cref{subsubsection:CEnvironmentCleanup}. Control is then passed to the entry block of the called process, with the new environment set as the current environment.
 
 \subsection{Cell operations}
 
