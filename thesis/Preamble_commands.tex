@@ -45,7 +45,7 @@
 % -----------------------------------------------------------------------------
 % Tikz  for creating graphics programmatically.
 \usepackage{tikz}
-\usetikzlibrary{shapes.geometric, arrows, positioning}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit}
 % -----------------------------------------------------------------------------
 % PACKAGES array, booktabs, multirow, colortbl, spreadtab:
 % -----------------------------------------------------------------------------
@@ -626,5 +626,32 @@
 		{\degree{Engenharia Informática e de Computadores}}
 
 %%%%%%%%% Specific to this thesis %%%%%%%%%
+
+\tikzset{
+    frame/.style={draw, thick, fill=gray!10, inner sep=0pt},
+    row/.style={
+        fill=white,
+        minimum width=5cm,
+        minimum height=0.5cm,
+        anchor=west,
+        font=\ttfamily\small,
+        inner xsep=6pt,
+        text width=4.7cm,
+        align=left,
+        append after command={
+            \pgfextra{\draw (\tikzlastnode.north west) -- (\tikzlastnode.north east);}
+        }
+    },
+    arrow/.style={->, thick, >=Stealth},
+    biarrow/.style={<->, thick, >=Stealth},
+    doublearrow/.style={
+        ->,
+        double,
+        line width=0.6pt,
+        double distance=1pt,
+        >=Stealth,
+        thick
+    }
+}
 
 \input{../commands.tex}

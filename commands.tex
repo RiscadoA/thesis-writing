@@ -19,6 +19,8 @@
 \definecolor{brown}{rgb}{0.69,0.31,0.31}
 \definecolor{purple}{rgb}{0.38,0.18,0.81}
 
+\newcommand{\changed}[1]{\textcolor{orange}{#1}}
+
 % Symbols for linear logic
 \usepackage{cmll}
 
@@ -42,7 +44,7 @@
 
 % Useful for IR snippets
 \lstdefinelanguage{IR}{
-    morekeywords={int, bool, string, tag, session, exponential, cell, type, isValue},
+    morekeywords={int, bool, string, tag, cont, exponential, cell, type, isValue},
     morecomment=[l]{//},
     sensitive=true,
 }
@@ -53,7 +55,7 @@
 \newcommand{\bools}{\irs{bool}}
 \newcommand{\strings}{\irs{string}}
 \newcommand{\tags}{\irs{tag}}
-\newcommand{\sessions}{\irs{session}}
+\newcommand{\conts}{\irs{cont}}
 \newcommand{\exponentials}{\irs{exponential}}
 \newcommand{\types}{\irs{type}}
 \newcommand{\cells}[1]{\irs{cell}\left[#1\right]}
@@ -185,8 +187,8 @@
 \newcommand{\ifc}[3]{\ifp\,#1\,\{#2\}\,\elsep\,\{#3\}}
 \newcommand{\letc}[2]{\letp\,#1\,#2}
 \newcommand{\scanc}[1]{\scanp(#1)}
-\newcommand{\printc}[2]{\printp(#1);\,#2}
-\newcommand{\printlnc}[2]{\printlnp(#1);\,#2}
+\newcommand{\printc}[1]{\printp(#1);}
+\newcommand{\printlnc}[1]{\printlnp(#1);}
 
 % IR Data Locations
 \newcommand{\slotoffset}[2]{#1\text{$\sim$}#2}
@@ -201,7 +203,7 @@
 % Compiler environment accessors
 \newcommand{\polarityof}[2]{#1_{p}(#2)}
 \newcommand{\typeidof}[2]{#1_{t}(#2)}
-\newcommand{\sessionof}[2]{#1_s(#2)}
+\newcommand{\continuationof}[2]{#1_c(#2)}
 \newcommand{\localdataof}[2]{#1_d(#2)}
 \newcommand{\offsetof}[2]{#1_o(#2)}
 \newcommand{\readlocof}[2]{#1_r(#2)}
@@ -315,8 +317,8 @@
     \mkoneargir{\poptask}{popTask}
     \mktwoargir{\finishsession}{finishSession}
     \mkoneargir{\continuesession}{continueSession}
-    \mkthreeargir{\bindsession}{bindSession}
-    \mkthreeargir{\forwardsessions}{forwardSessions}
+    \mkthreeargir{\bindsession}{bindContinuation}
+    \mkthreeargir{\forwardsessions}{forwardContinuations}
     \mktwoargir{\branchtag}{branchTag}
     \mktwoargir{\branchflags}{branchFlags}
     \mktwoargir{\writetype}{writeType}
@@ -325,7 +327,7 @@
     \mktwoargir{\writescan}{writeScan}
     \mktwoargir{\writecell}{writeCell}
     \mkthreeargir{\writeexp}{writeExponential}
-    \mktwoargir{\writesession}{writeSession}
+    \mktwoargir{\writesession}{writeContinuation}
     \mkoneargir{\lockcell}{lockCell}
     \mkoneargir{\unlockcell}{unlockCell}
     \mkoneargir{\acquirecell}{acquireCell}
