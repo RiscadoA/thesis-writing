@@ -140,6 +140,7 @@ To introduce the \ac{IR} and its abstractions, the execution of the example prog
 The first executed instruction is \texttt{initContinuation(c0, lhs, d0)}. This initializes the continuation $c_0$ which models the session $x$ introduced by the $\cutp$ process in the source program. Its writing data location is set to $d_0$, and its continuation address is set to the block \texttt{lhs}. The new state of the environment is shown above, on the right. Changes between steps are highlighted in orange. Additionally, the continuation stores a link to the continuation of its remote end point, which is itself at this point. The purpose of this link will become clear in the next step.
 
 The second instruction to be executed is the \texttt{callProcess} instruction. This moves the cursor to the entry block for $p$, and creates a new environment for $p$, shown below, using information from its header.
+
 \begin{center}
 \begin{tikzpicture}
 \node[font=\ttfamily] (main title) {main};
@@ -161,6 +162,7 @@ The second instruction to be executed is the \texttt{callProcess} instruction. T
 \draw[arrow, orange] (main c0.east) .. controls +(2,-0.5) and +(-1,0) .. (p d0.west);
 \end{tikzpicture}
 \end{center}
+
 The remaining exit point count of the original environment is decremented, as \texttt{callProcess} was marked as an exit instruction. Since $c_0$ was passed as an argument, it is copied over to the new environment. The remote end point of $c_0$ in main is updated to point to $c_0$ in $p$, and vice-versa, linking the two environments. This is necessary so that when control is yielded to a continuation, the continuation on the remote end point is updated accordingly. Finally, the writing location of $c_0$ in \texttt{main} is set to $d_0$ in \texttt{p}, which is the data section associated to session $x$ in $p$. This allows \texttt{p} to read data written by \texttt{main} through $c_0$.
 
 Similarly to before, the first instruction in the entry block of \texttt{p}, \texttt{initContinuation}, initializes $c_1$. This continuation models the session $z$ in the source program, which will be sent over the session $x$. A reference to this continuation $c_1$ is thus written to the writing location of $c_0$, which was set to $d_0$ in \texttt{main}, through the \texttt{writeContinuation(c0, c1)} instruction. These two instructions implement the $\sendp$ process of the source program.
