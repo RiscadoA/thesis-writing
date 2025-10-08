@@ -261,8 +261,8 @@ main_entry:
   /* popTask(end point) */
   managed_free(env);
   tmp_ptr1 = task;
-  tmp_ptr2 = task->cont;
-  env = task->cont_env;
+  tmp_ptr2 = task->loc;
+  env = task->env;
   task = task->next;
   managed_free(tmp_ptr1);
   goto *tmp_ptr2;

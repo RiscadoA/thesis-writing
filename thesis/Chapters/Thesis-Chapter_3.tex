@@ -318,7 +318,7 @@ Data sections are described within process headers by a sum of slot trees descri
 
 A \textit{data location} is denoted as $\dataol{b}{o}$, where $b$ is a base address and $o$ an offset. A base address can be either a local data section (e.g., $d_0$), a writing location given by a continuation (e.g., $c_0$), or a cell location (e.g., $c(d0)$). An offset is defined by two slot trees, written as $\offs{P}{F}$, $P$ describing the data being skipped (named \textit{past}), and $F$ describing the data that may come next (named \textit{future}). The future tree is necessary to determine the alignment of the data being accessed. For example, $\offs{\seqst{\ints; \bools}}{\seqst{\strings}}$ is an offset which skips an integer followed by a boolean, and expects a string to come next. When the past slot tree is empty, the future slot tree is unnecessary, and the offset is simply written as $0$. 
 
-To exemplify, the location $\datal{d_0}{\seqst{\ints}}{\seqst{\ints}}$ refers to the second integer stored in the local data section $d_0$, while the location $\datal{c_0}{\seqst{\bools}}{\seqst{\strings}}$ refers to a string stored in the writing location of the continuation $c_0$, after a boolean. When the offset is zero, it is omitted for brevity. For example, $d_0$ as a data location is equivalent to $\datal{d_0}{\nilst}{\nilst}$ or just $d_0.0$ - the future slot trees are unnecessary for empty past slot trees.
+To exemplify, the location $\datal{d_0}{\seqst{\ints}}{\seqst{\ints}}$ refers to the second integer stored in $d_0$, while the location $\datal{c_0}{\seqst{\bools}}{\seqst{\strings}}$ refers to a string stored in the writing location of the continuation $c_0$, after a boolean. When the offset is zero, it is omitted for brevity. For example, $d_0$ as a data location is equivalent to $\datal{d_0}{\nilst}{\nilst}$ or just $d_0.0$ - the future slot trees are unnecessary for empty past slot trees.
 
 \subsection{Moving data}
 
@@ -621,15 +621,15 @@ Finally, we generate the instructions for the process body $P$ (starting by the 
 We start by defining the compilation of a $\cutp$ process, which can be seen below. We assume, without loss of generality, that $A$ is a positive type, and thus, that $P$ will be writing to $x$ before $Q$ executes - if $A$ were negative, we could simply swap $P$ and $Q$. The number of exit points of the generated code is the sum of the number of exit points of both $P$ and $Q$.
 \begin{compilation}{\theta}{\Delta}{\cutc{P}{x: A}{Q}}
 {\getendpoints{\theta}{P} + \getendpoints{\theta}{Q}}
-    \initsession{s}{\texttt{rhs}}{d}
-    \recurse{\theta}{\Delta[x \mapsto (s, d, 0)]}{P}
+    \initcontinuation{c}{\texttt{rhs}}{d}
+    \recurse{\theta}{\Delta[x \mapsto (c, d, 0)]}{P}
     \labelir{rhs}
-    \recurse{\theta}{\Delta[x \mapsto (s, d, 0)]}{Q}
+    \recurse{\theta}{\Delta[x \mapsto (c, d, 0)]}{Q}
 \end{compilation}
 
-First, a fresh session identifier $s$ is generated and added to the process header. Additionally, a data section with unique identifier $d$ is added to the header, with a layout given by $\allslots{\theta}{A}$. In other words, $d$ reserves space for all data which will be both sent and received over the session of type $A$. This is necessary as both sides of the cut share the same data section.
+First, a fresh continuation identifier $c$ is generated and added to the process header. Additionally, a data section with unique identifier $d$ is added to the header, with a layout given by $\allslots{\theta}{A}$. In other words, $d$ reserves space for all data which will be both sent and received over the session of type $A$. This is necessary as both sides of the cut share the same data section.
 
-The process initializes the session $s$ with a new block \texttt{rhs} as continuation, and $d$ as a writing location. Then, it recursively compiles both $P$ and $Q$ with a new environment where the name $x$ is bound to $(s, d, 0)$. $P$ is placed on the original block, and $Q$ placed on the new block \texttt{rhs}.
+The process initializes the continuation $c$ with a new block \texttt{rhs} as the target location, and $d$ as a writing location. Then, it recursively compiles both $P$ and $Q$ with a new environment where the name $x$ is bound to $(c, d, 0)$. $P$ is placed on the original block, and $Q$ placed on the new block \texttt{rhs}.
 
 The compilation of a $\parp$ process is shown below. The process starts by generating code to push a new task for executing $Q$ into the task stack. Then, it compiles $P$, which will be executed immediately. AS with the $\cutp$ process, the number of exit points of the generated code is the sum of the number of exit points of both $P$ and $Q$. Since the task stack is a stack, task pop instructions always execute the most recently pushed task. Thus, it is guaranteed that $Q$ will only execute after $P$ has finished executing completely.
 \begin{compilation}{\theta}{\Delta}{\parc{P}{Q}}
@@ -649,7 +649,7 @@ The $\emptyp$ process is compiled as shown below. The process marks the end of t
 
 The compilation of a $\closep$ process can be seen below. The session identifier is fetched from the channel environment $\Delta$. This action doesn't have a continuation, as the session is closed and no more operations can be performed on it. Flow of control is simply passed to the continuation of the session, and won't return.
 \begin{compilation}{\theta}{\Delta}{\closec{x}}{1}
-    \finishsession{\continuationof{\Delta}{x}}{\hasendpoint}
+    \finishcont{\continuationof{\Delta}{x}}{\hasendpoint}
 \end{compilation}
 
 The $\waitp$ process is skipped during compilation: $\getendpoints{\theta}{\waitc{x}{P}} \equiv \getendpoints{\theta}{P}$, $\getinstructions{\theta}{\Delta}{\waitc{x}{P}} \equiv \getinstructions{\theta}{\Delta}{P}$. There's no actual code generated for the wait action, as the action of waiting for the other side of the channel is already performed implicitly by the \ac{SAM} execution scheme, closely mirrored by the continue mechanism we defined earlier.
@@ -661,7 +661,7 @@ The compilation of a $\letp$ process is shown below. The compiler generates the 
 \begin{compilation}{\theta}{\Delta}{\letc{x}{E}}
 {1}
     \writeexpr{\writelocof{\Delta}{x}}{\getexpression{\Delta}{E}}
-    \finishsession{\continuationof{\Delta}{x}}{\hasendpoint}
+    \finishcont{\continuationof{\Delta}{x}}{\hasendpoint}
 \end{compilation}
 
 The compilation of a $\scanp$ process is near identical except that instead of computing an expression, we use the \texttt{writeScan} instruction to read from the standard input.
@@ -669,7 +669,7 @@ The compilation of a $\scanp$ process is near identical except that instead of c
 \begin{compilation}{\theta}{\Delta}{\scanc{x}}
 {1}
     \writescan{\writelocof{\Delta}{x}}{\slots{\theta}{\tau}} \comment \text{where } x:\tau
-    \finishsession{\continuationof{\Delta}{x}}{\hasendpoint}
+    \finishcont{\continuationof{\Delta}{x}}{\hasendpoint}
 \end{compilation}
 
 To compile the $\printp$ and $\printlnp$ processes, a single instruction is generated to print the result of the expression $E$ to the standard output. Then, the process continues by recursing on its continuation $P$.
@@ -716,27 +716,27 @@ The compilation of a $\casep$ process is shown below. The compiler generates cod
 
 \subsection{Send and Receive}
 
-The compilation of a $\sendp$ process is shown below. The process initializes a session $s$ with a new block \texttt{lhs} as continuation and the local data section $d$ as a writing location. $s$ and $d$ are added to the process header, similarly to the $\cutp$ process. In this case, however, $d$ has a layout given by $\alllocalslots{\theta}{A}$, i.e., it only reserves space for received data. This is because, unlike the $\cutp$ process, only this end point of the session will be using this data section to read data.
+The compilation of a $\sendp$ process is shown below. The process initializes a session $s$ with a new block \texttt{lhs} as continuation and the data section $d$ as a writing location. $s$ and $d$ are added to the process header, similarly to the $\cutp$ process. In this case, however, $d$ has a layout given by $\alllocalslots{\theta}{A}$, i.e., it only reserves space for received data. This is because, unlike the $\cutp$ process, only this end point of the session will be using this data section to read data.
 
 The initialized session $s$ is then written the remote data of $x$, after which a \texttt{continueIfNegative} instruction is placed. This is necessary, as before, to implement the write-to-read adjustment of the \ac{SAM}. After this, the process recurses immediately on $Q$, advancing the offset of channel $x$ to skip over the sent data, as explained in \Cref{subsubsection:AdvancingOffsets}.
 
 Finally, on the new block \texttt{lhs}, the process recurses on $P$, with a new environment where $y$ is bound to the channel state $(s, d, 0)$. This block will only be executed when the reader of the session we just wrote passes control to it.
 \begin{compilation}{\theta}{\Delta}{\sendc{x}{y}{P}{Q}}
 {\getendpoints{\theta}{P} + \getendpoints{\theta}{Q}}
-    \initsession{s}{\texttt{lhs}}{d}
-    \writesession{\writelocof{\Delta}{x}}{s}
+    \initcontinuation{s}{\texttt{lhs}}{d}
+    \writecontinuation{\writelocof{\Delta}{x}}{s}
     \continueifneg{\continuationof{\Delta}{x}}{A} \comment \text{where } x:A \text{ in }Q
     \recurse{\theta}{\advancech{\Delta}{x}{+}{\theta}{\seqst{\conts}}{A}}{Q}
     \labelir{lhs}
     \recurse{\theta}{\Delta[y \mapsto (s, d, 0)]}{P}
 \end{compilation}
 
-The $\recvp$ process is compiled as shown below. When executing this process, a session has already been written to the local data section associated to channel $x$. A session binding instruction is generated to bind this stored session into a fresh session identifier $s$, which is added to the process header, and a to a fresh local data section $d$, which is also added to the header, with layout $\alllocalslots{\theta}{A}$, similarly to the $\sendp$ process.
+The $\recvp$ process is compiled as shown below. When executing this process, a session has already been written to the data section associated to channel $x$. A session binding instruction is generated to bind this stored session into a fresh session identifier $s$, which is added to the process header, and a to a fresh data section $d$, which is also added to the header, with layout $\alllocalslots{\theta}{A}$, similarly to the $\sendp$ process.
 
 The newly bound session must be continued if its type is negative, ensuring that the writing side of the session executes first. After this, the compilation recurses on $P$, with a new environment where $x$ has been advanced to skip over the received session, and $y$ is bound to the channel state $(s, d, 0)$.
 \begin{compilation}{\theta}{\Delta}{\recvc{x}{y: A}{P}}
 {\getendpoints{\theta}{P}}
-    \bindsession{s}{\readlocof{\Delta}{x}}{d}
+    \bindcontinuation{s}{\readlocof{\Delta}{x}}{d}
     \continueifneg{s}{A} \comment \text{where } x:A \text{ in }P
     \recurse{\theta}{\advancech{\Delta}{x}{-}{\theta}{\seqst{\conts}}{A}[y \mapsto (s, d, 0)]}{P}
 \end{compilation}
@@ -749,7 +749,7 @@ Forwarding requires us to move any data which has been received (but not consume
 \begin{compilation}{\theta}{\Delta}{\fwdc{x}{y}}
 {1}
     \moveslots{\writelocof{\Delta}{y}}{\readlocof{\Delta}{x}}{\slots{\theta}{A}}
-    \forwardsessions{\continuationof{\Delta}{x}}{\continuationof{\Delta}{y}}{\hasendpoint}
+    \forwardcontinuations{\continuationof{\Delta}{x}}{\continuationof{\Delta}{y}}{\hasendpoint}
 \end{compilation}
 
 \subsection{Process Calls}
@@ -773,7 +773,7 @@ On the original process, an exponential write instruction is generated referenci
 \begin{compilation}{\theta}{\Delta}{\bangc{x}{y}{P}}
 {1}
     \writeexp{\writelocof{\Delta}{x}}{id}{T, D}
-    \finishsession{\continuationof{\Delta}{x}}{\hasendpoint}
+    \finishcont{\continuationof{\Delta}{x}}{\hasendpoint}
 \end{compilation}
 
 The list of type arguments $T_1,\,\dots,\,T_n$ is generated similarly to the type arguments of a process call, but inheriting the same exact type parameters as the current process.
@@ -800,7 +800,7 @@ In both cases, the process finishes by recursing on the right-hand-side $P$ of t
 \begin{minipage}{0.45\textwidth}
     \begin{compilation}{\theta}{\Delta}{\unfoldmuc{x}{P}}
     {\getendpoints{\theta}{P}}
-        \continuesession{\continuationof{\Delta}{x},\,\texttt{cont}}
+        \continue{\continuationof{\Delta}{x},\,\texttt{cont}}
         \labelir{cont} 
         \recurse{\theta}{\Delta[x \mapsto (\continuationof{\Delta}{x}, \localdataof{\Delta}{x}, 0)]}{P}
     \end{compilation}
@@ -830,14 +830,14 @@ The compilation definition of the $\recvtyc{x}{X}P$ process is shown below. Two 
 
 First, a branch instruction is generated which reads a tag from the local data of channel $x$, indicating the polarity of the received type. Then, depending on the read tag, either $id^-$ or $id^+$ is called, passing all free names in $P$ as arguments, along with the new session which represents $x$ in $P$, stored in $\readlocof{\Delta}{x} + \slotoffset{\seqst{\types}}{\seqst{\conts; \tags}}$. Type parameters $T$ are generated from the type parameters of the current process, but with an extra entry for $X$, which is read from $\readlocof{\Delta}{x}$. Session arguments $S$ and data arguments $D$ are generated from the free names in $P$ and their state in $\Delta$. The right-hand-side $P$ is compiled on the new processes in the same way as process definitions.
 
-On the other hand, the $\sendtyc{x}{A}{P}$ process is compiled in a more direct manner, as shown below. This is possible because the type variable has a concrete type $A$ at the point of sending, known at compile time. First, a fresh session $s$ is initialized with a new block \texttt{cont} as continuation, and a fresh local data section $d$ with layout $\alllocalslots{\theta}{B}$, where $B$ is the type of channel $x$ in $P$. Then, the type $A$ is written to the remote data of channel $x$, along with a $\conts$ referencing a $s$ and a $\tags$ indicating $A$'s polarity ($0$ for negative types, $1$ for positive types). The session of channel $x$ is then finished.
+On the other hand, the $\sendtyc{x}{A}{P}$ process is compiled in a more direct manner, as shown below. This is possible because the type variable has a concrete type $A$ at the point of sending, known at compile time. First, a fresh session $s$ is initialized with a new block \texttt{cont} as continuation, and a fresh data section $d$ with layout $\alllocalslots{\theta}{B}$, where $B$ is the type of channel $x$ in $P$. Then, the type $A$ is written to the remote data of channel $x$, along with a $\conts$ referencing a $s$ and a $\tags$ indicating $A$'s polarity ($0$ for negative types, $1$ for positive types). The session of channel $x$ is then finished.
 \begin{compilation}{\theta}{\Delta}{\sendtyc{x}{A}{P}}
 {\getendpoints{\theta}{P}}
-    \initsession{s}{\texttt{cont}}{d}
+    \initcontinuation{s}{\texttt{cont}}{d}
     \writetype{\writelocof{\Delta}{x}}{\slots{\theta}{A}}
-    \writesession{\writelocof{\Delta}{x} + \slotoffset{\seqst{\types}}{\seqst{\conts; \tags}}}{s}
+    \writecontinuation{\writelocof{\Delta}{x} + \slotoffset{\seqst{\types}}{\seqst{\conts; \tags}}}{s}
     \writetag{\writelocof{\Delta}{x} + \slotoffset{\seqst{\types; \conts}}{\seqst{\tags}}}{p} \comment \text{where } p = 0 \text{ if } A \text{ is negative, } 1 \text{ otherwise}
-    \finishsession{\continuationof{\Delta}{x}}{\hasendpoint}
+    \finishcont{\continuationof{\Delta}{x}}{\hasendpoint}
     \labelir{cont}
     \recurse{\theta}{\Delta[x \mapsto (s, d, 0)]}{P}
 \end{compilation}
@@ -854,14 +854,14 @@ The compilation of the $\affinec{x}P$ process, shown below, implements the affin
     \recurse{\theta}{\advancech{\Delta}{x}{-}{\theta}{\seqst{\tags}}{A}}{P} \comment \text{where } x:A \text{ in }P
     \labelir{discard}
     \recurse{\theta}{\Delta}{\discardc{y_i}} \comment \text{for each free co-affine name }y_i\text{ in }P
-    \finishsession{\continuationof{\Delta}{x}}{\hasendpoint}
+    \finishcont{\continuationof{\Delta}{x}}{\hasendpoint}
 \end{compilation}
 
 To compile a $\discardc{x}$ process, as seen below, a tag is written to the remote data of channel $x$ indicating that the session is being discarded. Then, control is passed to the continuation of the session. When it returns, the current task is finished, unless the $\discardp$ process was generate as part of the discard branch of an affine process, in which case the execution of the current task continues.
 \begin{compilation}{\theta}{\Delta}{\discardc{x}}
 {1}
     \writetag{\writelocof{\Delta}{x}}{1} \comment \text{indicating discard}
-    \continuesession{\continuationof{\Delta}{x},\,\texttt{cont}}
+    \continue{\continuationof{\Delta}{x},\,\texttt{cont}}
     \labelir{cont}
     \poptask{\hasendpoint} \comment \text{unless part of an affine discard branch}
 \end{compilation}
@@ -876,30 +876,30 @@ Finally, the $\usec{x}{P}$ process is compiled as shown below. A tag is written 
 
 \subsection{Shared state}
 
-The compilation of the $\cellc{x}{y}{P}$ process, which creates a new shared cell on $x$, is shown below. First, a new cell is written to the remote data of channel $x$, with space for a single $\conts$ slot. Then, a new session $s$ is initialized with a new block \texttt{cont} as continuation, and a fresh local data section $d$ with layout $\alllocalslots{\theta}{A}$, where $A$ is the type of channel $y$ in $P$. This session $s$ is written to the cell we just created, using the cell as a base address, and an offset of $0$. Finally, the process recurses on $P$, with a new environment where $y$ is bound to the channel state $(s, d, 0)$. This block will be executed by the process which takes the cell's content.
+The compilation of the $\cellc{x}{y}{P}$ process, which creates a new shared cell on $x$, is shown below. First, a new cell is written to the remote data of channel $x$, with space for a single $\conts$ slot. Then, a new session $s$ is initialized with a new block \texttt{cont} as continuation, and a fresh data section $d$ with layout $\alllocalslots{\theta}{A}$, where $A$ is the type of channel $y$ in $P$. This session $s$ is written to the cell we just created, using the cell as a base address, and an offset of $0$. Finally, the process recurses on $P$, with a new environment where $y$ is bound to the channel state $(s, d, 0)$. This block will be executed by the process which takes the cell's content.
 \begin{compilation}{\theta}{\Delta}{\cellc{x}{y}{P}}
 {\getendpoints{\theta}{P}}
     \writecell{\writelocof{\Delta}{x}}{\seqst{\conts}}
-    \initsession{s}{\texttt{cont}}{d}
-    \writesession{c(\writelocof{\Delta}{x})}{s}
+    \initcontinuation{s}{\texttt{cont}}{d}
+    \writecontinuation{c(\writelocof{\Delta}{x})}{s}
     \labelir{cont}
     \recurse{\theta}{\Delta[y \mapsto (s, d, 0)]}{P}
 \end{compilation}
 
-The $\takec{x}{y}P$ process is compiled as shown below. First, the cell's mutex is locked. Then, the session stored in the cell is bound to a fresh session identifier $s$, which is added to the process header, along with a fresh local data section $d$ with layout $\alllocalslots{\theta}{A}$, where $A$ is the type of channel $y$ in $P$. If the type $A$ is negative, the session is continued, similarly to the $\recvp$ process. Finally, the process recurses on $P$, with a new environment where $y$ is bound to the channel state $(s, d, 0)$. The cell's mutex is unlocked when the session $s$ is released.
+The $\takec{x}{y}P$ process is compiled as shown below. First, the cell's mutex is locked. Then, the session stored in the cell is bound to a fresh session identifier $s$, which is added to the process header, along with a fresh data section $d$ with layout $\alllocalslots{\theta}{A}$, where $A$ is the type of channel $y$ in $P$. If the type $A$ is negative, the session is continued, similarly to the $\recvp$ process. Finally, the process recurses on $P$, with a new environment where $y$ is bound to the channel state $(s, d, 0)$. The cell's mutex is unlocked when the session $s$ is released.
 \begin{compilation}{\theta}{\Delta}{\takec{x}{y}{P}}
 {\getendpoints{\theta}{P}}
     \lockcell{\readlocof{\Delta}{x}}
-    \bindsession{s}{c(\readlocof{\Delta}{x})}{d}
+    \bindcontinuation{s}{c(\readlocof{\Delta}{x})}{d}
     \continueifneg{s}{A} \comment \text{where } x:A \text{ in }P
     \recurse{\theta}{\Delta[y \mapsto (s, d, 0)]}{P}
 \end{compilation}
 
-The $\putc{x}{y}{P}Q$ process is compiled as shown below. First, a fresh session $s$ is initialized with a new block \texttt{lhs} as continuation, and a fresh local data section $d$ with layout $\alllocalslots{\theta}{A}$, where $A$ is the type of channel $y$ in $P$. This session $s$ is written to the cell referenced by channel $x$. Then, the cell is unlocked and the process recurses immediately on $Q$. Finally, on the new block \texttt{lhs}, the process recurses on $P$, with a new environment where $y$ is bound to the channel state $(s, d, 0)$. This block will only be executed when the taker of the cell we just wrote passes control to it.
+The $\putc{x}{y}{P}Q$ process is compiled as shown below. First, a fresh session $s$ is initialized with a new block \texttt{lhs} as continuation, and a fresh data section $d$ with layout $\alllocalslots{\theta}{A}$, where $A$ is the type of channel $y$ in $P$. This session $s$ is written to the cell referenced by channel $x$. Then, the cell is unlocked and the process recurses immediately on $Q$. Finally, on the new block \texttt{lhs}, the process recurses on $P$, with a new environment where $y$ is bound to the channel state $(s, d, 0)$. This block will only be executed when the taker of the cell we just wrote passes control to it.
 \begin{compilation}{\theta}{\Delta}{\putc{x}{y}{P}{Q}}
 {\getendpoints{\theta}{P} + \getendpoints{\theta}{Q}}
-    \initsession{s}{\texttt{lhs}}{d}
-    \writesession{c(\readlocof{\Delta}{x})}{s}
+    \initcontinuation{s}{\texttt{lhs}}{d}
+    \writecontinuation{c(\readlocof{\Delta}{x})}{s}
     \unlockcell{\readlocof{\Delta}{x}}
     \recurse{\theta}{\Delta}{Q}
     \labelir{lhs}
@@ -942,7 +942,7 @@ The memory layout of a slot $s$ on a given target architecture $\arch$ is given 
 \[\begin{aligned}
     &\begin{aligned}
         &\slotlayout{\sigma}{\ints} = \archlayout{int} && \slotlayout{\sigma}{\bools} = \archlayout{unsigned char} \\
-        &\slotlayout{\sigma}{\strings} = \archlayout{char*} && \slotlayout{\sigma}{\conts} = \archlayout{struct session*} \\
+        &\slotlayout{\sigma}{\strings} = \archlayout{char*} && \slotlayout{\sigma}{\conts} = \archlayout{struct cont*} \\
         &\slotlayout{\sigma}{\tags} = \archlayout{unsigned char} && \slotlayout{\sigma}{\types} = \archlayout{struct type} \\
         &\slotlayout{\sigma}{\exponentials} = \archlayout{struct exponential*} && \slotlayout{\sigma}{\cells{\dots}} = \archlayout{struct cell*} \\
     \end{aligned}\\
@@ -960,24 +960,24 @@ The definition of $\slotlayout{\sigma}{s}$ is extended below to support both tre
 
 The main data structure used to implement the execution state of the \ac{IR} abstract machine is the environment, which stores all state related to a process invocation. In the generated code, environments are compiled to heap allocated byte arrays, which are indexed through an environment layout $\envlayout$.
 
-An environment layout $\envlayout$ is a compile-time data structure which describes the byte offsets at which each entry of the environment can be found, and is computed from the header of the \ac{IR} process being compiled. The address of the exit point counter (a C integer or atomic integer if concurrency is enabled) is given by $\envlayouteps{\texttt{env}}$ where \texttt{env} is a pointer to the environment. Drop bits are stored at $\envlayoutdrop{\texttt{env}}$, type information for type variable $t_i$ is stored at $\envlayouttype{\texttt{env}}{t_i}$, sessions $s_i$ are stored at $\envlayoutsession{\texttt{env}}{s_i}$, and local data $d_i$ at $\envlayoutlocal{\texttt{env}}{d_i}$.
+An environment layout $\envlayout$ is a compile-time data structure which describes the byte offsets at which each entry of the environment can be found, and is computed from the header of the \ac{IR} process being compiled. The address of the exit point counter (a C integer or atomic integer if concurrency is enabled) is given by $\envlayouteps{\texttt{env}}$ where \texttt{env} is a pointer to the environment. Drop bits are stored at $\envlayoutdrop{\texttt{env}}$, type information for type variable $t_i$ is stored at $\envlayouttype{\texttt{env}}{t_i}$, continuations $c_i$ are stored at $\envlayoutcont{\texttt{env}}{c_i}$, and local data $d_i$ at $\envlayoutlocal{\texttt{env}}{d_i}$.
 
 The layout of the environment is computed trivially by concatenating the layouts of each of its entries, in the order they appear in the process header. The layout for for data entries is the most noteworthy, as it depends on the stored data type. This layout is computed from $\slotlayout{\sigma}{S}$, where $S$ is the set of slot trees of the data being stored, and $\sigma$ is a mapping between type variables and their layouts, fetched from the environment itself (e.g., $\sigma(t_i) = \texttt{access}(\envlayouttype{\texttt{env}}{t_i})$). Its formal definition is omitted for brevity.
 
-Sessions are stored in the environment as instances of the C type \texttt{struct session}, shown below. Sessions store the address of a label to jump to the continuation (\texttt{cont}), a pointer to the environment to switch to before jumping to the continuation (\texttt{cont\_env}), a pointer to the remote data (writing buffer) of the session (\texttt{cont\_data}), and a pointer to the session entry in the continuation environment pertaining to the other end point of the session (\texttt{cont\_session}).
+Continuations are stored in the environment as instances of the C type \texttt{struct cont}, shown below. Continuations store the program address of a label to jump to (\texttt{loc}), a pointer to the environment to switch to before jumping (\texttt{env}), a pointer to the writing location (\texttt{write}), and a pointer to the continuation pertaining to the other end point of the session (\texttt{remote}).
 
-\begin{lstlisting}[language=C]
-struct session {
-  void* cont;
-  char* cont_env;
-  char* cont_data;
-  struct session* cont_session;
+\begin{lstlisting}[language=C, frame=bottom]
+struct cont {
+  void* loc;
+  char* env;
+  char* write;
+  struct cont* remote;
 };
 \end{lstlisting}
 
-Type information is stored in the environment as instances of the C type \texttt{struct type}, shown below. This structure holds the \texttt{size} and \texttt{alignment} of the data described by the type. This structure is also used to store the value of $\types$ slots in the local data sections.
+Type information is stored in the environment as instances of the C type \texttt{struct type}, shown below. This structure holds the \texttt{size} and \texttt{alignment} of the data described by the type. This structure is also used to store the value of $\types$ slots in the data sections.
 
-\begin{lstlisting}[language=C]
+\begin{lstlisting}[language=C, frame=bottom]
 struct type {
     int size;
     int alignment;
@@ -988,7 +988,7 @@ struct type {
 
 When the exit point counter of an environment reaches zero, any set drop bits must be processed, dropping their associated data. Thus, whenever an instruction decrements the exit point counter, it must check if it reached zero, and if so, run the cleanup code. Only then can the environment itself be freed. For example, the code below decrements the exit point counter, checking if it reached zero, and if so, checks if the drop bit $0$ is set, dropping its associated data if so, before freeing the environment itself.
 
-\begin{lstlisting}[language=C]
+\begin{lstlisting}[language=C, frame=bottom]
 if (atomic_fetch_sub(&(*(atomic_int*)(env)), 1) == 1) {
     if ((*(unsigned char*)(env + 4)) & (1 << 0)) {
         /* drop data associated to drop bit 0 */
@@ -1004,7 +1004,7 @@ The \texttt{main} function of the generated C program initializes any required g
 
 At the start of the \texttt{executor} function, registers used to implement the \ac{IR} instructions are declared. The first two registers \texttt{task} and \texttt{env} respectively store pointers to the head of the task stack (introduced in the next subsection) and the current environment, which is state kept across \ac{IR} instructions. The rest of the registers are used to store temporary values used within the execution of each instruction. After declaring the registers, the thread state is initialized.
 
-\begin{lstlisting}[language=C]
+\begin{lstlisting}[language=C, frame=bottom]
 void executor(struct task* entry) {
     /* Registers */
     register struct task* task;
@@ -1012,22 +1012,21 @@ void executor(struct task* entry) {
     register void* tmp_ptr1;
     register void* tmp_ptr2;
     register int tmp_int;
-    struct session tmp_session;
-
+    struct cont tmp_cont;
     /* Initialize thread state (...) */
 \end{lstlisting}
 
 After initializing the thread state, control is passed to the entry task (received as argument), which contains a continuation address and environment. If the entry task is \texttt{NULL}, the main process is called instead, as shown below. To call the main process, a new environment is allocated with the size computed from its header, and a jump is performed to its entry block.
 
-\begin{lstlisting}[language=C]
+\begin{lstlisting}[language=C, frame=bottom]
     if (entry == NULL) {
         /* callProcess(main) */
         tmp_ptr1 = managed_alloc(144);
         env = ((char*)(tmp_ptr1));
         goto main_entry;
     } else {
-        env = entry->cont_env;
-        tmp_ptr1 = entry->cont;
+        env = entry->env;
+        tmp_ptr1 = entry->loc;
         managed_free(entry);
         goto *tmp_ptr1;
     }
@@ -1035,7 +1034,7 @@ After initializing the thread state, control is passed to the entry task (receiv
 
 After these instructions, still within the \texttt{executor} function, for each block of each process a unique C label is generated, followed by the C code generated from the \ac{IR} instructions in the block. Finally, a label named \texttt{end} is generated, which represents the end of the thread's execution.
 
-\begin{lstlisting}[language=C]
+\begin{lstlisting}[language=C, frame=bottom]
 main_entry:
     /* instructions of main's entry block ... */
 foo_cut_lhs_0:
@@ -1048,67 +1047,67 @@ end:
 
 \subsection{Tasks}
 
-Tasks are stored in a linked list local to each thread of execution, where each node is of the type shown below. The \texttt{task} register points to the head node of this stack. The \texttt{next} field points to the next task to be executed, while the \texttt{cont} and \texttt{cont\_env} fields store the program address and environment to switch to when executing the task. 
+Tasks are stored in a linked list local to each thread of execution, where each node is of the type shown below. The \texttt{task} register points to the head node of this stack. The \texttt{next} field points to the next task to be executed, while the \texttt{loc} and \texttt{env} fields store the program address and environment to switch to when executing the task. 
 
-\begin{lstlisting}[language=C]
+\begin{lstlisting}[language=C, frame=bottom]
 struct task {
     struct task* next;
-    void* cont;
-    char* cont_env;
+    void* loc;
+    char* env;
 };
 \end{lstlisting}
 
 The \texttt{task} register is initialized at the start of the \texttt{executor} function with a dummy task which jumps to the \texttt{end} label, ending the thread's execution. This dummy task is necessary to ensure that the task stack is never empty, simplifying the implementation of the \texttt{popTask} instruction.
 
-\begin{lstlisting}[language=C]
+\begin{lstlisting}[language=C, frame=bottom]
     task = managed_alloc(sizeof(struct task));
-    task->cont = &&end;
+    task->loc = &&end;
 \end{lstlisting}
 
 The two \ac{IR} instructions for manipulating tasks, \texttt{pushTask} and \texttt{popTask}, manipulate the linked list of tasks pointed to by the \texttt{task} register. The first instruction, \texttt{pushTask}, allocates a new task, sets its continuation to the C label of the chosen block, and inserts it at the head of the linked list. The generated C code for this instruction is shown below.
 
-\begin{lstlisting}[language=C]
+\begin{lstlisting}[language=C, frame=bottom]
     /* pushTask(cont) */
     tmp_ptr1 = task;
     task = managed_alloc(sizeof(struct task));
     task->next = ((struct task*)(tmp_ptr1));
-    task->cont = &&proc_cont; /* proc_cont is the C label of block 'cont' */
-    task->cont_env = env;
+    task->loc = &&proc_cont; /* proc_cont is the C label of block 'cont' */
+    task->env = env;
 \end{lstlisting}
 
 The \texttt{popTask} instruction, whose generation is shown below, removes the first task from the linked list, changes the current environment and jumps to its continuation.
 
-\begin{lstlisting}[language=C]
+\begin{lstlisting}[language=C, frame=bottom]
     /* popTask() */
     tmp_ptr1 = task;
-    tmp_ptr2 = task->cont;
-    env = task->cont_env;
+    tmp_ptr2 = task->loc;
+    env = task->env;
     task = task->next;
     managed_free(tmp_ptr1);
     goto *tmp_ptr2;
 \end{lstlisting}
 
-\subsection{Session manipulation}
+\subsection{Continuation manipulation}
 
-The \texttt{initContinuation} instruction is compiled as shown below. The session at $\envlayoutsession{\texttt{env}}{c_0}$ (in this example, $\texttt{env} + 8$) is initialized with the given continuation label, the current environment as its continuation environment, the address $\envlayoutlocal{\texttt{env}}{d_0}$ (in this case, $\texttt{env} + 40$) as its continuation data, and a pointer to itself as its continuation session.
+The \texttt{initContinuation} instruction is compiled as shown below. The continuation at $\envlayoutcont{\texttt{env}}{c_0}$ (in this example, $\texttt{env} + 8$) is initialized with the given program label, the current environment, the address $\envlayoutlocal{\texttt{env}}{d_0}$ (in this case, $\texttt{env} + 40$) as its writing location data, and a pointer to itself as its remote continuation.
 
-\begin{lstlisting}[language=C]
+\begin{lstlisting}[language=C, frame=bottom]
     /* initContinuation(c0, cut_lhs_0, d0) */
-    (*(struct session*)(env + 8)) = (struct session){
-        .cont=&&main_cut_lhs_0,
-        .cont_env=env,
-        .cont_data=env + 40,
-        .cont_session=env + 8
+    (*(struct cont*)(env + 8)) = (struct cont){
+        .loc=&&main_cut_lhs_0,
+        .env=env,
+        .write=env + 40,
+        .remote=env + 8
     };
 \end{lstlisting}
 
-The compilation of the \texttt{finish} instruction is shown below. First, the remote session of the finished session is unlinked from the current session by setting its \texttt{cont\_session} field to itself. This is necessary to avoid use after free errors in instructions such as \texttt{forwardContinuations} and \texttt{callProcess}. Then, the continuation is stored on the registers and the environment's exit point counter is decremented atomically (when concurrency is disabled, a normal integer is used instead). If the counter reaches zero, the environment cleanup code described in \Cref{subsubsection:CEnvironmentCleanup} is executed. Finally, the environment and program address are switched to the continuation values, and a jump is performed.
+The compilation of the \texttt{finish} instruction is shown below. First, the remote continuation of the finished continuation is unlinked from this continuation by setting its \texttt{remote} field to itself. This is necessary to avoid use after free errors in instructions such as \texttt{forwardContinuations} and \texttt{callProcess}. Then, the target location and environment is stored on the registers and the environment's exit point counter is decremented atomically (when concurrency is disabled, a normal integer is used instead). If the counter reaches zero, the environment cleanup code described in \Cref{subsubsection:CEnvironmentCleanup} is executed. Finally, the environment and program address are switched to the continuation values, and a jump is performed.
 
-\begin{lstlisting}[language=C]
+\begin{lstlisting}[language=C, frame=bottom]
     /* finish(c0, exit point) */
-    (*(*(struct session*)(env + 8)).cont_session).cont_session = (*(struct session*)(env + 8)).cont_session;
-    tmp_ptr1 = (*(struct session*)(env + 8)).cont;
-    tmp_ptr2 = (*(struct session*)(env + 8)).cont_env;
+    (struct cont*)(env + 8)->remote->remote = (struct cont*)(env + 8)->remote;
+    tmp_ptr1 = (*(struct cont*)(env + 8)).loc;
+    tmp_ptr2 = (*(struct cont*)(env + 8)).env;
     if (atomic_fetch_sub((atomic_int*)(env), 1) == 1) {
         /* environment cleanup code */
     }
@@ -1116,25 +1115,25 @@ The compilation of the \texttt{finish} instruction is shown below. First, the re
     goto *tmp_ptr1;
 \end{lstlisting}
 
-The \texttt{continue} instruction is compiled similarly to \texttt{finish}, as shown below, except that the exit point counter is not decremented, and that the continuation of the remote session must be updated so that it eventually jumps back to the correct label.
+The \texttt{continue} instruction is compiled similarly to \texttt{finish}, as shown below, except that the exit point counter is not decremented, and that the remote continuation must instead be updated so that it eventually jumps back to the correct label.
 
-\begin{lstlisting}[language=C]
+\begin{lstlisting}[language=C, frame=bottom]
     /* continue(c0, continue_12) */
-    tmp_ptr1 = (*(struct session*)(env + 8)).cont;
-    (*(*(struct session*)(env + 8)).cont_session).cont = &&main_continue_12;
-    env = (*(struct session*)(env + 8)).cont_env;
+    tmp_ptr1 = (*(struct cont*)(env + 8)).loc;
+    (*(*(struct cont*)(env + 8)).remote).loc = &&main_continue_12;
+    env = (*(struct cont*)(env + 8)).env;
     goto *tmp_ptr1;
 \end{lstlisting}
 
-The \texttt{forwardContinuations} instruction first stores the continuation of its second argument in the temporary registers. Then, it sets the remote sessions of both arguments to point to each other, ensuring no references are left to the local sessions. A temporary variable is used to store the first argument's session, as its value may be overwritten due to the possibility of a session being its own remote session. Finally, the exit point counter is decremented, and control is passed to the continuation stored in the temporary registers.
+The \texttt{forwardContinuations} instruction first stores the continuation of its second argument in the temporary registers. Then, it sets the remotes of both argument continuations to point to each other, ensuring no references are left to the local continuations. A temporary variable is used to store the first argument continuation, as its value may be overwritten due to the possibility of a continuation being its own remote. Finally, the exit point counter is decremented, and control is passed to the location and environment stored in the temporary registers.
 
-\begin{lstlisting}[language=C]
+\begin{lstlisting}[language=C, frame=bottom]
     /* forwardContinuations(c0, c1, exit point) */
-    tmp_ptr1 = (*(struct session*)(env + 40)).cont;
-    tmp_ptr2 = (*(struct session*)(env + 40)).cont_env;
-    tmp_session = *(struct session*)(env + 8);
-    *(*(struct session*)(env + 8)).cont_session = *(struct session*)(env + 40);
-    *(*(struct session*)(env + 40)).cont_session = tmp_session;
+    tmp_ptr1 = (*(struct cont*)(env + 40)).loc;
+    tmp_ptr2 = (*(struct cont*)(env + 40)).env;
+    tmp_cont = *(struct cont*)(env + 8);
+    *(*(struct cont*)(env + 8)).remote = *(struct cont*)(env + 40);
+    *(*(struct cont*)(env + 40)).remote = tmp_cont;
     if (atomic_fetch_sub(*(atomic_int*)(env), 1) == 1) {
         /* environment cleanup code */
     }
@@ -1144,12 +1143,12 @@ The \texttt{forwardContinuations} instruction first stores the continuation of i
 
 \subsection{Exponentials}
 
-Exponentials are reference counted, heap allocated structures, represented in C by the type shown below. Each exponential stores stores a template for the environments to be created when the exponential is called. The \texttt{entry\_session\_offset} field stores the byte offset the argument session is stored at on the environment template, while the \texttt{entry\_data\_offset} field stores the byte offset the argument data is stored at. The \texttt{env\_size} field stores the size in bytes of the environment template, while the \texttt{manager} field stores a code location, known as the exponential's manager, which is responsible for cloning and dropping the exponential's template environment. Finally, the flexible array member \texttt{env} stores the actual environment template data.
+Exponentials are reference counted, heap allocated structures, represented in C by the type shown below. Each exponential stores stores a template for the environments to be created when the exponential is called. The \texttt{entry\_cont\_offset} field stores the byte offset the argument continuation is stored at on the environment template, while the \texttt{entry\_data\_offset} field stores the byte offset the argument data is stored at. The \texttt{env\_size} field stores the size in bytes of the environment template, while the \texttt{manager} field stores a code location, known as the exponential's manager, which is responsible for cloning and dropping the exponential's template environment. Finally, the flexible array member \texttt{env} stores the actual environment template data.
 
-\begin{lstlisting}[language=C]
+\begin{lstlisting}[language=C, frame=bottom]
 struct exponential {
     atomic_int ref_count;
-    int entry_session_offset;
+    int entry_cont_offset;
     int entry_data_offset;
     int env_size;
     void* manager;
@@ -1157,51 +1156,51 @@ struct exponential {
 };
 \end{lstlisting}
 
-The \texttt{writeExponential} instruction is compiled as shown below. First, a new exponential structure is allocated with enough space to store the environment template, and its fields are initialized. The reference count is initialized to $1$, the offsets and size are computed from the environment layout of the exponential process, and the manager is set to a new unique C label. The environment template is initialized based on the exponential process header. The argument session's continuation is initialized to point to the entry block of the exponential process, and any argument types or data are written.
+The \texttt{writeExponential} instruction is compiled as shown below. First, a new exponential structure is allocated with enough space to store the environment template, and its fields are initialized. The reference count is initialized to $1$, the offsets and size are computed from the environment layout of the exponential process, and the manager is set to a new unique C label. The environment template is initialized based on the exponential process header. The argument continuation is initialized to point to the entry block of the exponential process, and any argument types or data are written.
 
-\begin{lstlisting}[language=C]
+\begin{lstlisting}[language=C, frame=bottom]
     /* writeExponential(d0, main_exp0) */
     *(struct exponential**)(env + 64) = managed_alloc(60);
     (*(struct exponential**)(env + 64))->ref_count = 1;
-    (*(struct exponential**)(env + 64))->entry_session_offset = 0;
+    (*(struct exponential**)(env + 64))->entry_cont_offset = 0;
     (*(struct exponential**)(env + 64))->entry_data_offset = 32;
     (*(struct exponential**)(env + 64))->env_size = 36;
     (*(struct exponential**)(env + 64))->manager = &&main_exp0_exp_manager;
     tmp_ptr1 = (*(struct exponential**)(env + 64))->env;
-    (*(struct session*)(((char*)(tmp_ptr1)) + 0)).cont = &&main_exp0_entry;
+    (*(struct cont*)(((char*)(tmp_ptr1)) + 0)).loc = &&main_exp0_entry;
     // (...) write argument types and data to environment tmp_ptr1 ...
 \end{lstlisting}
 
-The exponential manager is a block of code which when jumped to, branches on the value of \texttt{tmp\_int}, which is set to $0$ for cloning the exponential, and to $1$ for dropping it. If cloning, the current environment is assumed to be the newly allocated environment for the exponential call, while \texttt{tmp\_ptr1} is assumed to be the environment template stored in the exponential. If dropping, the current environment is assumed to be the environment template stored in the exponential. The cloning branch clones the argument data from the environment template into the new environment, while the dropping branch drops the argument data in the environment template. Finally, in both cases, control is passed to the continuation stored in argument session of the exponential environment.
+The exponential manager is a block of code which when jumped to, branches on the value of \texttt{tmp\_int}, which is set to $0$ for cloning the exponential, and to $1$ for dropping it. If cloning, the current environment is assumed to be the newly allocated environment for the exponential call, while \texttt{tmp\_ptr1} is assumed to be the environment template stored in the exponential. If dropping, the current environment is assumed to be the environment template stored in the exponential. The cloning branch clones the argument data from the environment template into the new environment, while the dropping branch drops the argument data in the environment template. Finally, in both cases, control is passed to the argument continuation stored in the exponential environment.
 
-\begin{lstlisting}[language=C]
+\begin{lstlisting}[language=C, frame=bottom]
 main_exp0_exp_manager:
     if (tmp_int == 0) {
         /* (...) clone argument data from environment tmp_ptr1 to env */
     } else {
         /* (...) drop argument data in environment env */
     }
-    tmp_ptr2 = (*(struct session*)(env + 0)).cont;
-    env = (*(struct session*)(env + 0)).cont_env;
+    tmp_ptr2 = (*(struct cont*)(env + 0)).loc;
+    env = (*(struct cont*)(env + 0)).env;
     goto *tmp_ptr2;
 \end{lstlisting}
 
-The \texttt{callExponential} instruction, compiled as shown below, first allocates a new environment for the exponential call with the size stored in the exponential structure. This environment is initialized through a memory copy from the exponential's template environment, and is set as the continuation environment of the argument session on the current environment. Then, the argument session and data is connected to the argument session in the new environment, and finally the exponential manager is jumped to, with \texttt{tmp\_int} set to $0$ to indicate a clone operation. When the clone finishes, control is passed back to the label \texttt{main\_exp\_call\_return\_0}.
+The \texttt{callExponential} instruction, compiled as shown below, first allocates a new environment for the exponential call with the size stored in the exponential structure. This environment is initialized through a memory copy from the exponential's template environment, and is set as the environment of the produced continuation. Then, the produced continuation and data is connected to the argument continuation in the new environment, and finally the exponential manager is jumped to, with \texttt{tmp\_int} set to $0$ to indicate a clone operation. When finished, control is passed back to the label \texttt{main\_exp\_call\_return\_0}.
 
-\begin{lstlisting}[language=C]
+\begin{lstlisting}[language=C, frame=bottom]
     /* callExponential(d0, c0, d1) */
 #define exp (*(struct exponential**)(env + 64))
-#define exp_env (*(struct session*)(env + 0)).cont_env
-#define exp_session (*(struct session*)(exp_env + exp->entry_session_offset))
+#define exp_env (*(struct cont*)(env + 0)).env
+#define exp_session (*(struct cont*)(exp_env + exp->entry_cont_offset))
     exp_env = managed_alloc(exp->env_size);
     memcpy(exp_env, exp->env, exp->env_size);
-    (*(struct session*)(env + 0)).cont = exp_session.cont;
-    ((env + 0)).cont_data = exp_env + exp->entry_data_offset;
-    (*(struct session*)(env + 0)).cont_session = &exp_session;
-    exp_session.cont_env = env;
-    exp_session.cont_data = env + 72;
-    exp_session.cont_session = env;
-    exp_session.cont = &&main_exp_call_return_0;
+    (*(struct cont*)(env + 0)).loc = exp_session.loc;
+    ((env + 0)).write = exp_env + exp->entry_data_offset;
+    (*(struct cont*)(env + 0)).remote = &exp_session;
+    exp_session.env = env;
+    exp_session.write = env + 72;
+    exp_session.remote = env;
+    exp_session.loc = &&main_exp_call_return_0;
     tmp_ptr1 = exp->env;
     tmp_ptr2 = exp->manager;
     tmp_int = 0;
@@ -1211,7 +1210,7 @@ main_exp_call_return_0:
 
 \end{lstlisting}
 
-When the reference count of an exponential reaches zero, the control is passed to its manager with \texttt{tmp\_int} set to $1$, indicating a drop operation, and the current environment set to the exponential's template environment. After the drop operation finishes, control is returned to the drop caller and the exponential structure is freed.
+When the reference count of an exponential reaches zero, the control is passed to its manager with \texttt{tmp\_int} set to $1$, indicating a drop operation, and the current environment set to the exponential's template environment. Control is then returned to the drop caller and the exponential structure is freed.
 
 \subsection{Data manipulation}
 
@@ -1219,7 +1218,7 @@ The \texttt{moveSlots}, \texttt{cloneSlots} and \texttt{dropSlots} instructions 
 
 For example, to move, clone or drop a slot tree $T = \tagst{\seqst{\strings}\tagsepst\seqst{\exponentials}}$, different code must be generated depending on whether the tag indicates that the first or second branch is active. Cloning a $\strings$ slot implies allocating a new string and copying the original string, while cloning an $\exponentials$ slot implies incrementing the reference count of the exponential value. Below is the generated C code for the \texttt{cloneSlots} instruction, operating on the slot tree $T$ described above, assuming $d_1$ is at $\texttt{env} + 32$, both $\datal{d_1}{\tags}{\strings}$ and $\datal{d_1}{\tags}{\exponentials}$ are at $\texttt{env} + 40$, $d_0$ at $\texttt{env} + 48$ and both $\datal{d_0}{\tags}{\strings}$ and $\datal{d_0}{\tags}{\exponentials}$ are at $\texttt{env} + 56$.
 
-\begin{lstlisting}[language=C]
+\begin{lstlisting}[language=C, frame=bottom]
     /* cloneSlots(d1, d0, tag[string | exponential]) */
     *(unsigned char*)(env + 32) = *(unsigned char*)(env + 48);
     switch (*(unsigned char*)(env + 48)) {
@@ -1236,17 +1235,17 @@ For example, to move, clone or drop a slot tree $T = \tagst{\seqst{\strings}\tag
 
 Moves of slots $s$ are always generated as simple memory copies of size given by $\slotlayout{\sigma}{s}$. Clones and drops, on the other hand, are generated by pattern matching on the slot $s$, generating the appropriate code for each case. Cloning and dropping basic types such as $\ints$, $\bools$ and $\tags$ slots is a no-op, while cloning and dropping other slots may involve memory (de)allocation and reference count manipulation, as shown in the example above.
 
-To clone or drop polymorphic slots $t_i$, type information for each type parameter $t_i$ is stored alongside the environment buffer, describing, at run-time, the slots which must be cloned or dropped within the type parameter. This type information is generated when a new environment is created, or when a type is stored using the \texttt{writeType} instruction.
+To clone or drop type parameter slots $t_i$, type information for each type parameter $t_i$ is stored alongside the environment buffer, describing, at run-time, the slots which must be cloned or dropped within the type parameter. This type information is generated when a new environment is created, or when type information is stored using the \texttt{writeType} instruction.
 
 \subsection{Process calls}
 
-Process calls are performed through the \texttt{callProcess} instruction. This instruction receives the identifier of the process to be called, a list of type arguments, a list of session arguments and a list of data arguments. The generated C code for this instruction is shown below.
+Process calls are performed through the \texttt{callProcess} instruction. This instruction receives the identifier of the process to be called, a list of type arguments, a list of continuation arguments and a list of data arguments. The generated C code for this instruction is shown below.
 
-\begin{lstlisting}[language=C]
+\begin{lstlisting}[language=C, frame=bottom]
     /* callProcess(foo, exit point, c0 <- c0) */
     tmp_ptr1 = managed_alloc(40);
     (*(atomic_int*)(((char*)(tmp_ptr1)))) = 1; // setup exit points
-    /* (...) pass type, session and data arguments */
+    /* (...) pass type, continuation and data arguments */
     if (atomic_fetch_sub(&(*(atomic_int*)(env)), 1) == 1) {
         /* environment cleanup code */
     }
@@ -1254,15 +1253,15 @@ Process calls are performed through the \texttt{callProcess} instruction. This i
     goto foo_entry;
 \end{lstlisting}
 
-Type arguments are passed by writing their information to the appropriate offsets in the new environment. Session arguments are passed by initializing the session entries in the environment, and connecting them to the sessions passed as arguments. This implies updating the remote session of the argument sessions to point to the sessions in the new environment. Finally, data arguments are passed by simply moving or cloning the data from the current environment to the new environment, in the same way as the \texttt{moveSlots} and \texttt{cloneSlots} instructions.
+Type arguments are passed by writing their information to the appropriate offsets in the new environment. Continuation arguments are passed by initializing the continuations in the new environment, and connecting them to the local continuations passed as arguments. This implies updating the remote of the argument continuations to point to the continuations in the new environment. Finally, data arguments are passed by simply moving or cloning the data from the current environment to the new environment, in the same way as the \texttt{moveSlots} and \texttt{cloneSlots} instructions.
 
 Before jumping to the entry block of the called process, the exit point counter of the current environment is decremented, and if it reaches zero, the current environment is cleaned up and freed, as described in \Cref{subsubsection:CEnvironmentCleanup}. Control is then passed to the entry block of the called process, with the new environment set as the current environment.
 
 \subsection{Cell operations}
 
-Cells are implemented in C as heap-allocated instances of the type shown below. The first three fields, \texttt{mutex}, \texttt{cond\_var} and \texttt{is\_free}, are used to implement the locking mechanism of the cell. The \texttt{ref\_count} field is an atomic integer which stores the reference count of the cell, while the flexible array member \texttt{data} stores the actual contents of the cell, similarly to a local data section in an environment.
+Cells are implemented in C as heap-allocated instances of the type shown below. The first three fields, \texttt{mutex}, \texttt{cond\_var} and \texttt{is\_free}, are used to implement the locking mechanism of the cell. The \texttt{ref\_count} field is an atomic integer which stores the reference count of the cell, while the flexible array member \texttt{data} stores the actual contents of the cell, similarly to a data section in an environment.
 
-\begin{lstlisting}[language=C]
+\begin{lstlisting}[language=C, frame=bottom]
 struct cell {
     pthread_mutex_t mutex;
     pthread_cond_t cond_var;
@@ -1276,7 +1275,7 @@ The \texttt{writeCell} instruction is simply compiled as the allocation of a new
 
 The cell locking/unlocking operations cannot be implemented with a simple mutex lock/unlock pair, as it is possible for a locked cell to be passed to another thread, which must then be able to unlock it. This violates the requirement that \texttt{pthread} mutexes can only be unlocked by the thread which locked them. To workaround this, the \texttt{is\_free} flag indicates if the cell is locked or not, and the mutex and condition variable are used solely to synchronize access to this flag. The \texttt{lockCell} instruction thus compiled as shown below. First, the cell's mutex is locked. Then, while the cell is not free, the thread waits on the cell's condition variable, atomically releasing the mutex while waiting, and re-acquiring it when woken up. When the cell is free, it is marked as not free, and the mutex is unlocked.
 
-\begin{lstlisting}[language=C]
+\begin{lstlisting}[language=C, frame=bottom]
     /* lockCell(d0) */
     pthread_mutex_lock(&((*(struct cell**)(env + 16))->mutex));
     while (!(*(struct cell**)(env + 16))->is_free) {
@@ -1289,7 +1288,7 @@ The cell locking/unlocking operations cannot be implemented with a simple mutex 
 
 The \texttt{unlockCell}, shown below, locks the cell's mutex, marks the cell as free, signals one thread waiting on the cell's condition variable (if any), and finally unlocks the mutex.
 
-\begin{lstlisting}[language=C]
+\begin{lstlisting}[language=C, frame=bottom]
     /* unlockCell(d0) */
     pthread_mutex_lock(&(*(struct cell**)(env + 16))->mutex);
     (*(struct cell**)(env + 0))->is_free = 1;

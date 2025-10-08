@@ -13,7 +13,7 @@ The first section goes over the transformations made to the compiler to produce 
 
 \section{Making use of type properties}
 
-The compiler presented in \Cref{chap:architecture} does not take any advantage of the fact that many types in the language can be handled more efficiently than the general case. For example, the type $\sendt{\lintt}{\lintt}$ is stored as a pointer to a session (essentially a closure) followed by an integer. The closure producing the $\lintt$ will eventually be executed, producing a single integer and immediately terminating. Instead of sending this closure, the integer could be computed immediately and sent directly, saving both memory and time, as the pointer indirection would be removed, along with some unnecessary jumps.
+The compiler presented in \Cref{chap:architecture} does not take any advantage of the fact that many types in the language can be handled more efficiently than the general case. For example, the type $\sendt{\lintt}{\lintt}$ is stored as a reference to a continuation (essentially a closure) followed by an integer. The closure producing the $\lintt$ will eventually be executed, producing a single integer and immediately terminating. Instead of sending this continuation, the integer could be computed immediately and sent directly, saving memory and time, as the pointer indirection would be removed, along with some unnecessary jumps.
 
 This section describes the implemented optimizations which take advantage of type properties such as these to generate more efficient code. In the first subsection, three type properties are defined, which determine which optimizations can be applied to them. Then, the second subsection describes the necessary compiler adaptations to classify whether a type has these properties. The last three subsections describe the transformations made using these properties.
 
@@ -88,9 +88,9 @@ To enable different memory representations for session types based on these flag
 
 To branch on the flags of a type parameter, the flags must be stored in environments, along with the rest of the type parameter information. This is done by adding a new integer field to the \texttt{type} C struct, which stores one bit for each of the type flags. Additionally, all instructions which pass around type information must be extended to support these type flags. For example, \texttt{writeType} must receive the flag requirements for each of the flags.
 
-\subsection{Sending values instead of sessions} \label{subsection:SendValueOptimizations}
+\subsection{Sending values instead of continuations} \label{subsection:SendValueOptimizations}
 
-The first implemented optimization takes advantage of the fact that a session of a positive value type $A$ being sent (e.g., $\sendt{A}{B}$) is a session which will have control returned to it only once, and immediately when it is received. The total number of operations can be reduced by simply immediately writing the data of the value instead of writing a session which would write that data. For example, instead of $\sendt{\lintt}{\sendt{\lintt}{\lintt}}$ being represented as $\seqst{\conts;\conts;\ints}$, it can be represented as $\seqst{\ints;\ints;\ints}$.
+The first implemented optimization takes advantage of the fact that a session of a positive value type $A$ being sent (e.g., $\sendt{A}{B}$) is a session which will have control returned to it exactly once, when it is received. The total number of operations can be reduced by immediately writing the data of the value instead of a continuation which would write that data. For example, instead of $\sendt{\lintt}{\sendt{\lintt}{\lintt}}$ being represented as $\seqst{\conts;\conts;\ints}$, it can be represented as $\seqst{\ints;\ints;\ints}$.
 
 First, the mapping from sessions types $A$ to their respective slot trees introduced in \Cref{subsection:MappingSessionTypesToSlots} is updated such that, for the $\sendt{A}{B}$ type, if the left-hand-side $A$ type is a positive value type, the slots of the $A$ are computed, and concatenated with the slots of the right-hand-side $B$. Otherwise, as before, a $\conts$ slot is simply added before the slots of $B$. Formally:
 $$
@@ -99,13 +99,13 @@ $$
 
 Then, the compilation of both $\sendp$ and $\recvp$ processes must be modified to reflect this new structure. A \texttt{branchFlags} instruction is generated which branches on whether the type of the argument session being sent or received is a positive or negative value, respectively. If it is not a value, the implementation is the same as before.
 
-On the sending side, if the argument is a positive value type, the argument's session is initialized with a writing location set to the main session's writing location. Then, the send's argument code is immediately executed, writing the data to the main session, through the argument session. When it finishes, the right-hand-side of the send executes, writing data after the data that has just been written.
+On the sending side, if the argument is a positive value type, the argument's continuation is initialized so that it writes directly into the main continuation's writing location. Then, the send's argument code is immediately executed, writing the data to the main session, through the argument session. When it finishes, the right-hand-side of the send executes, writing data after the data that has just been written.
 
-On the receiver side, instead of receiving a new session, the data is simply moved from the main session using \texttt{moveSlots} into the local data associated with the argument's name. The right-hand-side continues executing, reading data after the data that was just moved.
+On the receiver side, instead of receiving a continuation, the data is simply moved from the main session's data section using \texttt{moveSlots} into the argument's data section.
 
 \subsection{Eagerly computing exponentials} \label{subsection:ExponentialValueOptimizations}
 
-The second implemented optimization greatly simplifies the representation of exponential types when their inner type is a cloneable value type. Instead of representing $\bangt{A}$ as an $\exponentials$ slot, the value can simply be computed immediately and stored directly. Without this optimization, for example, storing the result of a complex computation as an exponential would require re-executing the entire computation every time the exponential is called. With this optimization, the computation is executed only once, and then the result is cloned whenever a call is made. When the exponential is dropped, the resulting value is simply dropped.
+The second implemented optimization greatly simplifies the representation of exponential types when their inner type is a cloneable value type. Instead of representing $\bangt{A}$ as an $\exponentials$ slot, the value can simply be computed immediately and stored directly. Without this optimization, for example, storing the result of a complex computation as an exponential would require re-executing the entire computation every time the exponential is called. With this change, the computation is executed only once, and the result is cloned whenever a call is made. When the exponential is dropped, the result value is dropped.
 
 This optimization changes the semantics of exponentials, as the computation is done immediately and only once, instead of once per exponential call. This transformation may end up worsening performance in cases where the exponential is never called. However, in practice, when exponentials are used, they are often called multiple times, and the performance gain in these cases is significant.
 
@@ -124,11 +124,11 @@ Finally, the $\callc{x}{y}$ process is modified to simply generate a \texttt{clo
 
 \subsection{Eagerly computing affine sessions} \label{subsection:AffineValueOptimizations}
 
-On the base compiler, $\affinet{A}$ types are implemented as sessions which follows the affine protocol, i.e., $\offert{\labelt{use}{A}\ \labelt{discard}{\closet}}$, as described in \Cref{subsection:IRDroppingData}. Although this implementation saves time by lazily executing the affine code only if the channel is used, it has the overhead of storing a session instead of the actual value, requiring multiple jumps and a tag to determine whether the channel is used or discarded, even if the inner type $A$ is a droppable type, e.g., $\affinet{\lintt}$ or $\affinet{\bangt{\lintt}}$. In these cases, the semantic could be changed so that the value is computed immediately, and simply dropped if the channel is discarded.
+On the base compiler, $\affinet{A}$ types are implemented as sessions which follows the affine protocol, i.e., $\offert{\labelt{use}{A}\ \labelt{discard}{\closet}}$, as described in \Cref{subsection:IRDroppingData}. Although this implementation saves time by lazily executing the affine code only if the session is used, it has the overhead of storing a continuation instead of the actual value, requiring multiple jumps and a tag to determine whether the session is used or discarded, even if the inner type $A$ is a droppable type, e.g., $\affinet{\lintt}$ or $\affinet{\bangt{\lintt}}$. In these cases, the semantic could be changed so that the value is computed immediately, and dropped if the session is discarded.
 
-This of course, does not always increase performance. While exponentials are used multiple times in practice, affine channels are often used to prevent computing a value which is never used. With this transformation, time may be wasted performing an unnecessary expensive computation.
+This of course, does not always improve performance. While exponentials are very likely to be used multiple times, affine channels are often used to prevent computing a value which is never used. With this transformation, time may be wasted performing an unnecessary expensive computation.
 
-The biggest benefit of this change is on the shared state types, such as $\statet{A}$. On the base implementation, this type is represented as a $\cells{\conts}$ slot, due to cell contents being affine, which effectively means all cells store sessions instead of concrete values. With this optimization, if the inner type $A$ of a $\statet{A}$ type is a droppable type, such as another cell, an exponential, or a primitive type such as $\lintt$, the cell can store the value directly, as a $\cells{A}$ slot. The drawbacks for cells are not as big as for affine types, as most values stored in cells, in practice, end up being used - only the last value written to a cell is discarded.
+The biggest benefit of this change appears on the shared state types, such as $\statet{A}$. On the base implementation, this type is represented as a $\cells{\conts}$ slot, due to cell contents being affine, which effectively means all cells store continuations instead of concrete values. With this optimization, if the inner type $A$ of a $\statet{A}$ type is a droppable type, such as another cell, an exponential, or a basic type such as $\lintt$, the cell can store the value directly, as a $\cells{A}$ slot. The drawbacks for cells are not as big as for affine types, as most values stored in cells, in practice, end up being used - only the last value written to a cell is discarded.
 
 One difficult aspect of this optimization is that, unlike the previous two optimizations, the polarity of the affected $\affinet{A}$ type ends up being dependent on whether the inner type $A$ is a droppable type or not. If $A$ is not droppable, the polarity is negative, as on the base implementation. However if $A$ is a positive droppable type, the polarity becomes positive, as the $\affinep$ process will write the value immediately. This problem was tacked by defining the polarity $\polarityof{\theta}{\affinet{A}}$ as always being positive, and negative for the $\coaffinet{A}$ type. In order to implement the write-to-read adjustment for $\affinet{A}$ types, the compilation of the $\affinep$ process is modified to always generate a \texttt{continue} instruction for non-droppable inner types before branching on the use-discard choice.
 
@@ -138,11 +138,11 @@ The mapping from session types to slot trees is modified as follows:
     \slots{\theta}{\coaffinet{A}} &= \flagsst{\isdroppable{A}}{\nilst}{\tagst{\nilst\tagsepst\slots{\theta}{A}}}
 \end{align*}
 
-The compilation of the $\affinec{x}{P}$ process is modified to generate a \texttt{branchFlags} instruction which branches on whether the inner type $A$ is a positive droppable type. If it is not, the implementation is the same as before, with the addition of a \texttt{continue} instruction, as mentioned above. Otherwise, the inner process $P$ is executed immediately, writing the value directly to the affine channel.
+The compilation of the $\affinec{x}{P}$ process is modified to generate a \texttt{branchFlags} instruction which branches on whether the inner type $A$ is a positive droppable type. If it is not, the implementation is the same as before, with the addition of a \texttt{continue} instruction, as mentioned above. Otherwise, the inner process $P$ is executed immediately, writing the value directly to the affine session.
 
 The $\usec{x}{P}$ process, where $x: \coaffinet{A}$ is modified to also branch on whether $A$ is a negative droppable type. If it is not, the implementation is the same as before. Otherwise, the instructions does nothing. The same goes for the $\discardc{x}$ process, but if $A$ is a negative droppable type, a \texttt{dropSlots} instruction is generated to drop the value immediately.
 
-Finally, the $\cellc{x}{y}{P}$ and $\putc{x}{y}{P}{Q}$ processes are modified to branch on whether the inner type $A$ (where $y: A$) is a positive droppable type. If it is not, the implementation is the same as before. Otherwise, the process $P$ is executed immediately, with session $y$ initialized such that it writes directly to the cell's storage. The $\takec{x}{y}{P}$ process is also modified, such that if $A$ (where $y: A$) is a negative droppable type, the value is simply moved from cell $x$ to a new local data section for $y$, instead of receiving a new session.
+Finally, the $\cellc{x}{y}{P}$ and $\putc{x}{y}{P}{Q}$ processes are modified to branch on whether the inner type $A$ (where $y: A$) is a positive droppable type. If it is not, the implementation is the same as before. Otherwise, the process $P$ is executed immediately, with session $y$ initialized such that it writes directly to the cell's storage. The $\takec{x}{y}{P}$ process is also modified, such that if $A$ (where $y: A$) is a negative droppable type, the value is simply moved from cell $x$ to a new data section for $y$, instead of receiving a continuation.
 
 \section{Optimizing single exit point processes and tail calls} \label{section:SingleExitPointOptimizations}
 
@@ -150,14 +150,14 @@ In the base version of the compiler, every exit point instruction decrements the
 
 To take advantage of this, the C code generation phase omits any exit point handling code when the \ac{IR} process has only one exit point, avoiding unnecessary memory accesses and branches.
 
-Tail calls, i.e., recursive process calls executed when there's a single exit point left, can also be greatly optimized to reuse the current process environment instead of allocating a new one, avoiding the overhead of memory allocation and deallocation. Without the first optimization, or in cases where a process has more than one exit point, this optimizations requires branching on the exit point count. Otherwise, it can be done unconditionally.
+Tail calls, i.e., recursive process calls executed when there's a single exit point left, are optimized to reuse the current process environment instead of allocating a new one, avoiding the overhead of memory allocation and deallocation, and greatly improving performance. This requires branching on the exit point count, to decide on whether a tail call is possible. If the optimization above is applied, the branch becomes unnecessary in most cases, as most processes end up having a single exit point.
 
 \section{Simplifying the generated IR code}
 
 The previously mentioned transformations introduce many optimization opportunities in the generated \ac{IR} code itself. For example, below is a result of compiling a send of positive value type, as described in \Cref{subsection:SendValueOptimizations}. A new session $c_2$ is introduced only for writing to session $c_1$. In this case, it could be replaced entirely by writing directly to $c_1$.
 
 \begin{minipage}{0.9\linewidth}
-\begin{lstlisting}[language=IR]
+\begin{lstlisting}[language=IR, frame=bottom]
     initContinuation(c2, send_rhs_2, c1)
     writeExpression(c2, 1)
     finish(c2, exit point)
@@ -166,7 +166,7 @@ send_rhs_2:
 \end{lstlisting}
 \end{minipage}
 
-To simplify the generated \ac{IR} code, a control flow graph for each \ac{IR} process is built, through a symbolic execution. For each instruction, the known state of the process environment is updated, storing information such as the current continuations and writing locations of each session, or the known values of slots in the local data section. For each visited \ac{IR} block, a node is added to the graph, storing the nodes into which the node may jump to, as well as nodes which become detached from the main control flow, such as blocks referenced by a \texttt{pushTask} instruction. Eventually, all reachable nodes are visited.
+To simplify the generated \ac{IR} code, a control flow graph for each \ac{IR} process is built, through a symbolic execution. For each instruction, the known state of the process environment is updated, storing information such as the current continuations and writing locations of each session, or the known values of slots in the local data sections. For each visited \ac{IR} block, a node is added to the graph, storing the nodes into which the node may jump to, as well as nodes which become detached from the main control flow, such as blocks referenced by a \texttt{pushTask} instruction. Eventually, all reachable nodes are visited.
 
 The first applied optimization removes jumps to known locations, such as \texttt{jump}, or \texttt{continue} instructions of sessions with a known continuation, or branches with known outcomes. After removing these instructions, the source and target \ac{IR} blocks are merged. The example above becomes:
 

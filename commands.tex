@@ -219,7 +219,7 @@
 \newcommand{\envlayouteps}[1]{\envlayout_\text{eps}(#1)}
 \newcommand{\envlayoutdrop}[1]{\envlayout_\text{e}(#1)}
 \newcommand{\envlayouttype}[2]{\envlayout_\text{ty}(#1, #2)}
-\newcommand{\envlayoutsession}[2]{\envlayout_\text{s}(#1, #2)}
+\newcommand{\envlayoutcont}[2]{\envlayout_\text{c}(#1, #2)}
 \newcommand{\envlayoutlocal}[2]{\envlayout_\text{d}(#1, #2)}
 
 % Optimizer notation
@@ -315,10 +315,10 @@
     \mkoneargir{\launchthread}{launchThread}
     \mkoneargir{\pushtask}{pushTask}
     \mkoneargir{\poptask}{popTask}
-    \mktwoargir{\finishsession}{finishSession}
-    \mkoneargir{\continuesession}{continueSession}
-    \mkthreeargir{\bindsession}{bindContinuation}
-    \mkthreeargir{\forwardsessions}{forwardContinuations}
+    \mktwoargir{\finishcont}{finish}
+    \mkoneargir{\continue}{continue}
+    \mkthreeargir{\bindcontinuation}{bindContinuation}
+    \mkthreeargir{\forwardcontinuations}{forwardContinuations}
     \mktwoargir{\branchtag}{branchTag}
     \mktwoargir{\branchflags}{branchFlags}
     \mktwoargir{\writetype}{writeType}
@@ -327,7 +327,7 @@
     \mktwoargir{\writescan}{writeScan}
     \mktwoargir{\writecell}{writeCell}
     \mkthreeargir{\writeexp}{writeExponential}
-    \mktwoargir{\writesession}{writeContinuation}
+    \mktwoargir{\writecontinuation}{writeContinuation}
     \mkoneargir{\lockcell}{lockCell}
     \mkoneargir{\unlockcell}{unlockCell}
     \mkoneargir{\acquirecell}{acquireCell}
@@ -343,7 +343,7 @@
 
     \mkoneargir{\newtask}{newTask}
     \mkzeroargir{\nexttask}{nextTask}
-    \mkthreeargir{\initsession}{initializeSession}
+    \mkthreeargir{\initcontinuation}{initializeContinuation}
     \mkoneargir{\freesession}{freeSession}
     \mkthreeargir{\call}{call}
     \mkoneargir{\flip}{flip}

@@ -480,7 +480,7 @@ struct task *task;
   \begin{lstlisting}[language=C]
 int main() {
   task = malloc(sizeof(struct task));
-  task->cont = &&end;
+  task->loc = &&end;
 
   env = malloc(sizeof(struct environment)
       + /*n*/ * sizeof(struct record*));
@@ -541,7 +541,7 @@ end:
 %     \item The reading end point is set as the continuation, and code is generated so that the writing end point executes first.
 %   \end{itemize}
 %   \begin{compilation}{\cutc{\waitc{x}\emptyc}{x}{\closec{x}}}{\varepsilon}
-%     \initsession{\varepsilon(x)}{\phi(\closet)}{\texttt{lhs}}
+%     \initcontinuation{\varepsilon(x)}{\phi(\closet)}{\texttt{lhs}}
 %     \recurse{\closec{x}}{\varepsilon}
 %     \labelir{lhs}
 %     \recurse{\waitc{x}\emptyc}{\varepsilon}

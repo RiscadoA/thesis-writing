@@ -82,7 +82,7 @@ The main function of the generated C program is shown below. It initializes the 
 int main() {
     /* The last task in the list of tasks finishes the program */
     task = malloc(sizeof(struct task));
-    task->cont = &&end;
+    task->loc = &&end;
 
     /* Initializes the environment, where n is the number of session records
        necessary for the entry process */
@@ -107,8 +107,8 @@ There are two IR instructions which manipulate the linked list of tasks. The \te
     /* newTask(cont) */
     tmp_task = malloc(sizeof(struct task));
     tmp_task->next = task;
-    tmp_task->cont = &&cont;
-    tmp_task->cont_env = env;
+    tmp_task->loc = &&cont;
+    tmp_task->env = env;
     task = tmp_task;
 \end{lstlisting}
 
@@ -118,8 +118,8 @@ The \texttt{nextTask} instruction, whose generation is shown below, removes the 
     /* nextTask() */
     tmp_task = task;
     task = task->next;
-    env = tmp_task->cont_env;
-    tmp_cont = tmp_task->cont;
+    env = tmp_task->env;
+    tmp_cont = tmp_task->loc;
     free(tmp_task);
     goto *tmp_cont;
 \end{lstlisting}
@@ -131,8 +131,8 @@ Sessions are initialized with the \texttt{initSession} instruction. This instruc
 \begin{lstlisting}[language=C]
     /* initSession(record, size, cont) */
     env->records[record] = malloc(sizeof(struct record) + size);
-    env->records[record]->cont = &&cont;
-    env->records[record]->cont_env = env;
+    env->records[record]->loc = &&cont;
+    env->records[record]->env = env;
     env->records[record]->cont_record = record;
     env->records[record]->written = 0;
     env->records[record]->read = 0;
@@ -204,10 +204,10 @@ Notice that we use the computed goto extension provided by GCC, which allows us 
 
 \begin{lstlisting}[language=C]
     /* flip(record) */
-    tmp_cont = env->records[record]->cont;
-    tmp_env = env->records[record]->cont_env;
-    env->records[record]->cont = &&cont;
-    env->records[record]->cont_env = env;
+    tmp_cont = env->records[record]->loc;
+    tmp_env = env->records[record]->env;
+    env->records[record]->loc = &&cont;
+    env->records[record]->env = env;
     env->records[record]->cont_record = record;
     env = tmp_env;
     goto *tmp_cont;
@@ -229,14 +229,14 @@ Note that this is the only instruction which makes use of the \texttt{cont\_reco
            /*size=*/ WRITTEN(record1) - READ(record1));
     WRITTEN(record2) += WRITTEN(record1) - READ(record1);
 
-    tmp_cont = env->records[record2]->cont;
-    tmp_env = env->records[record2]->cont_env;
-    env->records[record1]->cont = env->records[record1]->cont;
-    env->records[record1]->cont_env = env->records[record1]->cont_env;
+    tmp_cont = env->records[record2]->loc;
+    tmp_env = env->records[record2]->env;
+    env->records[record1]->loc = env->records[record1]->loc;
+    env->records[record1]->env = env->records[record1]->env;
     env->records[record1]->cont_record = env->records[record1]->cont_record;
 
     tmp_record = env->records[record1];
-    tmp_record->cont_env[tmp_record->cont_record] = record2;
+    tmp_record->env[tmp_record->cont_record] = record2;
     free(tmp_record);
 
     env = tmp_env;
@@ -371,7 +371,7 @@ This closely resembles the behavior of the SAM, specifically, its write-to-read 
 We start by defining the compilation of a $\cutp$ process, which can be seen below. We assume, without loss of generality, that $A$ is a positive type, and thus, that $P$ will be writing to $x$ before $Q$ executes - if $A$ were negative, we could simply swap $P$ and $Q$. The process initializes a session record in the environment with a new label \texttt{rhs} as continuation, and then recursively compiles $P$. Finally, it compiles $Q$ in front of the label \texttt{rhs}.
 
 \begin{compilation}{\cutc{P}{x: A}{Q}}{\varepsilon}
-    \initsession{\varepsilon(x)}{\phi(A)}{\texttt{rhs}}
+    \initcontinuation{\varepsilon(x)}{\phi(A)}{\texttt{rhs}}
     \recurse{P}{\varepsilon}
     \labelir{rhs}
     \recurse{Q}{\varepsilon}
@@ -442,7 +442,7 @@ The compilation of choice processes is shown below. Code is generated which writ
 The compilation of a $\sendp$ process is shown below. The process initializes a session record with a new label \texttt{lhs} as continuation, and generates an instruction to push that new session record, $\varepsilon(y)$, to the buffer of $\varepsilon(x)$. Then, it compiles $Q$. Finally, it compiles $P$ in front of the label \texttt{lhs}. This means that $P$ will only be executed after its session record is received by the other end point, and a flip to it is performed.
 
 \begin{compilation}{\sendc{x}{y:A}{P}{Q}}{\varepsilon}
-    \initsession{\varepsilon(y)}{\phi(A)}{\texttt{lhs}}
+    \initcontinuation{\varepsilon(y)}{\phi(A)}{\texttt{lhs}}
     \pushsession{\varepsilon(x)}{\varepsilon(y)}
     \recurse{Q}{\varepsilon}
     \labelir{lhs}
