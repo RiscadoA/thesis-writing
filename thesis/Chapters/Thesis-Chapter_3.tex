@@ -104,7 +104,7 @@ send:
 
 \subsection{Example execution}
 
-To introduce the \ac{IR} and its abstractions, the execution of the example program shown in \Cref{fig:IRProcessExample} will be covered step by step. This program consists of two process definitions, \texttt{main} and \texttt{p}, both implementing the process with the same name in the source \ac{CLASS} program. The execution starts at the \texttt{entry} block of the \texttt{main} process. The task stack is initialized with a single task which, when popped, terminates the execution of the program. The environment, shown below, on the left, is created for the \texttt{main} process, with continuations and data sections uninitialized, and with $2$ exit points, as declared in its header.
+To introduce the \ac{IR} and its abstractions, the execution of the example program shown in \Cref{fig:IRProcessExample} will be covered step by step. This program consists of two process definitions, \texttt{main} and \texttt{p}, both implementing the processes with the same names in the source \ac{CLASS} program. The execution starts at the \texttt{entry} block of the \texttt{main} process. The task stack is initialized with a single task which, when popped, terminates the execution of the program. The environment, shown below, on the left, is created for the \texttt{main} process, with continuations and data sections uninitialized, and with $2$ exit points, as declared in its header.
 
 \begin{center}
     \begin{minipage}{0.45\textwidth}
