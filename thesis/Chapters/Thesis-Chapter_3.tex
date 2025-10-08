@@ -101,11 +101,11 @@ send:
     \end{lstlisting}
     \end{minipage}
     \hrule
-    \caption{An example \ac{IR} program (bottom) generated from a simple \ac{CLASS} program (top) with two processes.}
+    \caption{An example IR program (bottom) generated from a simple \ac{CLASS} program (top) with two processes.}
     \label{fig:IRProcessExample}
 \end{figure}
 
-\subsection{Example execution}
+\subsection{Example Execution}
 
 The example \ac{CLASS} program shown in \Cref{fig:IRProcessExample} consists of two process definitions, \texttt{main} and \texttt{p}. When executed, the two processes communicate through session $x$. Process \texttt{p} sends the integer $17$ over $x$, which, on \texttt{main}, is received and used to produce a string. This string is sent back to \texttt{p}, which prints it to the standard output and terminates.
 
@@ -289,7 +289,7 @@ In \textbf{Step 11}, \texttt{finish(c0, exit point)} is executed, passing contro
 
 Finally, in \textbf{Step 13}, \texttt{popTask(exit point)} is executed, which pops the next task from the task stack and jumps to it. In this example, the task stack was never modified, and thus contains only the program termination task. Since the instruction is marked as an exit instruction, the exit point count of \texttt{p} reaches $0$, and it is destroyed, ensuring no memory is leaked.
 
-\subsection{Forwarding continuations}
+\subsection{Forwarding Continuations}
 
 To model the forwarding of sessions in \ac{CLASS}, it is necessary to be able to link two continuations together, detaching them from the active environment. This is done through the \texttt{forwardContinuations} instruction. This instruction takes two continuations as arguments, links their remote end points together, and passes control to the continuation of the second argument. An example snippet using this instruction is shown below:
 \begin{lstlisting}[language=IR,frame=bottom]
@@ -305,7 +305,7 @@ rhs:
 
 In this example two continuations $c_0$ and $c_1$ are initialized as before. The \texttt{forwardContinuations(c0, c1)} instruction is then executed, which makes $c_0$ the remote continuation of $c_1$ and vice-versa. Control then passes to $c_1$, and thus, to the block \texttt{rhs}. The instruction \texttt{finish(c1)} is finally executed, which as before, passes control to $c_1$, and thus to the block \texttt{lhs}, as $c_1$'s code location was set to $c_0$'s when forwarded.
 
-\subsection{Data representation} \label{subsection:IRSlots}
+\subsection{Data Representation} \label{subsection:IRSlots}
 
 \ac{IR} programs are completely platform agnostic, and thus, data types and addresses are described through their composition of \textit{slots}, instead of concrete byte sizes and offsets. A slot $S$ is a unit of data in the \ac{IR}, as is defined as
 \[
@@ -320,19 +320,19 @@ where $\nilst$ is the empty slot tree, $\seqst{S_1; \dots; S_n; T}$ is a sequenc
 
 Data sections are described within process headers by a sum of slot trees describing the possible layouts of data that can be stored on them. For example, $\texttt{data d0:}\ \combst{\seqst{\ints; \bools} + \seqst{\strings}}$ describes a data section $d_0$ which can either store an $\ints$ followed by a $\bools$, or a $\strings$.
 
-\subsubsection{Addressing data} \label{subsection:DataAddressing}
+\subsubsection{Addressing Data} \label{subsection:DataAddressing}
 
 A \textit{data location} is denoted as $\dataol{b}{o}$, where $b$ is a base address and $o$ an offset. A base address can be either a local data section (e.g., $d_0$), a writing location given by a continuation (e.g., $c_0$), or a cell location (e.g., $c(d0)$). An offset is defined by two slot trees, written as $\offs{P}{F}$, $P$ describing the data being skipped (named \textit{past}), and $F$ describing the data that may come next (named \textit{future}). The future tree is necessary to determine the alignment of the data being accessed. For example, $\offs{\seqst{\ints; \bools}}{\seqst{\strings}}$ is an offset which skips an integer followed by a boolean, and expects a string to come next. When the past slot tree is empty, the future slot tree is unnecessary, and the offset is simply written as $0$. 
 
 To exemplify, the location $\datal{d_0}{\seqst{\ints}}{\seqst{\ints}}$ refers to the second integer stored in $d_0$, while the location $\datal{c_0}{\seqst{\bools}}{\seqst{\strings}}$ refers to a string stored in the writing location of the continuation $c_0$, after a boolean. When the offset is zero, it is omitted for brevity. For example, $d_0$ as a data location is equivalent to $\datal{d_0}{\nilst}{\nilst}$ or just $d_0.0$ - the future slot trees are unnecessary for empty past slot trees.
 
-\subsection{Moving data}
+\subsection{Moving Data}
 
 The \texttt{moveSlots} instruction allows moving data from one location to another. It takes as arguments a destination location, a source location and a slot tree describing the data to be moved. To exemplify, \texttt{moveSlots(c1, $\datal{d_0}{\seqst{\bools}}{\seqst{\strings; \ints}}, \seqst{\strings, \ints}$)} takes a string followed by an integer located after a boolean at the data section $d_0$, to the writing location of $c_1$. This instruction is used to implement the forwarding of sessions in \ac{CLASS}. 
 
 The \texttt{cloneSlots} instruction is used to clone data from one location to another, taking the same arguments. This instruction is only defined for cloneable slots, which are $\ints$, $\bools$, $\strings$, $\tags$ and $\exponentials$. In addition to copying the memory, it also increments reference counts for exponentials and allocates new strings as necessary. It used to model the exponential part of \ac{CLASS}.
 
-\subsection{Dropping data} \label{subsection:IRDroppingData}
+\subsection{Dropping Data} \label{subsection:IRDroppingData}
 
 To model the affine and exponential parts of \ac{CLASS}, it is necessary to be able to drop some types of data if they are no longer needed. To this end, two instructions are provided: \texttt{dropSlots} and \texttt{deferDrop}.
 
@@ -357,7 +357,7 @@ Expressions are tree-like structure which compute basic values ($\ints$, $\bools
 
 While expressions do not occur as instructions, they are used as arguments to some instructions, such as \texttt{writeExpression}, \texttt{branchExpression} and \texttt{print}. An example of an expression is \texttt{(move(d0, int) + 3) + clone(d1, string)}. This expression reads an integer from $d_0$, adds $3$ to it, then reads a cloned string from $d_1$ and finally concatenates the two. 
 
-\subsection{Input and output}
+\subsection{Input and Output}
 
 Output is modeled through the \texttt{print} and \texttt{printLine} instructions. They take a single argument expression, which is evaluated and printed to the standard output. The \texttt{printLine} instruction additionally appends a new line after printing the value. Input is modeled through the \texttt{writeScan} instruction, which reads values from the standard input. It takes as arguments a data location to store the read value to and a slot describing the type of data to be read. Below is an example program, which reads two integers and prints their sum.
 \begin{lstlisting}[language=IR,frame=bottom]
@@ -369,7 +369,7 @@ entry:
     printLine(move(d0, int) + move(d0.[int]~[int], int))
 \end{lstlisting}
 
-\subsection{Tags and branching} \label{subsection:Branching}
+\subsection{Tags and Branching} \label{subsection:Branching}
 
 Branching is done through the \texttt{branchTag} and \texttt{branchExpression} instructions. The first instruction branches on a tag stored a data location, similarly to a switch statement in C, and the second instruction branches on the result of a boolean expression, similarly to an if statement in C. Each possible branch is defined by a code location (block label) and an integer indicating how many exit points are behind that branch. This number is used to adjust the exit point count of the environment when branching.
 
@@ -425,7 +425,7 @@ Processes in the \ac{IR} may be type parametrized. These type parameters are ide
 
 To model the \ac{CLASS} $\sendtyp$ and $\recvtyp$ constructs, it is necessary to send type information dynamically through sessions. To achieve this, the \texttt{writeType} instruction takes as arguments a target data location and a slot tree describing the data layout of the type. This instruction writes the necessary type information to the data location, producing a $\types$ slot. For example, \texttt{writeType(d0, [int; t1])} writes information to $d_0$ describing the slot tree $\seqst{\ints; t_1}$. The written $\types$ slot can then later be used as a type parameter when calling a process, as explained in the next section.
 
-\subsection{Process calls}
+\subsection{Process Calls}
 
 On the example execution shown earlier, a process call instruction was shown, but only a continuation was passed as argument. In order to model the full \ac{CLASS} process call semantics, it is necessary to also be able to pass both type parameters and data arguments to the new process.
 
@@ -504,17 +504,17 @@ The exponential is then called twice, first binding its argument continuation to
 
 Finally, within the exponential process, the string is moved from $d_0$ to the remote data of $c_0$, which is either $d_2$ or $d_3$ of the caller, depending on which call was continued. Finally, the continuation is finished, passing control back to the caller, which prints the received string.
 
-\section{Translating CLASS programs into the IR} \label{section:IRGeneration}
+\section{Translating CLASS to the IR} \label{section:IRGeneration}
 
 This section defines the base (unoptimized) translation from \ac{CLASS} to the \ac{IR} defined in the previous section. It starts defining notation for representing and updating the state of the compiler. Then, it defines how session types are mapped to the slot trees introduced in \Cref{subsection:IRSlots}. Next, an overview of the instruction generation scheme is presented, and some important concepts are defined. Finally, the translation from \ac{CLASS} processes to \ac{IR} programs is incrementally defined, starting from simple processes and adding more constructs until the whole language is covered.
 
 The presented compilation scheme assumes well-typed \ac{CLASS} processes are given as input, along with the required type information of free names in all processes. The notation $x: A$ is used to indicate that the type checker infers session end point $x$ to be a free name of type $A$ on some process.
 
-\subsection{Compiler state}
+\subsection{Compiler State}
 
 To compile \ac{CLASS} processes to \ac{IR} programs, the compiler must keep track of information regarding the type parameters and the state of each session end point within the process being compiled. This state is referred to as the environment, and is represented by a tuple $(\theta, \Delta)$, where $\theta$ is the type environment and $\Delta$ is the session environment.
 
-\subsubsection{Type environments} \label{subsubsection:TypeEnvironments}
+\subsubsection{Type Environments} \label{subsubsection:TypeEnvironments}
 
 A type environment $\theta$ is a mapping from type variables to a tuple $(p, t)$ where $p$ is the polarity of the type variable ($+$ or $-$) and $t$ is its identifier (e.g, $t_0$, $t_1$) within the header of the process being compiled. $\polarityof{\theta}{X}$ and $\typeidof{\theta}{X}$ are defined as the polarity and identifier of type variable $X$ in the type environment $\theta$, respectively.
 
@@ -536,18 +536,18 @@ A type with positive polarity is one for which sessions of that type are used to
 
 Note that due to affine types being implemented as a choice between using the data or dropping it, i.e., $\affinet{A} \equiv \offert{\labelt{use}{A}\ \labelt{discard}{\closet}}$, the polarity of $\affinet{A}$ is negative, while the polarity of $\coaffinet{A}$ is positive.
 
-\subsubsection{Session environments}
+\subsubsection{Session Environments}
 
 A session environment $\Delta$ is a mapping from session end point names to session states. Each session state is a tuple $(c, d, o)$, where $c$ is the continuation identifier associated with the session end point (or $0$ if there's no continuation), $d$ is the identifier of the data section from which data is read (or $0$ if there's no data section), and $o$ is the data offset to apply to the location of the next write or read operation on the session. The data offset is represented as a slot tree, as explained in \Cref{subsection:DataAddressing}.
 
 Given a session environment $\Delta$, $\Delta[x \mapsto (c, d, o)]$ is defined as the session environment $\Delta$ where session end point $x$ is mapped to the state $(c, d, o)$, overwriting any previous mapping for $x$. Additionally $\continuationof{\Delta}{x}$, $\localdataof{\Delta}{x}$ and $\offsetof{\Delta}{x}$ are defined as the continuation identifier, local data identifier and data offset associated with session $x$ in the session environment $\Delta$, respectively.
 
-\subsubsection{Writing and reading locations}
+\subsubsection{Writing and Reading Locations}
 
 For convenience, $\readlocof{\Delta}{x}$ and $\writelocof{\Delta}{x}$ are defined as the current data location from which data of session end point $x$ is to be read, and the data location into which data for session $x$ is to be written, respectively. Both take into account the offset, and are formally defined as
 \[\readlocof{\Delta}{x} = \dataol{\localdataof{\Delta}{x}}{\offsetof{\Delta}{x}} \hspace{5em} \writelocof{\Delta}{x} = \dataol{\continuationof{\Delta}{x}}{\offsetof{\Delta}{x}}\]
 
-\subsubsection{Advancing the offset} \label{subsubsection:AdvancingOffsets}
+\subsubsection{Advancing Session Offsets} \label{subsubsection:AdvancingOffsets}
 
 When more than one slot is read from or written to a session end point in succession, the session's offset must be advanced accordingly. To this end, the concatenation of offsets must be defined. Given two offsets $o_1 = (P_1, F_1)$ and $o_2 = (P_2, F_2)$, their concatenation is defined as $\concatst{o_1}{o_2} = (\concatst{P_1}{P_2}, F_2)$, where $\concatst{P_1}{P_2}$ is the concatenation of the two slot trees. In other words, when two offsets are concatenated, the resulting offset has concatenates both of the past slot trees, and keeps the future slot tree of the second offset. Slot tree concatenation is defined as replacing every leaf of the first slot tree with the second slot tree.
 
@@ -559,7 +559,7 @@ To simplify the definitions in the next sections, $\advancech{\Delta}{x}{p}{\the
 \end{cases}
 \]
 
-\subsection{Mapping session types to slot trees} \label{subsection:MappingSessionTypesToSlots}
+\subsection{Mapping Session Types to Slot Trees} \label{subsection:MappingSessionTypesToSlots}
 
 To translate \ac{CLASS} processes to \ac{IR} programs, we need to define which data is sent and received over sessions. As explained in \Cref{subsection:IRSlots}, in the \ac{IR} data types are represented through slot trees. Thus, we need to define how session types are mapped to slot trees.
 
@@ -582,7 +582,7 @@ For example, we can split $\sendt{\lintt}{\recvt{\lstringt}{\closet}}$ into thre
 
 The slot tree corresponding to the first segment of a session type $A$ is designated as its \textit{active slot tree}  (denoted simply by $\slots{\theta}{A}$), and the slot trees corresponding to the remaining segments as its \textit{remainder slot trees}. Additionally, we denote positive segments as \textit{remote slot trees} and negative segments as \textit{local slot trees}, as positive segments correspond to data which is sent (and thus stored remotely), while negative segments correspond to data which is received (and thus stored locally). The local set of slot trees of a session type $A$ is denoted by $\alllocalslots{\theta}{A}$, and the total set of slot trees by $\allslots{\theta}{A}$. Sets of slot trees are termed \textit{layouts}, as they describe the full set of data that may be exchanged over a session.
 
-\subsection{Instruction generation}
+\subsection{Instruction Translation}
 
 The \ac{IR} instructions generated from a \ac{CLASS} process $P$ on a given environment $(\theta, \Delta)$ are denoted by $\getinstructions{\theta}{\Delta}{P}$. This function produces a sequence of \ac{IR}, optionally followed by blocks with more instructions, and is defined incrementally in the following sections. \todo{mention that instruction generation is intermingled with actions which creates new instructions. this function works within the scope a process definition. which holds a global meta state which were }
 
@@ -594,7 +594,7 @@ For example, consider two processes communicating over a session of type $\sendt
 
 The reading process, compiled with a session environment $\Delta^2$, reads a continuation from $\readlocof{\Delta^2}{y}$. Then, it writes to $\writelocof{\Delta^2}{y}$ another continuation, corresponding to a session of type $B$. The writing offset is zero, since we performed a read-to-write adjustment after reading $A$. Finally, it finishes the continuation $\continuationof{\Delta^2}{y}$, returning control to the writing process. The writing process reads from $\readlocof{\Delta^1}{x}$ (same location as $\writelocof{\Delta^2}{y}$) the just written continuation, and the communication is complete.
 
-\subsection{Expression generation}
+\subsection{Expression Translation}
 
 Apart from generating instructions for processes, \ac{IR} expressions must be generated from \ac{CLASS} expressions when generating instructions for processes such as $\printp$, $\letp$ and $\ifp$. To achieve this, the function $\getexpression{\Delta}{E}$ is defined, which takes a \ac{CLASS} expression $E$ and a session environment $\Delta$, and produces equivalent an \ac{IR} expression. This function is trivially defined recursively through pattern matching on \ac{CLASS} expressions, as they are exactly the same as \ac{IR} expressions, except for session names $x$, which must be for which the transformation is defined as
 \[
@@ -602,7 +602,7 @@ Apart from generating instructions for processes, \ac{IR} expressions must be ge
 \]
 where $S$ is the slot corresponding to the type of the session end point $x$, which is guaranteed be a basic type (e.g., $\ints$ for $\colintt$, $\strings$ for $\colstringt$).
 
-\subsection{Exit point counting}
+\subsection{Exit Point Counting}
 
 One other important aspect of the compilation is counting the number of exit points of the generated \ac{IR} code for a given \ac{CLASS} process. This is necessary to ensure that the generated code properly deallocates the process environment when and only when there's no more code left to execute within it.
 
@@ -660,7 +660,7 @@ The compilation of a $\closep$ process can be seen below. The session identifier
 
 The $\waitp$ process is skipped during compilation: $\getendpoints{\theta}{\waitc{x}{P}} \equiv \getendpoints{\theta}{P}$, $\getinstructions{\theta}{\Delta}{\waitc{x}{P}} \equiv \getinstructions{\theta}{\Delta}{P}$. There's no actual code generated for the wait action, as the action of waiting for the other side of the channel is already performed implicitly by the \ac{SAM} execution scheme, closely mirrored by the continue mechanism we defined earlier.
 
-\subsection{Linear let, scan and print}
+\subsection{Let, Scan and Print}
 
 The compilation of a $\letp$ process is shown below. The compiler generates the \ac{IR} expression corresponding to the \ac{CLASS} expression $E$, and writes the result to the remote data of the channel $x$. Then, since this process has no continuation, the session is finished, similarly to the $\closep$ process.
 
@@ -698,7 +698,7 @@ To compile the $\printp$ and $\printlnp$ processes, a single instruction is gene
     \end{minipage}
 \end{figure}
 
-\subsection{Choice and branching}
+\subsection{Choice and Branching}
 
 The compilation of choice processes is shown below. Code is generated which writes a tag to the remote data of the channel $x$. We define $i(\#a)$ as the index of the tag \texttt{a} in the alphabetically sorted list of tags in the offer process. Then, the pseudo-instruction \texttt{continueIfNegative} is inserted, which adds a \texttt{continue} instruction if the remainder type of $x$ is negative. Finally, the process recurses on its continuation $P$, advancing the offset of channel $x$ to skip over the written tag, taking into account the remainder type of the channel, as explained in \Cref{subsubsection:AdvancingOffsets}.
 \begin{compilation}{\theta}{\Delta}{\choosec{a}{x}{P}}
@@ -769,7 +769,7 @@ The list of \ac{IR} type parameters $T_1,\,\dots,\,T_n$ is generated from the \a
 
 Finally, the list of data arguments $D_1,\,\dots,\,D_{m+k}$ is generated similarly to the session arguments, but with extra entries for the exponential arguments. Each $D_i$ is a tuple $(d_t, d_s, t, c)$. For each linear argument $x_i$, $d_t$ is the target data section in the environment of the process being called, $d_s = \readlocof{\Delta}{x}$, $t = \slots{\theta}{\tau}$ where $x_i: \tau$ and $c$ is the flag indicating whether the argument data should be cloned or moved, which in this case is always \texttt{move}, as $x_i$ is linear. For each exponential argument $y_j$, $d_t$ is once again the target data section identifier of the argument in the environment of the process being called, $d_s = \readlocof{\Delta}{y_j\textsc{}}$, $t = \slots{\theta}{\whynott{\tau}}$ where $y_j: \tau$. In this case, $c$ is always \texttt{clone}, as $y_j$ is exponential.
 
-\subsection{Creating and calling exponentials}
+\subsection{Creating and Calling Exponentials}
 
 The right-hand-side $P$ of a $\bangc{x}{y}{P}$ process is compiled as a separate \ac{IR} process, with a unique identifier generated from the identifier of the process definition being compiled. This new process inherits the same type variables as the current process. The argument session $y$ is bound to a new session identifier $s$ in the new process header, along with a new local data section $d$ with layout $\alllocalslots{\theta}{A}$, where $A$ is the type of channel $y$. The number of exit points of the new process' header is set to $\getendpoints{\theta}{P}$.
 
@@ -796,9 +796,9 @@ Then, a defer drop instruction is generated, which sets the drop bit $e$ to true
     \recurse{\theta}{\Delta}{P}
 \end{compilation}
 
-\subsection{Unfolds}
+\subsection{Unfolding Recursive Sessions}
 
-Unfolded processes are compiled such that positive unfolds ($\unfoldmup$) always pass control to their continuation. If the remainder type is negative, i.e., the next action will read data from the channel, then we must pass control to the other side so that it can write the data before we read it. If the remainder type is positive, we cannot immediately continue as we must first give an opportunity for the other side to read any data we may have already written relative to the previous iteration of the unfold.
+Unfold processes are compiled such that positive unfolds ($\unfoldmup$) always pass control to their continuation. If the remainder type is negative, i.e., the next action will read data from the channel, then we must pass control to the other side so that it can write the data before we read it. If the remainder type is positive, we cannot immediately continue as we must first give an opportunity for the other side to read any data we may have already written relative to the previous iteration of the unfold.
 
 Negative unfolds ($\unfoldnup$) only pass control to their continuation if the remainder type is negative, as in this case, the positive side must have already executed a positive unfold, and thus, given control to the negative side. If the remainder type is negative, the positive side must execute first, and thus we surrender control back to it. If the remainder type is positive, we can continue executing immediately.
 
@@ -821,7 +821,7 @@ In both cases, the process finishes by recursing on the right-hand-side $P$ of t
     \end{compilation}
 \end{minipage}
 
-\subsection{Receiving and sending types}
+\subsection{Receiving and Sending Types}
 
 Polymorphism in the \ac{IR} is modeled through process type parameters. Thus, to compile $\recvtyc{x}{X}P$, a new \ac{IR} process must be called in which $X$ is a type parameter. This mechanism is similar to the one used for exponentials, but in this case, the process is immediately called instead of writing an exponential, and it may have free linear names which must be passed as arguments. Additionally, two \ac{IR} processes are generated: one for when $X$ is negative, another for when $X$ is positive.
 
@@ -850,7 +850,7 @@ On the other hand, the $\sendtyc{x}{A}{P}$ process is compiled in a more direct 
 
 The right-hand-side $P$ is compiled on the new block \texttt{cont}, with $x$ bound to the channel state $(s, d, 0)$. This block will be executed by the $\recvtyp$ process, similarly to how $\recvp$ executes received sessions.
 
-\subsection{Affine, use and discard}
+\subsection{Affine, Use and Discard}
 
 The compilation of the $\affinec{x}P$ process, shown below, implements the affine protocol described in \Cref{subsection:IRDroppingData}: a tag is received from $x$ (with an offset of 0) indicating whether the channel is being used or discarded. If it's being used, the process continues with an environment where $x$ has been advanced by the read tag. If the tag indicates the session is being discarded, any co-affine data free in $P$ is discarded and the affine session is finished.
 \begin{compilation}{\theta}{\Delta}{\affinec{x}{P}}
@@ -880,7 +880,7 @@ Finally, the $\usec{x}{P}$ process is compiled as shown below. A tag is written 
     \recurse{\theta}{\advancech{\Delta}{x}{+}{\theta}{\seqst{\tags}}{A}}{P}
 \end{compilation}
 
-\subsection{Shared state}
+\subsection{Shared State}
 
 The compilation of the $\cellc{x}{y}{P}$ process, which creates a new shared cell on $x$, is shown below. First, a new cell is written to the remote data of channel $x$, with space for a single $\conts$ slot. Then, a new session $s$ is initialized with a new block \texttt{cont} as continuation, and a fresh data section $d$ with layout $\alllocalslots{\theta}{A}$, where $A$ is the type of channel $y$ in $P$. This session $s$ is written to the cell we just created, using the cell as a base address, and an offset of $0$. Finally, the process recurses on $P$, with a new environment where $y$ is bound to the channel state $(s, d, 0)$. This block will be executed by the process which takes the cell's content.
 \begin{compilation}{\theta}{\Delta}{\cellc{x}{y}{P}}
@@ -928,13 +928,13 @@ Finally, the $\sharec{x}{P}{Q}$ process is compiled as shown below. Since the ce
     \recurse{\theta}{\Delta}{Q}
 \end{compilation}
 
-\section{Generating C code from IR programs} \label{section:IRtoC}
+\section{Translating the IR to C} \label{section:IRtoC}
 
 The last phase of the compilation pipeline is the C generation phase. This phase takes as input the \ac{IR} produced by the compilation scheme described in the previous section, and produces a C program which implements the semantics of the \ac{IR}. This C program can then be compiled with \ac{GCC} to produce an executable which runs a computation equivalent to the original \ac{CLASS} program. The generated code depends only on the standard C library and on \texttt{pthread}, if concurrency is enabled. Additionally, it makes extensive use of the \ac{GCC} extension for computed gotos, which allows for efficient implementation of continuations.
 
 The first subsection of this section describes how the slot trees are translated to concrete data structures in C. The second subsection describes the environment data structure, which stores the state of a process invocation.  The third subsection shows how the main function and the generated code are laid out. Finally, the the last subsections give an overview of how the main instructions of the \ac{IR} abstract machine are implemented in C.
 
-\subsection{Slot tree memory layouts}
+\subsection{Slot Tree Memory Layouts}
 
 In the \ac{IR} abstract machine, the concept of data is abstracted away into slots, covered in \Cref{subsection:IRSlots}. A slot tree describes the possible slots which may be stored in a data section in sequence, with branching. A set of slot trees describes the multiple possible slot trees which may be stored in a data section, with only one of them being active at any given time.
 
@@ -990,7 +990,7 @@ struct type {
 };
 \end{lstlisting}
 
-\subsubsection{Cleaning up an environment} \label{subsubsection:CEnvironmentCleanup}
+\subsubsection{Environment Cleanup} \label{subsubsection:CEnvironmentCleanup}
 
 When the exit point counter of an environment reaches zero, any set drop bits must be processed, dropping their associated data. Thus, whenever an instruction decrements the exit point counter, it must check if it reached zero, and if so, run the cleanup code. Only then can the environment itself be freed. For example, the code below decrements the exit point counter, checking if it reached zero, and if so, checks if the drop bit $0$ is set, dropping its associated data if so, before freeing the environment itself.
 
@@ -1004,7 +1004,7 @@ if (atomic_fetch_sub(&(*(atomic_int*)(env)), 1) == 1) {
 }
 \end{lstlisting}
 
-\subsection{Execution and registers}
+\subsection{Execution and Registers}
 
 The \texttt{main} function of the generated C program initializes any required global state (such as the allocator, or profiling tools), and invokes a function named \texttt{executor} with a \texttt{NULL} argument. The \texttt{executor} function is the core of the \ac{IR} abstract machine implementation. Each thread of execution runs its own instance of this function, receiving as argument a pointer to its entry task.
 
@@ -1093,7 +1093,7 @@ The \texttt{popTask} instruction, whose generation is shown below, removes the f
     goto *tmp_ptr2;
 \end{lstlisting}
 
-\subsection{Continuation manipulation}
+\subsection{Continuation Manipulation}
 
 The \texttt{initContinuation} instruction is compiled as shown below. The continuation at $\envlayoutcont{\texttt{env}}{c_0}$ (in this example, $\texttt{env} + 8$) is initialized with the given program label, the current environment, the address $\envlayoutlocal{\texttt{env}}{d_0}$ (in this case, $\texttt{env} + 40$) as its writing location data, and a pointer to itself as its remote continuation.
 
@@ -1218,7 +1218,7 @@ main_exp_call_return_0:
 
 When the reference count of an exponential reaches zero, the control is passed to its manager with \texttt{tmp\_int} set to $1$, indicating a drop operation, and the current environment set to the exponential's template environment. Control is then returned to the drop caller and the exponential structure is freed.
 
-\subsection{Data manipulation}
+\subsection{Data Manipulation}
 
 The \texttt{moveSlots}, \texttt{cloneSlots} and \texttt{dropSlots} instructions are compiled using a \textit{slot traversal} utility function, which recursively generates C code to visit each slot address given a slot tree and a base address. This is necessary due to the complexity of slots trees, which may branch both due to the presence of tags (\ac{CLASS} choices) and due to polymorphic types.
 
@@ -1243,7 +1243,7 @@ Moves of slots $s$ are always generated as simple memory copies of size given by
 
 To clone or drop type parameter slots $t_i$, type information for each type parameter $t_i$ is stored alongside the environment buffer, describing, at run-time, the slots which must be cloned or dropped within the type parameter. This type information is generated when a new environment is created, or when type information is stored using the \texttt{writeType} instruction.
 
-\subsection{Process calls}
+\subsection{Process Calls}
 
 Process calls are performed through the \texttt{callProcess} instruction. This instruction receives the identifier of the process to be called, a list of type arguments, a list of continuation arguments and a list of data arguments. The generated C code for this instruction is shown below.
 
@@ -1263,7 +1263,7 @@ Type arguments are passed by writing their information to the appropriate offset
 
 Before jumping to the entry block of the called process, the exit point counter of the current environment is decremented, and if it reaches zero, the current environment is cleaned up and freed, as described in \Cref{subsubsection:CEnvironmentCleanup}. Control is then passed to the entry block of the called process, with the new environment set as the current environment.
 
-\subsection{Cell operations}
+\subsection{Cell Operations}
 
 Cells are implemented in C as heap-allocated instances of the type shown below. The first three fields, \texttt{mutex}, \texttt{cond\_var} and \texttt{is\_free}, are used to implement the locking mechanism of the cell. The \texttt{ref\_count} field is an atomic integer which stores the reference count of the cell, while the flexible array member \texttt{data} stores the actual contents of the cell, similarly to a data section in an environment.
 

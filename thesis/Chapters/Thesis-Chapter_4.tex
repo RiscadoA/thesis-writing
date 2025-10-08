@@ -11,7 +11,7 @@ During the course of this project, several optimizations on various parts of the
 
 The first section goes over the transformations made to the compiler to produce more efficient code when handling types with certain properties. The second section describes optimizations specific to the C code generation phase, focused on simplifying the counting of exit points and tail calls. Finally, the last section introduces a new compilation phase which applies a series of transformations to the generated \ac{IR} code before passing it to the C code generation phase.
 
-\section{Making use of type properties}
+\section{Making Use of Type Properties}
 
 The compiler presented in \Cref{chap:architecture} does not take any advantage of the fact that many types in the language can be handled more efficiently than the general case. For example, the type $\sendt{\lintt}{\lintt}$ is stored as a reference to a continuation (essentially a closure) followed by an integer. The closure producing the $\lintt$ will eventually be executed, producing a single integer and immediately terminating. Instead of sending this continuation, the integer could be computed immediately and sent directly, saving memory and time, as the pointer indirection would be removed, along with some unnecessary jumps.
 
@@ -80,7 +80,7 @@ Additionally, a type is said to be a droppable type if a drop function is define
 
 Finally, a type is said to be cloneable if a clone operation is defined for it. The type flag requisites for type $A$ to be cloneable are denoted as $\iscloneable{A}$, and their definition for positive types is shown in \Cref{fig:IsCloneableDefinition}. For negative types, $\iscloneable{A} = \iscloneable{\dualt A}$. For example, $\bangt{A}$ is a cloneable type, as exponentials can be cloned by incrementing their reference count. 
 
-\subsection{Adding type flags to the compiler}
+\subsection{Adding Type Flags to the Compiler}
 
 To generate code which depends on type flags, it is necessary to add a new branching instruction \texttt{branchFlags}, with the exact same syntax as \texttt{branchExpression}, but instead of branching on a boolean expression, it branches on whether some flag requirements are met. For example, the instruction \texttt{branchFlags(if(t0.value), value:1, not\_value:1)} jumps to block \texttt{value} if the type parameter $t_0$ has the value flag set, or to block \texttt{not\_value} otherwise. Most flag requisites are either $\guaranteed$ or $\impossible$, and thus can be determined at compile time, avoiding the branch.
 
@@ -88,7 +88,7 @@ To enable different memory representations for session types based on these flag
 
 To branch on the flags of a type parameter, the flags must be stored in environments, along with the rest of the type parameter information. This is done by adding a new integer field to the \texttt{type} C struct, which stores one bit for each of the type flags. Additionally, all instructions which pass around type information must be extended to support these type flags. For example, \texttt{writeType} must receive the flag requirements for each of the flags.
 
-\subsection{Sending values instead of continuations} \label{subsection:SendValueOptimizations}
+\subsection{Sending Values instead of Continuations} \label{subsection:SendValueOptimizations}
 
 The first implemented optimization takes advantage of the fact that a session of a positive value type $A$ being sent (e.g., $\sendt{A}{B}$) is a session which will have control returned to it exactly once, when it is received. The total number of operations can be reduced by immediately writing the data of the value instead of a continuation which would write that data. For example, instead of $\sendt{\lintt}{\sendt{\lintt}{\lintt}}$ being represented as $\seqst{\conts;\conts;\ints}$, it can be represented as $\seqst{\ints;\ints;\ints}$.
 
@@ -103,7 +103,7 @@ On the sending side, if the argument is a positive value type, the argument's co
 
 On the receiver side, instead of receiving a continuation, the data is simply moved from the main session's data section using \texttt{moveSlots} into the argument's data section.
 
-\subsection{Eagerly computing exponentials} \label{subsection:ExponentialValueOptimizations}
+\subsection{Eagerly Computing Exponentials} \label{subsection:ExponentialValueOptimizations}
 
 The second implemented optimization greatly simplifies the representation of exponential types when their inner type is a cloneable value type. Instead of representing $\bangt{A}$ as an $\exponentials$ slot, the value can simply be computed immediately and stored directly. Without this optimization, for example, storing the result of a complex computation as an exponential would require re-executing the entire computation every time the exponential is called. With this change, the computation is executed only once, and the result is cloned whenever a call is made. When the exponential is dropped, the result value is dropped.
 
@@ -122,7 +122,7 @@ On the $\whynotc{x}{P}$ process, nothing changes. The drop of the slots correspo
 
 Finally, the $\callc{x}{y}$ process is modified to simply generate a \texttt{cloneSlots} instruction whenever the inner type $A$ is a cloneable and droppable type, instead of generating a \texttt{callExponential} instruction.
 
-\subsection{Eagerly computing affine sessions} \label{subsection:AffineValueOptimizations}
+\subsection{Eagerly Computing Affine Sessions} \label{subsection:AffineValueOptimizations}
 
 On the base compiler, $\affinet{A}$ types are implemented as sessions which follows the affine protocol, i.e., $\offert{\labelt{use}{A}\ \labelt{discard}{\closet}}$, as described in \Cref{subsection:IRDroppingData}. Although this implementation saves time by lazily executing the affine code only if the session is used, it has the overhead of storing a continuation instead of the actual value, requiring multiple jumps and a tag to determine whether the session is used or discarded, even if the inner type $A$ is a droppable type, e.g., $\affinet{\lintt}$ or $\affinet{\bangt{\lintt}}$. In these cases, the semantic could be changed so that the value is computed immediately, and dropped if the session is discarded.
 
@@ -144,7 +144,7 @@ The $\usec{x}{P}$ process, where $x: \coaffinet{A}$ is modified to also branch o
 
 Finally, the $\cellc{x}{y}{P}$ and $\putc{x}{y}{P}{Q}$ processes are modified to branch on whether the inner type $A$ (where $y: A$) is a positive droppable type. If it is not, the implementation is the same as before. Otherwise, the process $P$ is executed immediately, with session $y$ initialized such that it writes directly to the cell's storage. The $\takec{x}{y}{P}$ process is also modified, such that if $A$ (where $y: A$) is a negative droppable type, the value is simply moved from cell $x$ to a new data section for $y$, instead of receiving a continuation.
 
-\section{Optimizing single exit point processes and tail calls} \label{section:SingleExitPointOptimizations}
+\section{Optimizing Single Exit Point Processes and Tail Calls} \label{section:SingleExitPointOptimizations}
 
 In the base version of the compiler, every exit point instruction decrements the exit point counter of the process environment, and if it reaches zero, the environment is cleaned up and the process terminates. For processes which have only one exit point, this is wasteful - there's no need to maintain an exit point counter, as it is guaranteed to reach zero when an exit point instruction is executed.
 
@@ -152,7 +152,7 @@ To take advantage of this, the C code generation phase omits any exit point hand
 
 Tail calls, i.e., recursive process calls executed when there's a single exit point left, are optimized to reuse the current process environment instead of allocating a new one, avoiding the overhead of memory allocation and deallocation, and greatly improving performance. This requires branching on the exit point count, to decide on whether a tail call is possible. If the optimization above is applied, the branch becomes unnecessary for processes with a single exit point.
 
-\section{Simplifying the generated IR code} \label{section:IRSimplification}
+\section{Simplifying the Generated IR Programs} \label{section:IRSimplification}
 
 The previously mentioned transformations introduce many optimization opportunities in the generated \ac{IR} code itself. For example, below is a result of compiling a send of positive value type, as described in \Cref{subsection:SendValueOptimizations}. A new continuation $c_2$ is introduced only for writing to $c_1$. In this case, it could be replaced entirely by direct writes to $c_1$.
 

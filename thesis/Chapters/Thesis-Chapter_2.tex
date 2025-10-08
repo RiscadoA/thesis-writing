@@ -265,7 +265,7 @@ Table \ref{tab:muCLLActions} presents the actions that can be performed on sessi
     \end{tabular}
 \end{table}
 
-\subsection{Type system}
+\subsection{Type System}
 
 The types of $\mu$CLL are defined by the following BNF grammar:
 $$\begin{aligned}
@@ -426,7 +426,7 @@ The affine constructs, $\affinec{x}P$, $\usec{x}P$ and $\discardc{x}$, are used 
 
 Finally, the constructs $\cellp$, $\putp$, $\takep$, $\releasep$ and $\sharep$ build on top of the affine constructs to model shared mutable state through reference cells. The process $\cellc{x}{y}P$ creates a new cell $x$ containing the affine session $y$, used in $P$. The process $\takec{x}{y}P$ locks the cell $x$, binding its content to $y$, and runs $P$. The process $\putc{x}{y}{P}Q$ places a new affine session $y$, used in $P$, in the locked cell $x$, unlocks it, and runs $Q$. The process $\releasec{x}$ drops the cell $x$, and, finally, the process $\sharec{x}{P}{Q}$ runs $P$ and $Q$ concurrently, both sharing access to the cell $x$.
 
-\subsection{Example programs}
+\subsection{Example Programs}
 
 \begin{figure}
     \centering
@@ -491,7 +491,7 @@ Finally, the constructs $\cellp$, $\putp$, $\takep$, $\releasep$ and $\sharep$ b
         \caption{Forwarding channels}
         \label{fig:CLASSForwardExample}
     \end{subfigure}
-    \caption{\ac{CLASS} examples illustrating the basic constructs of the language}
+    \caption{CLASS examples illustrating the basic constructs of the language}
 \end{figure}
 
 Some example programs in \ac{CLASS} are now presented, starting with a simple program which does nothing but close a session (\Cref{fig:CLASSWaitCloseExample}). The \texttt{main} process definition never has arguments of any kind. In this program, a session $x$ is initialized through a $\cutp$. Its type annotation $x: \closet$ indicates that on the right-hand side of the $\cutp$ the only action that can (and must) be performed is $\closep$. On the left-hand side, the dual is true - that is, the actions on $x$ must match the dual type of $\closet$, which is $\waitt$. The $\waitp$ action has a continuation, which in this case is set to $\emptyc$ (empty), indicating that the process has terminated.
@@ -620,7 +620,7 @@ In this section, an overview of the \acf{SAM} is given. The \ac{SAM}, introduced
 
 The core components of the \ac{SAM} are session references $x, y$, values $V ::= \checkmark\ |\ \labelp{c}\ |\ \text{clos}(x, P)$, queues $q ::= \text{nil}\ |\ V\ |\ V@q$, session records $R ::= x\langle q,P\rangle y$ and the heap $H ::= x \mapsto R$, where $P$ is a process. Values $V$ can either be the close token $\checkmark$, a label $\#c$, or a closure $\text{clos}(x, P)$, where $x$ is a session reference and $P$ is a process. Queues $q$ are sequences of values, and session records $R$ are tuples of session references $x, y$, a queue $q$ and a process $P$. The heap $H$ maps session references to session records.
 
-\subsection{Reduction rules}
+\subsection{Reduction Rules}
 
 The Linear \ac{SAM} is a state transition system, where the state is a tuple $(P, H)$, with the heap $H$ and a process $P$. The transition relation is defined by a set of rules, some of which are presented in this section.
 
@@ -708,7 +708,7 @@ The second example is the process $Q$ whose definition and execution is shown be
          & \Mapsto (\emptyc, \emptyset)
 \end{aligned}\]
 
-\section{Alternative applications}
+\section{Alternative Applications}
 
 In this section, some works \cite{Ahmed:2007, Bernardy:2017,Kokke:2021,Jespersen:2015, Lagaillardie:2022} are presented which apply linear logic and/or session types through different approaches. These works are not directly related to \ac{CLASS} or to the Linear \ac{SAM}, nor is this work based on them, but they are interesting to mention as they show alternative ways of solving the same problems this thesis addresses.
 
