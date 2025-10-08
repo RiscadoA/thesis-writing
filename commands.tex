@@ -181,9 +181,11 @@
 \newcommand{\discardc}[1]{\discardp\,#1}
 \newcommand{\usec}[1]{\usep\,#1;}
 \newcommand{\cellc}[3]{\cellp\,#1(#2.\,#3)}
+\newcommand{\cellfc}[2]{\cellp\,#1(#2)}
 \newcommand{\releasec}[1]{\releasep\,#1}
 \newcommand{\takec}[2]{\takep\,#1(#2);}
 \newcommand{\putc}[3]{\putp\,#1(#2.\,#3);}
+\newcommand{\putfc}[2]{\putp\,#1(#2);}
 \newcommand{\ifc}[3]{\ifp\,#1\,\{#2\}\,\elsep\,\{#3\}}
 \newcommand{\letc}[2]{\letp\,#1\,#2}
 \newcommand{\scanc}[1]{\scanp(#1)}
@@ -287,6 +289,24 @@
     \renewcommand{\printc}[1]{\printi{##1}\z}
     \let\printlni\printlnc
     \renewcommand{\printlnc}[1]{\printlni{##1}\z}
+    \let\affinei\affinec
+    \renewcommand{\affinec}[1]{\affinei{##1}\z}
+    \let\usei\usec
+    \renewcommand{\usec}[1]{\usei{##1}\z}
+    \let\discardi\discardc
+    \renewcommand{\discardc}[1]{\discardi{##1}}
+    \let\celli\cellc
+    \renewcommand{\cellc}[3]{\celli{##1}{##2}{\iz\z##3\dz\z}}
+    \let\cellfi\cellfc
+    \renewcommand{\cellfc}[2]{\cellfi{##1}{##2}\z}
+    \let\takei\takec
+    \renewcommand{\takec}[2]{\takei{##1}{##2}\z}
+    \let\puti\putc
+    \renewcommand{\putc}[3]{\puti{##1}{##2}{##3}\z}
+    \let\putfi\putfc
+    \renewcommand{\putfc}[2]{\putfi{##1}{##2}\z}
+    \let\sharei\sharec
+    \renewcommand{\sharec}[3]{\sharei{##1}{\iz\z##2\z}{\z##3\dz\z}}
 
     $$
         \begin{aligned}

@@ -150,11 +150,11 @@ In the base version of the compiler, every exit point instruction decrements the
 
 To take advantage of this, the C code generation phase omits any exit point handling code when the \ac{IR} process has only one exit point, avoiding unnecessary memory accesses and branches.
 
-Tail calls, i.e., recursive process calls executed when there's a single exit point left, are optimized to reuse the current process environment instead of allocating a new one, avoiding the overhead of memory allocation and deallocation, and greatly improving performance. This requires branching on the exit point count, to decide on whether a tail call is possible. If the optimization above is applied, the branch becomes unnecessary in most cases, as most processes end up having a single exit point.
+Tail calls, i.e., recursive process calls executed when there's a single exit point left, are optimized to reuse the current process environment instead of allocating a new one, avoiding the overhead of memory allocation and deallocation, and greatly improving performance. This requires branching on the exit point count, to decide on whether a tail call is possible. If the optimization above is applied, the branch becomes unnecessary for processes with a single exit point.
 
 \section{Simplifying the generated IR code}
 
-The previously mentioned transformations introduce many optimization opportunities in the generated \ac{IR} code itself. For example, below is a result of compiling a send of positive value type, as described in \Cref{subsection:SendValueOptimizations}. A new session $c_2$ is introduced only for writing to session $c_1$. In this case, it could be replaced entirely by writing directly to $c_1$.
+The previously mentioned transformations introduce many optimization opportunities in the generated \ac{IR} code itself. For example, below is a result of compiling a send of positive value type, as described in \Cref{subsection:SendValueOptimizations}. A new continuation $c_2$ is introduced only for writing to $c_1$. In this case, it could be replaced entirely by direct writes to $c_1$.
 
 \begin{minipage}{0.9\linewidth}
 \begin{lstlisting}[language=IR, frame=bottom]
@@ -166,27 +166,27 @@ send_rhs_2:
 \end{lstlisting}
 \end{minipage}
 
-To simplify the generated \ac{IR} code, a control flow graph for each \ac{IR} process is built, through a symbolic execution. For each instruction, the known state of the process environment is updated, storing information such as the current continuations and writing locations of each session, or the known values of slots in the local data sections. For each visited \ac{IR} block, a node is added to the graph, storing the nodes into which the node may jump to, as well as nodes which become detached from the main control flow, such as blocks referenced by a \texttt{pushTask} instruction. Eventually, all reachable nodes are visited.
+To simplify the generated \ac{IR} code, a control flow graph for each \ac{IR} process is built through symbolic execution. For each instruction, the known state of the process environment is updated, storing information such as the known state of each continuation, or the known values of slots in the local data sections. For each visited \ac{IR} block, a node is added to the graph, storing the nodes into which the node may jump to, as well as nodes which become detached from the main control flow, such as blocks referenced by a \texttt{pushTask} instruction. Eventually, all reachable nodes are visited.
 
-The first applied optimization removes jumps to known locations, such as \texttt{jump}, or \texttt{continue} instructions of sessions with a known continuation, or branches with known outcomes. After removing these instructions, the source and target \ac{IR} blocks are merged. The example above becomes:
+The first applied optimization removes jumps to known locations, such as \texttt{continue} instructions of known continuations, or branches with known outcomes. After removing these instructions, the source and target \ac{IR} blocks are merged. The example above becomes:
 
-\begin{lstlisting}[language=IR]
-    initContinuation(c2, -, c1) // no continuation
+\begin{lstlisting}[language=IR, frame=bottom]
+    initContinuation(c2, -, c1) // no target location
     writeExpression(c2, 1)
     ... // send rhs
 \end{lstlisting}
 
-Next, remote data locations are replaced by their known locations. For example, the remote data location $c_2$ was just initialized to be $c_1$. Thus, the writing location $c_2$ can be replaced by $c_1$. This leaves us with a session $c_2$ which is initialized but never used, and thus, can be removed.
+Next, remote data locations are replaced by their known locations. For example, the writing location of $c_2$ was just initialized to be $c_1$. Thus, the data location $c_2$ can be replaced by $c_1$. This leaves us with a continuation $c_2$ which is initialized but never used, and thus, can be removed.
 
-\begin{lstlisting}[language=IR]
+\begin{lstlisting}[language=IR, frame=bottom]
     initContinuation(c2, -, c1) // c2 is unused, can be removed
     writeExpression(c1, 1) // write directly to c1
     ... // send rhs
 \end{lstlisting}
 
-Another useful result from the symbolic execution is knowing which exit point instructions are guaranteed to not be the last instruction executed by the process. For example, in the following code, the \texttt{finish} instruction will never be the last executed instruction, as there's an outgoing (detached) flow from the \texttt{entry} block to \texttt{rhs} block, introduced by \texttt{pushTask}. In cases like these, the exit point markings can be removed from the instructions, and the exit point counter of the process decremented. This makes most processes have a single exit point, which can be optimized as described in \Cref{section:SingleExitPointOptimizations}.
+Another useful result from the symbolic execution is knowing which exit point instructions are guaranteed to not be the last instruction executed by the process. For example, in the following code, the \texttt{finish} instruction will never be the last executed instruction, as there's an outgoing flow from the \texttt{entry} block to \texttt{rhs} block, introduced by \texttt{pushTask}. In cases like these, the exit point markings can be removed from the instructions, and the exit point counter of the process decremented. This makes most processes have a single exit point, which can be optimized as described in \Cref{section:SingleExitPointOptimizations}.
 
-\begin{lstlisting}[language=IR]
+\begin{lstlisting}[language=IR, frame=bottom]
 entry:
     pushTask(rhs)
     finish(c1, exit point) // becomes just finish(c1)

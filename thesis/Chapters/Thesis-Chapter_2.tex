@@ -502,45 +502,7 @@ The program shown in \Cref{fig:CLASSChoiceExample} exemplifies the use of choice
 
 The forward construct $\fwdp$ is used to link two sessions together, making them behave as if they were the same session. in \Cref{fig:CLASSForwardExample} a program similar to the one in \Cref{fig:CLASSWaitCloseExample} is presented, where instead of directly closing the session $x$ on the right-hand side, a new session $y$ is initialized with a new cut, and all data sent to $x$ are forwarded to $y$.
 
-When writing complex programs in \ac{CLASS}, type and process definitions are used to simplify the code. in \Cref{fig:CLASSEitherExample}, a type $Either$ is defined which is equivalent to a choice of two labels, each option leading to $\waitt$. Then, this definition can be used in the type annotations of the processes. The \texttt{printEither} process definition receives a session $x$ of type $\dualt{Either}$, i.e., receives a choice of one of two labels, and prints the choice made.
-
-The main process definition \texttt{main} initializes a session $x$ of type $Either$ with the choice $\labelp{left}$, and calls the \texttt{printBool} process definition with it. Running this program will print \texttt{left}.
-
-\begin{figure}
-    \centering
-    \begin{minipage}{0.45\textwidth}
-        \begin{class}
-            \typedefc{Either}{\choicet{\iz\z
-                    \labelt{left}{\waitt}\z
-                    \labelt{right}{\waitt}\dz\z
-                }}
-            \z\z
-            \procdefc{printEither}{x: \dualt{Either}}{
-                \casec{x}{
-                    \labelc{left}{\printlni{\texttt{"left"}}\closec{x}}
-                    \labelc{right}{\printlni{\texttt{"right"}}\closec{x}}
-                }
-            }
-        \end{class}
-    \end{minipage}
-    \hfill
-    \begin{minipage}{0.45\textwidth}
-        \begin{class}
-            \procdefc{main}{}{
-                \cutc{
-                    \proccallc{printEither}{x}
-                }{x: Either}{
-                    \choosec{left}{x}
-                    \waiti{x}\emptyc
-                }
-            }
-        \end{class}
-    \end{minipage}
-    \caption{\ac{CLASS} example with a process and type definitions, implementing an Either type}
-    \label{fig:CLASSEitherExample}
-\end{figure}
-
-\ac{CLASS} supports defining inductive types and processes. \Cref{fig:CLASSNatExample} presents a inductive definition of natural numbers in \ac{CLASS}, and a recursive process that prints a natural number. The unfold actions $\unfoldmuc{x}$ and $\unfoldnuc{x}$ are used to unfold the inductive type $Nat$, i.e., transform $Nat$ into $\choicet{\labelt{zero}{\waitt}\ \labelt{succ}{Nat}}$. Unfold actions are added implicitly, but they are explicit in the example for clarity. This example prints \texttt{S S 0}, representing the number $2$.
+When writing complex programs in \ac{CLASS}, type and process definitions are used to simplify the code. Additionally, \ac{CLASS} supports defining inductive types and processes. \Cref{fig:CLASSNatExample} presents a inductive definition of natural numbers in \ac{CLASS}, and a recursive process that prints a natural number. The unfold actions $\unfoldmuc{x}$ and $\unfoldnuc{x}$ are used to unfold the inductive type $Nat$, i.e., transform $Nat$ into $\choicet{\labelt{zero}{\waitt}\ \labelt{succ}{Nat}}$. Unfold actions are added implicitly, but they are explicit in the example for clarity. This example prints \texttt{S S 0}, representing the number $2$.
 
 \begin{figure}
     \centering
@@ -575,23 +537,19 @@ The main process definition \texttt{main} initializes a session $x$ of type $Eit
             }
         \end{class}
     \end{minipage}
-    \caption{Inductive Natural Number Definition in \ac{CLASS}}
+    \caption{Inductive natural number definition in \ac{CLASS}}
     \label{fig:CLASSNatExample}
 \end{figure}
 
-The last example presented, in \Cref{fig:CLASSPolymorphismExample}, is a simple demonstration of polymorphism in \ac{CLASS}. The type definition \texttt{List} is a polymorphic type that receives a type variable $X$, and is defined as a choice between two labels, one for the empty list and another for a list with a head of type $X$ and a tail of type $List\ X$. The inductive process definition \texttt{concatList} operates on lists of a generic type $X$: it receives two lists $x$ and $y$ of type $List\ X$, and concatenates them into a new list $z$ of type $List\ X$. Unfolds have been omitted for brevity, but they are implicit in the example.
+In \Cref{fig:CLASSPolymorphismExample}, a simple demonstration of polymorphism in \ac{CLASS} is shown. The type definition \texttt{List} is a polymorphic type that receives a type variable $X$, and is defined as a choice between two labels, one for the empty list and another for a list with a head of type $X$ and a tail of type $List\ X$. The inductive process definition \texttt{concatList} operates on lists of a generic type $X$: it receives two lists $x$ and $y$ of type $List\ X$, and concatenates them into a new list $z$ of type $List\ X$. Unfolds have been omitted for brevity, but they are implicit in the example.
 
 The concatenation is done by matching on the first list $x$. If it is $\labelp{nil}$, then the list $y$ is forwarded into $z$ without modification. If it is $\labelp{cons}$, then the head $a$ is extracted from $x$, and inserted it into $z$, by choosing the $\labelp{cons}$ label on $z$ and sending $a$ to $z$. Finally, the process calls itself recursively with the same type $X$, the tail of $x$, the same list $y$, and the new list $z$.
 
 \begin{figure}
     \centering
+    \begin{minipage}[b]{0.6\textwidth}
     \begin{class}
-        \rectypedefgc{List}{X}{\choicet{\iz\z
-                \labelt{nil}{\waitt}\z
-                \labelt{cons}{\sendt{X}{List}}\dz\z
-            }}
-        \z\z
-        \recprocdefgc{concatList}{X}{x: \dualt{List(X)}, y: \dualt{List(X)}, z: List(X)}{
+        \recprocdefgc{concatList}{X}{\\&\hspace{1.5em}x: \dualt{List(X)},y: \dualt{List(X)}, z: List(X)}{
             \casec{x}{
                 \labelc{nil}{\fwdc{y}{z}}
                 \labelc{cons}{\iz\z
@@ -604,13 +562,57 @@ The concatenation is done by matching on the first list $x$. If it is $\labelp{n
             }
         }
     \end{class}
-    \caption{Polymorphic List Concatenation in \ac{CLASS}}
+    \end{minipage}
+    \hfill
+    \begin{minipage}[b]{0.3\textwidth}
+    \begin{class}
+        \rectypedefgc{List}{X}{\choicet{\iz\z
+                \labelt{nil}{\waitt}\z
+                \labelt{cons}{\sendt{X}{List}}\dz\z
+            }}
+    \end{class}
+    \end{minipage}
+    \caption{Polymorphic list concatenation in \ac{CLASS}}
     \label{fig:CLASSPolymorphismExample}
 \end{figure}
 
-\todo{add affine example}
+An example of an affine session is shown in \Cref{fig:CLASSAffineExample}. The $\affinep$ process on the left-hand-side of the $\cutp$ produces an affine string on $x$. Since $x$ is affine, it can either be used once, or discarded. In this case, it is discarded through the $\discardp$ process.
 
-\todo{add shared state example}
+The last example, shown in \Cref{fig:CLASSStateExample}, demonstrates the use of shared mutable state. A cell $x$ is created, holding an integer initialized to $1$. The cell $x$ is then shared between two threads, on the right-hand-side of the $\cutp$. Each thread takes the integer from the cell, prints it, puts a new integer in the cell, and then releases the cell. When the $\takep$ process is executed, the cell is locked, preventing the other thread from accessing it until the $\putp$ process is executed, which unlocks the cell. In this case, the output of the program is non-deterministic, and can be either \texttt{1 2} or \texttt{1 3}, depending on which thread executes first.
+
+\begin{figure}
+    \begin{subfigure}{.4\textwidth}
+        \begin{class}
+            \procdefc{main}{}{
+                \cutc{
+                    \affinei{x}\letc{x}{\texttt{"Hello, Affine!"}}
+                }{x: \coaffinet{\colstringt}}{
+                    \discardc{x}
+                }
+            }
+        \end{class}
+        \caption{Discarding an affine session}
+        \label{fig:CLASSAffineExample}
+    \end{subfigure}
+    \begin{subfigure}{.55\textwidth}
+        \begin{class}
+            \procdefc{main}{}{
+                \cutc{
+                    \cellfi{x}{1}
+                }{x: \usaget{\colintt}}{
+                    \sharec{x}{
+                        \takei{x}{a}\printlni{a}\putfi{x}{2}\releasec{x}
+                    }{
+                        \takei{x}{b}\printlni{b}\putfi{x}{3}\releasec{x}
+                    }
+                }
+            }
+        \end{class}
+        \caption{Sharing a mutable integer on two threads}
+        \label{fig:CLASSStateExample}
+    \end{subfigure}
+    \caption{Affine sessions and shared state in \ac{CLASS}}
+\end{figure}
 
 \section{Linear Session Abstract Machine}
 
