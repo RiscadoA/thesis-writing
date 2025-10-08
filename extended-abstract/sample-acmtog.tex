@@ -171,13 +171,13 @@
 %% The abstract is a short summary of the work to be presented in the
 %% article.
 \begin{abstract}
-  Session-typed programming languages based on linear logic, such as CLASS, enforce memory safety and deadlock-freedom by construction. The Linear Session Abstract Machine (SAM) was introduced to provide a formal model for sequentially executing the processes of session-typed languages, allowing for orders of magnitude better runtime performance than existing interpreters which spawn threads for each concurrent process. However, the SAM remains an interpreter, which introduces a performance overhead compared to a compiled language, even though the language is very strongly statically typed. This project introduces a compilation scheme for CLASS, which translates the high-level session-typed language into an efficient low-level imperative language (C) while maintaining all of the safety and liveness guarantees of the source language. During this project, an implementation has been developed which covers all of the language features and which implements multiple optimization techniques. It is now possible to compile and run programs written in CLASS, achieving performance orders of magnitude better than the SAM interpreter.
+  Session-typed programming languages based on linear logic, such as CLASS, enforce memory safety and deadlock-freedom by construction. The Linear Session Abstract Machine (SAM) was introduced to provide a formal model for sequentially executing the processes of session-typed languages, allowing for orders of magnitude better runtime performance than existing interpreters which spawn threads for each concurrent process. However, the SAM remains an interpreter, which introduces a performance overhead compared to a compiled language, even though the language is very strongly statically typed. This project introduces the first intermediate representation (IR) for session-based languages, which can be used to compile session-typed programs to efficient low-level imperative code. A compilation scheme for CLASS, which translates the high-level session-typed language into this IR, while maintaining all of the safety and liveness guarantees of the source language, was developed. An implementation of this scheme has been developed which covers all of the language features and which implements multiple optimization techniques. It is now possible to compile and run programs written in CLASS, achieving performance orders of magnitude better than the SAM interpreter.
 \end{abstract}
 
 %%
 %% Keywords. The author(s) should pick words that accurately describe
 %% the work being presented. Separate the keywords with commas.
-\keywords{Session Types, Linear Logic, Compilation}
+\keywords{Session types, Linear Logic, Compilation scheme, Intermediate representation, CLASS, Linear Session Abstract Machine (SAM)}
 
 %%
 %% This command processes the author and affiliation and title
@@ -323,65 +323,56 @@ $$
 $$
 runs $P$ and $Q$ concurrently, without any communication between them. This composition corresponds to the mix rule of linear logic, i.e., no session appears simultaneously in both $P$ and $Q$.
 
-\begin{figure}
-    \[\begin{aligned}&\begin{aligned}
-        P, Q ::=\ &\cutc{P}{x: A}{Q}                                          &  & |\ \parc{P}{Q}                                                 \\
-        |\         & \fwdc{x}{y}                                                &  & |\ \emptyc                                                     \\
-        |\         & \closec{x}                                                 &  & |\ \waitc{x}{P}                                                \\
-        |\         & \choosec{c}{x}{P} &  & |\ \casec{x}{\labelc{c$_1$}{P_1}\ \dots\ \labelc{c$_n$}{P_n}}                                           \\
-        |\         & \sendc{x}{y}{P}{Q}                                         &  & |\ \recvc{x}{y}{Q}                                             \\
-        |\         & \bangc{x}{y}{P}                                            &  & |\ \whynotc{x}{P}                                              \\
-        |\         & \sendtyc{x}{B}{P}                                          &  & |\ \recvtyc{x}{X}{P}                                           \\
-        |\         & \unfoldmuc{x}{P}                                           &  & |\ \unfoldnuc{x}{P}                                            \\
-        |\         & \affinec{x}P                                               &  & |\ \discardc{x}                                                \\
-        |\         & \usec{x}P                                                  &  & |\ \cellc{x}{y}{P}                                             \\
-        |\         & \releasec{x}                                               &  & |\ \takec{x}{y}{P}                                             \\
-        |\         & \putc{x}{y}{P}Q                                            &  & |\ \scanc{x}                                                   \\
-        |\         & \printc{E}{P}                                              &  & |\ \printlnc{E}{P}                                             \\
-        |\         & \letc{x}{E}                                                &  & |\ \ifc{E}{P}{Q} \\
-        |\         & \callc{x}{y} & & |\ \proccallc{proc\_id}{x_1,\,\dots\,,x_n} \\
-    \end{aligned}\\
-        & \makebox[\widthof{P, Q ::=}][r]{|}\ \proccallgc{proc\_id}{X_1,\,\dots,\,X_n}{x_1,\,\dots,\,x_m} \\
-    \end{aligned}\]
-    \caption{CLASS process grammar, where $x$ and $y$ are channels, $E$ is an expression, and $c$, $c_1$, and $c_n$ are choice labels.}
-    \label{fig:CLASSProcessGrammar}
-    \Description{CLASS process grammar}
-\end{figure}
+% \begin{figure}
+%     \[\begin{aligned}&\begin{aligned}
+%         P, Q ::=\ &\cutc{P}{x: A}{Q}                                          &  & |\ \parc{P}{Q}                                                 \\
+%         |\         & \fwdc{x}{y}                                                &  & |\ \emptyc                                                     \\
+%         |\         & \closec{x}                                                 &  & |\ \waitc{x}{P}                                                \\
+%         |\         & \choosec{c}{x}{P} &  & |\ \casec{x}{\labelc{c$_1$}{P_1}\ \dots\ \labelc{c$_n$}{P_n}}                                           \\
+%         |\         & \sendc{x}{y}{P}{Q}                                         &  & |\ \recvc{x}{y}{Q}                                             \\
+%         |\         & \bangc{x}{y}{P}                                            &  & |\ \whynotc{x}{P}                                              \\
+%         |\         & \sendtyc{x}{B}{P}                                          &  & |\ \recvtyc{x}{X}{P}                                           \\
+%         |\         & \unfoldmuc{x}{P}                                           &  & |\ \unfoldnuc{x}{P}                                            \\
+%         |\         & \affinec{x}P                                               &  & |\ \discardc{x}                                                \\
+%         |\         & \usec{x}P                                                  &  & |\ \cellc{x}{y}{P}                                             \\
+%         |\         & \releasec{x}                                               &  & |\ \takec{x}{y}{P}                                             \\
+%         |\         & \putc{x}{y}{P}Q                                            &  & |\ \scanc{x}                                                   \\
+%         |\         & \printc{E}{P}                                              &  & |\ \printlnc{E}{P}                                             \\
+%         |\         & \letc{x}{E}                                                &  & |\ \ifc{E}{P}{Q} \\
+%         |\         & \callc{x}{y} & & |\ \proccallc{proc\_id}{x_1,\,\dots\,,x_n} \\
+%     \end{aligned}\\
+%         & \makebox[\widthof{P, Q ::=}][r]{|}\ \proccallgc{proc\_id}{X_1,\,\dots,\,X_n}{x_1,\,\dots,\,x_m} \\
+%     \end{aligned}\]
+%     \caption{CLASS process grammar, where $x$ and $y$ are channels, $E$ is an expression, and $c$, $c_1$, and $c_n$ are choice labels.}
+%     \label{fig:CLASSProcessGrammar}
+%     \Description{CLASS process grammar}
+% \end{figure}
 
-\begin{figure}
-    \[\begin{aligned}
-        A, B ::=\  & X \text{ (type variable)}              &  & |\ \closet \\
-        |\ & \dualt{X} \text{ (dual type variable)} &  & |\ \waitt \\
-        |\ & \choicet{\labelt{$c_1$}{A}\dots\labelt{$c_n$}{B}} & & |\ \affinet{A} \\
-        |\ & \offert{\labelt{$c_1$}{A}\dots\labelt{$c_n$}{B}} & & |\ \coaffinet{A} \\
-        |\ & \sendt{A}{B}  & & |\ \sendtyt{X}{A} \\
-        |\ & \recvt{A}{B} & & |\ \recvtyt{X}{A} \\
-        |\ & \rect{X}{A}  & & |\ \bangt{A} \\ 
-        |\ & \corect{X}{A} & & |\ \whynott{A} \\
-        |\ & \lintt &  & |\ \colintt \\
-        |\ & \lboolt &  & |\ \colboolt \\
-        |\ & \lstringt &  & |\ \colstringt \\
-        |\ & \statet{A} & & |\ \usaget{A} \\
-        |\ & \statelt{A} & & |\ \usagelt{A} \\
-    \end{aligned}\]
-    \caption{CLASS type grammar where $c_1$, $c_n$ are choice labels.}
-    \label{fig:CLASSTypeGrammar}
-    \Description{CLASS type grammar}
-\end{figure}
+% \begin{figure}
+%     \[\begin{aligned}
+%         A, B ::=\  & X \text{ (type variable)}              &  & |\ \closet \\
+%         |\ & \dualt{X} \text{ (dual type variable)} &  & |\ \waitt \\
+%         |\ & \choicet{\labelt{$c_1$}{A}\dots\labelt{$c_n$}{B}} & & |\ \affinet{A} \\
+%         |\ & \offert{\labelt{$c_1$}{A}\dots\labelt{$c_n$}{B}} & & |\ \coaffinet{A} \\
+%         |\ & \sendt{A}{B}  & & |\ \sendtyt{X}{A} \\
+%         |\ & \recvt{A}{B} & & |\ \recvtyt{X}{A} \\
+%         |\ & \rect{X}{A}  & & |\ \bangt{A} \\ 
+%         |\ & \corect{X}{A} & & |\ \whynott{A} \\
+%         |\ & \lintt &  & |\ \colintt \\
+%         |\ & \lboolt &  & |\ \colboolt \\
+%         |\ & \lstringt &  & |\ \colstringt \\
+%         |\ & \statet{A} & & |\ \usaget{A} \\
+%         |\ & \statelt{A} & & |\ \usagelt{A} \\
+%     \end{aligned}\]
+%     \caption{CLASS type grammar where $c_1$, $c_n$ are choice labels.}
+%     \label{fig:CLASSTypeGrammar}
+%     \Description{CLASS type grammar}
+% \end{figure}
 
-For each session type, there is a corresponding action process which performs the action described by the type. For example, the process $\closec{x}$ closes a channel $x: \closet$, and the process $\sendc{x}{y}{P}{Q}$ sends a new channel $y: A$ through a channel $x: \sendt{A}{B}$. The full process grammar is shown in \Cref{fig:CLASSProcessGrammar}.
+For each session type, there is a corresponding action process which performs the action described by the type. For example, the process $\closec{x}$ closes a channel $x: \closet$, and the process $\sendc{x}{y}{P}{Q}$ sends a new channel $y: A$ through a channel $x: \sendt{A}{B}$.
+% The full process grammar is shown in \Cref{fig:CLASSProcessGrammar}.
 
-A \ac{CLASS} program is composed of a collection of type and process definitions, with the following BNF grammar:
-\[\begin{aligned}
-    \text{Program} ::=\  & \text{ProcDef}\ \text{Program} &  & |\ \text{ProcDef} \\
-    |\                   & \text{TypeDef}\ \text{Program} &  & |\ \text{TypeDef}
-\end{aligned}\]
-
-A type definition associates a name $X$ to a session type $A$, and can either be a simple type definition, or a recursive type definition. Optionally, type definitions may also receive type parameters, which are bound in $A$. The BNF grammar for type definitions is as follows:
-\[\begin{aligned}
-    & \text{TypeDef} ::=\  \typedefc{X}{A}                     &  & |\ \rectypedefc{X}{A}                     \\
-    &|\ \typedefgc{X}{X_1,\,\dots,\,X_n}{A} &  & |\ \rectypedefgc{X}{X_1,\,\dots,\,X_n}{A} \\
-\end{aligned}\]
+A \ac{CLASS} program is composed of a collection of type and process definitions. A type definition associates a name $X$ to a session type $A$, and can either be a simple type definition, or a recursive type definition. Optionally, type definitions may also receive type parameters, which are bound in $A$.
 
 A process definition associates a name $\texttt{proc\_id}$ to a process $P$, which receives a list of channels $x_1,\,\ldots,\,x_n$ to be bound in $P$, with types $A_1, \ldots, A_n$, respectively. As with type definitions, process definitions may also receive type parameters. The BNF grammar for process definitions is as follows:
 \[\begin{aligned}
@@ -421,7 +412,7 @@ proc main() {
 };;
 \end{lstlisting}
 
-One of the distinguishing features of \ac{CLASS} is its shared state cells, which can hold mutable shared state while still preserving deadlock-freedom guarantees. The following example creates a shared state cell $x$ holding an initial integer value of $1$. This cell is then shared between two processes, which both take the value in the cell, print it, put a new value in the cell, and finally release the cell. With a fair scheduler, the output of this program will always be either $1$ followed by $2$, or $1$ followed by $3$.
+One of the distinguishing features of \ac{CLASS} is its shared state cells, which can hold mutable shared state while still preserving deadlock-freedom guarantees. The following example creates a shared state cell $x$ holding an initial integer value of $1$. This cell is then shared concurrently between two processes, which both take the value in the cell, print it, put a new value in the cell, and finally release the cell. With a fair scheduler, the output of this program can either be $1$ followed by $2$, or $1$ followed by $3$.
 
 \begin{lstlisting}[language=CLASS]
 proc main() {
@@ -534,50 +525,54 @@ The second example is the process $Q$ whose definition and execution is shown be
 
 \section{Compilation Scheme}
 
-The base compilation scheme developed on this thesis generates native code which executes in a sequential and deterministic manner, closely resembling the execution of the \ac{SAM}, implementing continuation-based coroutining. Associated to each process is a block of data called an environment, similar to a stack frame of traditional imperative languages. This environment stores the continuations of each session, as well as any data received through them. Whenever a process finishes writing data to a session, a jump is made to its other end point, which will read the data and continue execution.
+% The base compilation scheme developed on this thesis generates native code which executes in a sequential and deterministic manner, closely resembling the execution of the \ac{SAM}, implementing continuation-based coroutining. Associated to each process is a block of data called an environment, similar to a stack frame of traditional imperative languages. This environment stores the continuations of each session, as well as any data received through them. Whenever a process finishes writing data to a session, a jump is made to its other end point, which will read the data and continue execution.
 
-At a high-level, the compilation scheme is divided into four phases. First, the source \ac{CLASS} program is parsed and type-checked. This phase is not discussed in this report, as its implementation has been reused from the previous work \cite{Rocha:2023, Caires:2024} on the \ac{SAM} and \ac{CLASS} interpreters. Then, the program is compiled to an \acf{IR} which abstracts some details of the target language. Next, the \ac{IR} is analyzed and optimized by a series of passes. Finally, the optimized \ac{IR} is translated to C code, which is then compiled to native code using the \acf{GCC}.
+% At a high-level, the compilation scheme is divided into four phases. First, the source \ac{CLASS} program is parsed and type-checked. This phase is not discussed in this report, as its implementation has been reused from the previous work \cite{Rocha:2023, Caires:2024} on the \ac{SAM} and \ac{CLASS} interpreters. Then, the program is compiled to an \acf{IR} which abstracts some details of the target language. Next, the \ac{IR} is analyzed and optimized by a series of passes. Finally, the optimized \ac{IR} is translated to C code, which is then compiled to native code using the \acf{GCC}.
 
-This section starts by describing the \ac{IR}'s constructs and its abstract machine. Then, the compilation from \ac{CLASS} to the \ac{IR} is described. Finally, an overview is given on how the \ac{IR} is translated to C code.
+% This section starts by describing the \ac{IR}'s constructs and its abstract machine. Then, the compilation from \ac{CLASS} to the \ac{IR} is described. Finally, an overview is given on how the \ac{IR} is translated to C code.
 
 \subsection{Intermediate Representation}
 
-The \ac{IR} is an imperative stateful language meant to act as a bridge between the high-level session-based language \ac{CLASS} and the low-level imperative language C.
+One of the main contributions of this work is the design and implementation of the first \acf{IR} for session-based languages which can be translated to efficient C code. Multiple abstractions were developed to model the execution of session-based programs in a low-level imperative language. This section starts by both describing the structure of \ac{IR} programs and introducing the abstract machine which executes them. Then, an example execution is covered step by step. Finally, an overview is given on various aspects of the \ac{IR} which were not covered in the example.
+
+The \ac{IR} is an imperative stateful language, inspired by the execution model of the \ac{SAM}, sequentially executing session-based programs through buffered communication. Sessions are split into two different concepts: \textit{continuations}, which model the flow of control between two end points of a session, and \textit{data sections}, which store data received through sessions. Continuations store both the program point to jump to when passing control to them, as well as the data location to write to, when sending data through the session. Thus, writing operations on a session always write to the data location stored on its continuation, which refers to a data section in the opposite end point. Reading operations on a session then read from this data section.
+
+This separation brings the representation of sessions much closer to variables and function calls in languages such as C. For example, for a given session end point $x: \lintt$, a continuation is stored which holds the program point to jump to after producing an integer through $x$, similarly to a return address. For the other end point of $x$, $y: \colintt$, no continuation is required, and only a data section is stored to hold the integer which will be written through $x$.
 
 \subsubsection{Program Structure}
 
-\begin{figure}
-    \begin{minipage}[t]{0.5\textwidth}
-    \begin{lstlisting}[language=IR,firstnumber=1]
-main:
-    end points: 2
-    types: none
-    sessions: s0
-    data d0: <[]> (s0)
-entry:
-    initializeSession(s0, cut_lhs_0, d0)
-    callProcess(p, end point, s0 <- s0)
-cut_lhs_0:
-    printLine("wait")
-    popTask(end point)
-    \end{lstlisting}
-    \end{minipage}
-    \hfill
-    \begin{minipage}[t]{0.4\textwidth}
-    \begin{lstlisting}[language=IR,firstnumber=12]
-p:
-    end points: 1
-    types: none
-    sessions: s0
-    data d0: <[]> (s0)
-entry:
-    printLine("close")
-    finishSession(s0, end point)
-    \end{lstlisting}
-    \end{minipage}
-    \caption{An example \ac{IR} program with two processes}
-    \label{fig:IRProcessExample}
-\end{figure}
+% \begin{figure}
+%     \begin{minipage}[t]{0.5\textwidth}
+%     \begin{lstlisting}[language=IR,firstnumber=1]
+% main:
+%     end points: 2
+%     types: none
+%     sessions: s0
+%     data d0: <[]> (s0)
+% entry:
+%     initializeSession(s0, cut_lhs_0, d0)
+%     callProcess(p, end point, s0 <- s0)
+% cut_lhs_0:
+%     printLine("wait")
+%     popTask(end point)
+%     \end{lstlisting}
+%     \end{minipage}
+%     \hfill
+%     \begin{minipage}[t]{0.4\textwidth}
+%     \begin{lstlisting}[language=IR,firstnumber=12]
+% p:
+%     end points: 1
+%     types: none
+%     sessions: s0
+%     data d0: <[]> (s0)
+% entry:
+%     printLine("close")
+%     finishSession(s0, end point)
+%     \end{lstlisting}
+%     \end{minipage}
+%     \caption{An example \ac{IR} program with two processes}
+%     \label{fig:IRProcessExample}
+% \end{figure}
 
 An \ac{IR} program is a set of named processes, each consisting of a header and a body. The header contains the number of end points of the process, the names of the type parameters, the names of the session parameters, the names of the data sections and their data layouts, and finally, the data to be dropped when the process finishes execution (see \Cref{fig:IRProcessExample} for an example).
 

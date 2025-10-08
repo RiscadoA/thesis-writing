@@ -14,25 +14,28 @@ At a high-level, the compilation scheme is divided into four phases. First, the 
 In the first section of this chapter, the \ac{IR}'s constructs and its abstract machine are defined. In the second section, the compilation of \ac{CLASS} to the \ac{IR} is described. Finally, in the third section,
 an overview is given on how the \ac{IR} is translated to C code.
 
-\section{Intermediate Representation} \label{section:IR}
+\section{Abstractions for the Intermediate Representation} \label{section:IR}
 
 One of the main contributions of this work is the design and implementation of the first \acf{IR} for session-based languages which can be translated to efficient C code. Multiple abstractions were developed to model the execution of session-based programs in a low-level imperative language. This section starts by both describing the structure of \ac{IR} programs and introducing the abstract machine which executes them. Then, an example execution is covered step by step. Finally, an overview is given on various aspects of the \ac{IR} which were not covered in the example.
 
-The \ac{IR} is an imperative stateful language, inspired by the execution model of the \ac{SAM}, sequentially executing session-based programs through buffered communication. Sessions are split into two different concepts: \textit{continuations}, which model the flow of control between two end points of a session, and \textit{data sections}, which store data received through sessions. Continuations store both the program point to jump to when passing control to them, as well as the data location to write to, when sending data through the session. Thus, writing operations on a session always write to the data location stored on its continuation, which refers to a data section in the opposite end point. Reading operations on a session then read from this data section.
+The \ac{IR} is an imperative stateful language, inspired by the execution model of the \ac{SAM}, sequentially executing session-based programs through buffered communication. The concept of sessions is split into two parts: \textit{continuations}, which model the flow of control between two end points of a session, and \textit{data sections}, which store data received in sessions. A continuation can be seen as a representation of a session end point which stores the necessary information to communicate with and pass control to the opposite end point.
 
-This separation brings the representation of sessions much closer to variables and function calls in languages such as C. For example, for a given session end point $x: \lintt$, a continuation is stored which holds the program point to jump to after producing an integer through $x$, similarly to a return address. For the other end point of $x$, $y: \colintt$, no continuation is required, and only a data section is stored to hold the integer which will be written through $x$.
+A continuation is composed of a return address, a writing location, and a reference to another continuation. The return address is a code address, which is jumped to when passing control to the opposite end point. The writing location is a data location where data to be read by the opposite end point should be written to. Finally, the continuation reference is a reference to the continuation which the opposite end point will use to pass control back to this point. The purpose of this reference will become clear in the example execution covered by the next section.
 
-\subsection{Programs and the abstract machine}
+Data sections and continuations bring the representation of sessions much closer to variables and function calls in languages such as C. For example, for a given session end point $x: \lintt$, a continuation is stored which holds the return address to jump to after producing an integer to $x$. In the other end point of $x$, $y: \colintt$, a data section is stored to hold the integer which will be written to $x$.
+
+\subsection{Programs and the IR Abstract Machine}
 
 An \ac{IR} program is a set of named process definitions, each consisting of a header and a body. The header declares properties and resources used by the process, such as continuations, data sections and any type parameters, while the body is a set of named instruction blocks, each consisting of a list of instructions to be executed sequentially.
 
-During execution, associated to each process definition call is an \textit{environment}, a data structure holding the state of the process, similar to a stack frame in languages such as C. An environment holds the states of the continuations and data sections described in the header of its process. Additionally, it keeps track of the number of remaining exit points of the process, which is used to determine when the environment can be safely destroyed. Instructions in the body of a process implicitly operate on its environment.
+During execution, whenever a process is called, an \textit{environment} is created. An \textit{environment} is a data structure which holds the state of the process, similar to a stack frame in languages such as C. An environment holds the states of the continuations and data sections described in the header of its process. Additionally, the environment also stores the number of remaining exit points of the process. An exit point is an instruction through which control leaves the scope of the current environment, without a guarantee of coming back. When all exit points of a called process have been reached, its environment can be safely destroyed. Essentially, exit points are used as a reference counting mechanism for environments.
 
-To model the $\parp$ process of \ac{CLASS}, a stack of pending \textit{tasks} is also kept. Tasks store continuations to jump to after they're popped from the stack.
+The execution of an \ac{IR} program is described by an abstract machine with state $\langle E, T, C \rangle$, where $E$ is the environment of the process being executed, $T$ is the stack of pending tasks, and $C$ is the program counter. The stack $T$ of pending tasks is used to model the $\parp$ process of \ac{CLASS}. Each task stores a code address and an environment, on which execution should resume when the task is popped from the stack.
 
-The execution of an \ac{IR} program can thus be described by an abstract machine with state $\langle E, T, C \rangle$, where $E$ is the environment of the process being executed, $T$ is the stack of pending tasks, and $C$ is the cursor pointing to the next instruction to be executed - a triple consisting of a process name, a block label and an instruction index.
+To introduce the \ac{IR} and its abstractions, the execution of an example program will be covered step by step on the next section.
 
-\begin{figure}
+
+\begin{figure}[H]
     \hrule
     \begin{minipage}[t]{0.5\textwidth}
     \begin{lstlisting}[language=CLASS]
@@ -66,9 +69,9 @@ main:
     data d0: <[cont]>
     data d1: <[int]>
 entry:
-    initContinuation(c0, lhs, d0)
-    callProcess(p, exit point, c0 <- c0)
-lhs:
+    initContinuation(c0, rhs, d0)
+    callProcess(p, exit point, c2 <- c0)
+rhs:
     bindContinuation(d0, c1, d1)
     continue(c1, ret)
 ret:
@@ -82,19 +85,19 @@ ret:
     \begin{lstlisting}[language=IR,firstnumber=16]
 p:
     exit points: 2
-    continuations: c0 c1
-    data d0: <[string]> (c0)
-    data d1: <[]>
+    continuations: c2 c3
+    data d2: <[string]> (c2)
+    data d3: <[]>
 entry:
-    initContinuation(c1, send, d1)
-    writeContinuation(c0, c1)
-    continue(c0, ret)
+    initContinuation(c3, send, d3)
+    writeContinuation(c2, c3)
+    continue(c2, ret)
 ret:
-    printLine(move(d0, string))
+    printLine(move(d2, string))
     popTask(exit point)
 send:
-    writeExpression(c1, 17)
-    finish(c1, exit point)
+    writeExpression(c3, 17)
+    finish(c3, exit point)
     \end{lstlisting}
     \end{minipage}
     \hrule
@@ -104,186 +107,187 @@ send:
 
 \subsection{Example execution}
 
-To introduce the \ac{IR} and its abstractions, the execution of the example program shown in \Cref{fig:IRProcessExample} will be covered step by step. This program consists of two process definitions, \texttt{main} and \texttt{p}, both implementing the processes with the same names in the source \ac{CLASS} program. The execution starts at the \texttt{entry} block of the \texttt{main} process. The task stack is initialized with a single task which, when popped, terminates the execution of the program. The environment, shown below, on the left, is created for the \texttt{main} process, with continuations and data sections uninitialized, and with $2$ exit points, as declared in its header.
+The example \ac{CLASS} program shown in \Cref{fig:IRProcessExample} consists of two process definitions, \texttt{main} and \texttt{p}. When executed, the two processes communicate through session $x$. Process \texttt{p} sends the integer $17$ over $x$, which, on \texttt{main}, is received and used to produce a string. This string is sent back to \texttt{p}, which prints it to the standard output and terminates.
+
+The \ac{IR} program translated from the source \ac{CLASS} program is also shown in \Cref{fig:IRProcessExample}. It consists of two processes with the same names as in the source program. Before delving into the inner workings of the execution, a brief overview of the execution trace is given. The execution starts at the \texttt{entry} block of the \texttt{main} process. The steps of the execution are as follows:
+
+\begin{enumerate}[leftmargin=*, label=\textbf{Step \arabic*:}, itemsep=1pt, parsep=0pt]
+  \item \texttt{initContinuation(c0, rhs, d0)} --- initializes continuation $c_0$ in \texttt{main}.
+  \item \texttt{callProcess(p, exit point, c2 <- c0)} --- calls process \texttt{p}, passing $c_0$ as an argument.
+  \item \texttt{initContinuation(c3, send, d3)} --- initializes continuation $c_3$ in \texttt{p}.
+  \item \texttt{writeContinuation(c2, c3)} --- writes $c_3$ to the writing location of $c_2$, which is $d_0$.
+  \item \texttt{continue(c2, ret)} --- yields control to $c_2$, jumping to \texttt{rhs} in \texttt{main}.
+  \item \texttt{bindContinuation(d0, c1, d1)} --- reads $c_3$ from $d_0$, binding it to $c_1$ and pointing $c_3$ to $d_1$.
+  \item \texttt{continue(c1, ret)} --- yields control to $c_1$, jumping to \texttt{send} in \texttt{p}.
+  \item \texttt{writeExpression(c3, 17)} --- writes $17$ to the writing location of $c_3$, which is $d_1$.
+  \item \texttt{finish(c3, exit point)} --- jumps to \texttt{ret} .in \texttt{main}.
+  \item \texttt{writeExpression(c0, "Res:\ " + move(d1, int))} --- reads $17$ from $d_1$ and writes the string \texttt{"Res:\ 17"} to the writing location of $c_0$, which is $d_2$.
+  \item \texttt{finish(c0, exit point)} --- jumps to \texttt{ret} in \texttt{p}.
+  \item \texttt{printLine(move(d2, string))} --- reads \texttt{"Res:\ 17"} from $d_2$ and prints it.
+  \item \texttt{popTask(exit point)} --- finishes execution.
+\end{enumerate}
+
+Now, each step of the execution will be covered in detail, along with the changes to the abstract machine's state. Each environment is shown as a table, with the process name at the top, followed by the number of exit points, and the states of its continuations and data sections. Changes between steps are highlighted in orange.
+
+When the program starts, the \texttt{main} process is called, and a new environment is created for it from the information declared in the header of \texttt{main}. This initial environment is shown below.
 
 \begin{center}
-    \begin{minipage}{0.45\textwidth}
+    \begin{minipage}{0.49\textwidth}
         \centering
         \begin{tikzpicture}
         \node[font=\ttfamily] (main title) {main};
         \node[row, below=0pt of main title] (main exit) {exit points: 2};
         \node[row, below=0pt of main exit] (main c0) {continuation c0: [uninit]};
-        \node[row, below=0pt of main c0] (main d0) {local data d0: [uninit]};
+        \node[row, below=0pt of main c0] (main d0) {data d0: [uninit]};
         \node[row, below=0pt of main d0] (main c1) {continuation c1: [uninit]};
-        \node[row, below=0pt of main c1] (main d1) {local data d1: [uninit]};
+        \node[row, below=0pt of main c1] (main d1) {data d1: [uninit]};
         \node[draw, inner sep=0pt, fit=(main title) (main d1)] (main box) {};
+        \node[font=\small\bf, anchor=east] at ([xshift=-3mm]main box.west) {(Initial)};
         \end{tikzpicture}
     \end{minipage}
-    \vrule
-    \begin{minipage}{0.45\textwidth}
+    \hfill
+    \begin{minipage}{0.49\textwidth}
         \centering
-        \hspace*{2em}
         \begin{tikzpicture}
         \node[font=\ttfamily] (main title) {main};
         \node[row, below=0pt of main title] (main exit) {exit points: 2};
-        \node[row, below=0pt of main exit] (main c0) {continuation c0: \changed{main:lhs}};
-        \node[row, below=0pt of main c0] (main d0) {local data d0: [uninit]};
+        \node[row, below=0pt of main exit] (main c0) {continuation c0: \changed{main:rhs, d0, c0}};
+        \node[row, below=0pt of main c0] (main d0) {data d0: [uninit]};
         \node[row, below=0pt of main d0] (main c1) {continuation c1: [uninit]};
-        \node[row, below=0pt of main c1] (main d1) {local data d1: [uninit]};
+        \node[row, below=0pt of main c1] (main d1) {data d1: [uninit]};
         \node[draw, inner sep=0pt, fit=(main title) (main d1)] (main box) {};
-        \draw[arrow, orange] (main c0.east) .. controls +(0.5,0.4) and +(0.5,-0.4) .. (main c0.east);
-        \draw[arrow, orange] (main c0.east) .. controls +(1,0.75) and +(1,-0.75) .. (main d0.east);
+        \node[font=\small\bf, anchor=east] at ([xshift=-3mm]main box.west) {(Step 1)};
         \end{tikzpicture}
     \end{minipage}
 \end{center}
 
-The first executed instruction is \texttt{initContinuation(c0, lhs, d0)}. This initializes the continuation $c_0$ which models the session $x$ introduced by the $\cutp$ process in the source program. Its writing data location is set to $d_0$, and its continuation address is set to the block \texttt{lhs}. The new state of the environment is shown above, on the right. Changes between steps are highlighted in orange. Additionally, the continuation stores a link to the continuation of its remote end point, which is itself at this point. The purpose of this link will become clear in the next step.
+In \textbf{Step 1}, \texttt{initContinuation(c0, rhs, d0)} is executed. This instruction initializes $c_0$, setting its return address to the block \texttt{rhs}, its writing location to $d_0$, and its remote continuation reference to itself. This reference links $c_0$ to itself, as the other end point of the session, which is the right-hand-side of the $\cutp$ in the source program, is within the same environment and uses the same continuation $c_0$.
 
-The second instruction to be executed is the \texttt{callProcess} instruction. This moves the cursor to the entry block for $p$, and creates a new environment for $p$, shown below, using information from its header.
-
+In \textbf{Step 2}, \texttt{callProcess(p, exit point, c2 <- c0)} is executed, moving the program counter to the \texttt{entry} block of \texttt{p}, and creating a new environment for \texttt{p}. Since $c_0$ was passed as an argument, it is copied to $c_2$ in \texttt{p}. The continuation referenced by $c_0$, which is $c_0$ itself, is linked to $c_2$. Both environments now hold opposite end points of the same session $x$, represented by $c_0$ and $c_2$, which are linked to each other. The writing location of $c_0$ is changed to $d_2$, allowing data written by \texttt{main} to be read by \texttt{p}. Finally, since the instruction is marked as an exit point, the remaining exit point count of \texttt{main} is decremented. The new state of the environments is shown below.
 \begin{center}
 \begin{tikzpicture}
 \node[font=\ttfamily] (main title) {main};
 \node[row, below=0pt of main title] (main exit) {exit points: \changed{1}};
-\node[row, below=0pt of main exit] (main c0) {continuation c0: main:lhs};
-\node[row, below=0pt of main c0] (main d0) {local data d0: [uninit]};
+\node[row, below=0pt of main exit] (main c0) {continuation c0: main:rhs, \changed{d2, c2}};
+\node[row, below=0pt of main c0] (main d0) {data d0: [uninit]};
 \node[row, below=0pt of main d0] (main c1) {continuation c1: [uninit]};
-\node[row, below=0pt of main c1] (main d1) {local data d1: [uninit]};
+\node[row, below=0pt of main c1] (main d1) {data d1: [uninit]};
 \node[draw, inner sep=0pt, fit=(main title) (main d1)] (main box) {};
-\node[font=\ttfamily, right=10cm of main title.west] (p title) {p};
+\node[font=\ttfamily, right=8cm of main title.west] (p title) {p};
 \node[row, below=0pt of p title] (p exit) {exit points: 2};
-\node[row, below=0pt of p exit] (p c0) {continuation c0: \changed{main:lhs}};
-\node[row, below=0pt of p c0] (p d0) {local data d0: [uninit]};
-\node[row, below=0pt of p d0] (p c1) {continuation c1: [uninit]};
-\node[row, below=0pt of p c1] (p d1) {local data d1: [uninit]};
-\node[draw, orange, inner sep=0pt, fit=(p title) (p d1)] (p box) {};
-\draw[biarrow, orange] (main c0.east) .. controls +(0.5,0.5) and +(-0.5,0.5) .. (p c0.west);
-\draw[arrow, orange] (p c0.west) .. controls +(-2,-0.5) and +(1,0) .. (main d0.east);
-\draw[arrow, orange] (main c0.east) .. controls +(2,-0.5) and +(-1,0) .. (p d0.west);
+\node[row, below=0pt of p exit] (p c2) {continuation c2: \changed{main:rhs, d0, c0}};
+\node[row, below=0pt of p c2] (p d2) {data d2: [uninit]};
+\node[row, below=0pt of p d2] (p c3) {continuation c3: [uninit]};
+\node[row, below=0pt of p c3] (p d3) {data d3: [uninit]};
+\node[draw, inner sep=0pt, fit=(p title) (p d3)] (p box) {};
+\node[font=\small\bf, anchor=east] at ([xshift=-3mm]main box.west) {(Step 2)};
 \end{tikzpicture}
 \end{center}
 
-The remaining exit point count of the original environment is decremented, as \texttt{callProcess} was marked as an exit instruction. Since $c_0$ was passed as an argument, it is copied over to the new environment. The remote end point of $c_0$ in main is updated to point to $c_0$ in $p$, and vice-versa, linking the two environments. This is necessary so that when control is yielded to a continuation, the continuation on the remote end point is updated accordingly. Finally, the writing location of $c_0$ in \texttt{main} is set to $d_0$ in \texttt{p}, which is the data section associated to session $x$ in $p$. This allows \texttt{p} to read data written by \texttt{main} through $c_0$.
-
-Similarly to before, the first instruction in the entry block of \texttt{p}, \texttt{initContinuation}, initializes $c_1$. This continuation models the session $z$ in the source program, which will be sent over the session $x$. A reference to this continuation $c_1$ is thus written to the writing location of $c_0$, which was set to $d_0$ in \texttt{main}, through the \texttt{writeContinuation(c0, c1)} instruction. These two instructions implement the $\sendp$ process of the source program.
+In \textbf{Step 3}, \texttt{initContinuation(c3, send, d3)} is executed, initializing $c_3$ similarly to how $c_0$ was initialized in step 1. In \textbf{Step 4}, \texttt{writeContinuation(c2, c3)} is executed, writing a reference to the just initialized $c_3$ to the writing location of $c_2$, which is $d_0$. The new state is shown below.
 
 \begin{center}
 \begin{tikzpicture}
 \node[font=\ttfamily] (main title) {main};
 \node[row, below=0pt of main title] (main exit) {exit points: 1};
-\node[row, below=0pt of main exit] (main c0) {continuation c0: main:lhs};
-\node[row, below=0pt of main c0] (main d0) {local data d0: \changed{p:c1}};
+\node[row, below=0pt of main exit] (main c0) {continuation c0: main:rhs, d2, c2};
+\node[row, below=0pt of main c0] (main d0) {data d0: \changed{c1}};
 \node[row, below=0pt of main d0] (main c1) {continuation c1: [uninit]};
-\node[row, below=0pt of main c1] (main d1) {local data d1: [uninit]};
+\node[row, below=0pt of main c1] (main d1) {data d1: [uninit]};
 \node[draw, inner sep=0pt, fit=(main title) (main d1)] (main box) {};
-\node[font=\ttfamily, right=10cm of main title.west] (p title) {p};
+\node[font=\ttfamily, right=8cm of main title.west] (p title) {p};
 \node[row, below=0pt of p title] (p exit) {exit points: 2};
-\node[row, below=0pt of p exit] (p c0) {continuation c0: main:lhs};
-\node[row, below=0pt of p c0] (p d0) {local data d0: [uninit]};
-\node[row, below=0pt of p d0] (p c1) {continuation c1: \changed{p:send}};
-\node[row, below=0pt of p c1] (p d1) {local data d1: [uninit]};
-\node[draw, inner sep=0pt, fit=(p title) (p d1)] (p box) {};
-\draw[biarrow] (main c0.east) .. controls +(0.5,0.5) and +(-0.5,0.5) .. (p c0.west);
-\draw[arrow] (p c0.west) .. controls +(-2,-0.5) and +(1,0) .. (main d0.east);
-\draw[arrow] (main c0.east) .. controls +(2,-0.5) and +(-1,0) .. (p d0.west);
-\draw[arrow, orange] (p c1.east) .. controls +(0.5,0) and +(0.5,0) .. (p d1.east);
-\draw[arrow, orange] ([yshift=-3pt]main d0.east) .. controls +(1,0) and +(-1,0) .. (p c1.west);
+\node[row, below=0pt of p exit] (p c2) {continuation c2: main:rhs, d0, c0};
+\node[row, below=0pt of p c2] (p d2) {data d2: [uninit]};
+\node[row, below=0pt of p d2] (p c3) {continuation c3: \changed{p:send, d3, c3}};
+\node[row, below=0pt of p c3] (p d3) {data d3: [uninit]};
+\node[draw, inner sep=0pt, fit=(p title) (p d3)] (p box) {};;
+\node[font=\small\bf, anchor=east] at ([xshift=-3mm]main box.west) {(Step 3, 4)};
 \end{tikzpicture}
 \end{center}
 
-After executing $\sendp$, the type of $x$ is $\colstringt$. Semantically, a string must be received from it. Just as in the \ac{SAM}, a write-to-read adjustment is thus performed, passing control to the other end point of $x$. This is modeled through the \texttt{continue(c0, ret)} instruction, which yields control to $c_0$, jumping to its stored location, and updating its remote counterpart to point to the block $\texttt{ret}$. The next instruction to be executed is thus the first instruction in the $\texttt{lhs}$ block of $\texttt{main}$, \texttt{bindContinuation(d0, c1, d1)}. This instruction models the $\recvc{x}{y}$ action of the source program. It reads the continuation reference written to $d_0$ (which is $c_1$ in \texttt{p}), binding it to $c_1$ in the current environment, and setting the remote continuation writing location to $d_1$. This produces the state below.
+In \textbf{Step 5}, \texttt{continue(c2, ret)} is executed. The program counter jumps to the code address stored in $c_2$, which is the \texttt{rhs} block in \texttt{main}. Additionally, the continuation referenced by $c_2$, which is $c_0$, has its return address updated to point to the \texttt{ret} block in \texttt{p}, allowing control to return to \texttt{p} after \texttt{main} finishes executing. In \textbf{Step 6}, \texttt{bindContinuation(d0, c1, d1)} is executed. This instruction reads the continuation reference stored in $d_0$, which is $c_3$, and binds it to $c_1$. The writing location of $c_3$ is updated to point to $d_1$, allowing data written by \texttt{p} to be read by \texttt{main}.
 
 \begin{center}
 \begin{tikzpicture}
 \node[font=\ttfamily] (main title) {main};
 \node[row, below=0pt of main title] (main exit) {exit points: 1};
-\node[row, below=0pt of main exit] (main c0) {continuation c0: \changed{p:ret}};
-\node[row, below=0pt of main c0] (main d0) {local data d0: \changed{[uninit]}};
-\node[row, below=0pt of main d0] (main c1) {continuation c1: \changed{p:send}};
-\node[row, below=0pt of main c1] (main d1) {local data d1: [uninit]};
+\node[row, below=0pt of main exit] (main c0) {continuation c0: \changed{p:ret}, d2, c2};
+\node[row, below=0pt of main c0] (main d0) {data d0: \changed{[uninit]}};
+\node[row, below=0pt of main d0] (main c1) {continuation c1: \changed{p:send, d3, c3}};
+\node[row, below=0pt of main c1] (main d1) {data d1: [uninit]};
 \node[draw, inner sep=0pt, fit=(main title) (main d1)] (main box) {};
-\node[font=\ttfamily, right=10cm of main title.west] (p title) {p};
+\node[font=\ttfamily, right=8cm of main title.west] (p title) {p};
 \node[row, below=0pt of p title] (p exit) {exit points: 2};
-\node[row, below=0pt of p exit] (p c0) {continuation c0: \changed{[uninit]}};
-\node[row, below=0pt of p c0] (p d0) {local data d0: [uninit]};
-\node[row, below=0pt of p d0] (p c1) {continuation c1: p:send};
-\node[row, below=0pt of p c1] (p d1) {local data d1: [uninit]};
-\node[draw, inner sep=0pt, fit=(p title) (p d1)] (p box) {};
-\draw[biarrow] (main c0.east) .. controls +(0.5,0.5) and +(-0.5,0.5) .. (p c0.west);
-\draw[arrow] (p c0.west) .. controls +(-2,-0.5) and +(1,0) .. (main d0.east);
-\draw[arrow] (main c0.east) .. controls +(2,-0.5) and +(-1,0) .. (p d0.west);
-\draw[biarrow, orange] (main c1.east) .. controls +(0.5,0.5) and +(-0.5,0.5) .. (p c1.west);
-\draw[arrow, orange] (p c1.west) .. controls +(-2,-0.5) and +(1,0) .. (main d1.east);
-\draw[arrow, orange] (main c1.east) .. controls +(2,-0.5) and +(-1,0) .. (p d1.west);
+\node[row, below=0pt of p exit] (p c2) {continuation c2: main:rhs, d0, c0};
+\node[row, below=0pt of p c2] (p d2) {data d2: [uninit]};
+\node[row, below=0pt of p d2] (p c3) {continuation c3: p:send, \changed{d1, c1}};
+\node[row, below=0pt of p c3] (p d3) {data d3: [uninit]};
+\node[draw, inner sep=0pt, fit=(p title) (p d3)] (p box) {};
+\node[font=\small\bf, anchor=east] at ([xshift=-3mm]main box.west) {(Step 5, 6)};
 \end{tikzpicture}
 \end{center}
 
-Since the received session end point $y$ on the source program has the writing type $\lstringt$, control must be yielded to the process which will produce it, just like on the \ac{SAM}. Thus, once again, a \texttt{continue(c1, ret)} instruction is executed. Control passes to the \texttt{send} block of the \texttt{p} process, and $c_1$ in \texttt{p} is updated to point to the block \texttt{ret} in \texttt{main}. The \texttt{writeExpression(c1, 17)} instruction then executes, writing $17$ to the writing location of $c_1$, which is $d_1$ in \texttt{main}. The state of the environments is shown below.
+In \textbf{Step 7}, \texttt{continue(c1, ret)} is executed, passing control back to the code address stored in $c_1$, which is the \texttt{send} block in \texttt{p}. The continuation referenced by $c_1$, which is $c_3$, has its return address set to the \texttt{ret} block in \texttt{main}, allowing control to return to \texttt{main} later on. \textbf{Step 8} consists in the execution of \texttt{writeExpression(c3, 17)}, which writes the integer $17$ to the writing location of $c_3$, which is $d_1$.
 
 \begin{center}
 \begin{tikzpicture}
 \node[font=\ttfamily] (main title) {main};
 \node[row, below=0pt of main title] (main exit) {exit points: 1};
-\node[row, below=0pt of main exit] (main c0) {continuation c0: p:ret};
-\node[row, below=0pt of main c0] (main d0) {local data d0: [uninit]};
+\node[row, below=0pt of main exit] (main c0) {continuation c0: p:ret, d2, c2};
+\node[row, below=0pt of main c0] (main d0) {data d0: [uninit]};
+\node[row, below=0pt of main d0] (main c1) {continuation c1: p:send, d3, c3};
+\node[row, below=0pt of main c1] (main d1) {data d1: \changed{17}};
+\node[draw, inner sep=0pt, fit=(main title) (main d1)] (main box) {};
+\node[font=\ttfamily, right=8cm of main title.west] (p title) {p};
+\node[row, below=0pt of p title] (p exit) {exit points: 2};
+\node[row, below=0pt of p exit] (p c2) {continuation c2: main:rhs, d0, c0};
+\node[row, below=0pt of p c2] (p d2) {data d3: [uninit]};
+\node[row, below=0pt of p d2] (p c3) {continuation c3: \changed{main:ret}, d1, c1};
+\node[row, below=0pt of p c3] (p d3) {data d3: [uninit]};
+\node[draw, inner sep=0pt, fit=(p title) (p d3)] (p box) {};
+\node[font=\small\bf, anchor=east] at ([xshift=-3mm]main box.west) {(Step 7, 8)};
+\end{tikzpicture}
+\end{center}
+
+In \textbf{Step 9}, \texttt{finish(c3, exit point)} is executed, causing a jump to the code address stored in $c_3$, which is the \texttt{ret} block of \texttt{main}. Both $c_3$ and the continuation it references, $c_1$, are considered uninitialized and will not be used again. Since the instruction is marked as an exit point, the remaining exit point count of \texttt{p} is decremented. In \textbf{Step 10}, \texttt{writeExpression(c0, "Res:\ " + move(d1, int))} is executed. This instruction reads the integer $17$ from $d_1$, constructs the string \texttt{"Res:\ 17"}, and writes it to the writing location of $c_0$, which is $d_2$.
+
+\begin{center}
+\begin{tikzpicture}
+\node[font=\ttfamily] (main title) {main};
+\node[row, below=0pt of main title] (main exit) {exit points: 1};
+\node[row, below=0pt of main exit] (main c0) {continuation c0: p:ret, d2, c2};
+\node[row, below=0pt of main c0] (main d0) {data d0: [uninit]};
 \node[row, below=0pt of main d0] (main c1) {continuation c1: \changed{[uninit]}};
-\node[row, below=0pt of main c1] (main d1) {local data d1: \changed{17}};
+\node[row, below=0pt of main c1] (main d1) {data d1: \changed{[uninit]}};
 \node[draw, inner sep=0pt, fit=(main title) (main d1)] (main box) {};
-\node[font=\ttfamily, right=10cm of main title.west] (p title) {p};
-\node[row, below=0pt of p title] (p exit) {exit points: 2};
-\node[row, below=0pt of p exit] (p c0) {continuation c0: [uninit]};
-\node[row, below=0pt of p c0] (p d0) {local data d0: [uninit]};
-\node[row, below=0pt of p d0] (p c1) {continuation c1: \changed{main:ret}};
-\node[row, below=0pt of p c1] (p d1) {local data d1: [uninit]};
-\node[draw, inner sep=0pt, fit=(p title) (p d1)] (p box) {};
-\draw[biarrow] (main c0.east) .. controls +(0.5,0.5) and +(-0.5,0.5) .. (p c0.west);
-\draw[arrow] (p c0.west) .. controls +(-2,-0.5) and +(1,0) .. (main d0.east);
-\draw[arrow] (main c0.east) .. controls +(2,-0.5) and +(-1,0) .. (p d0.west);
-\draw[biarrow] (main c1.east) .. controls +(0.5,0.5) and +(-0.5,0.5) .. (p c1.west);
-\draw[arrow] (p c1.west) .. controls +(-2,-0.5) and +(1,0) .. (main d1.east);
-\draw[arrow] (main c1.east) .. controls +(2,-0.5) and +(-1,0) .. (p d1.west);
-\end{tikzpicture}
-\end{center}
-
-The next instruction to be executed is \texttt{finish(c1, exit point)}, which jumps to the location stored on $c_1$, which is the \texttt{ret} block of \texttt{main}, and detaches $c_1$ from its remote end point - control will never return to \texttt{p} through this continuation. Since the instruction is marked as an exit instruction, the remaining exit point count is decremented. At the start of the \texttt{ret} block of \texttt{main}, the instruction \texttt{writeExpression(c0, "Res:\ " + move(d1, int))} executes, which writes the string \texttt{"Res:\ 17"} to the writing location of $c_0$, which is $d_0$ in \texttt{p}, consuming the integer at $d_1$. The new state of the environments is shown below.
-
-\begin{center}
-\begin{tikzpicture}
-\node[font=\ttfamily] (main title) {main};
-\node[row, below=0pt of main title] (main exit) {exit points: 1};
-\node[row, below=0pt of main exit] (main c0) {continuation c0: p:ret};
-\node[row, below=0pt of main c0] (main d0) {local data d0: [uninit]};
-\node[row, below=0pt of main d0] (main c1) {continuation c1: [uninit]};
-\node[row, below=0pt of main c1] (main d1) {local data d1: \changed{[uninit]}};
-\node[draw, inner sep=0pt, fit=(main title) (main d1)] (main box) {};
-\node[font=\ttfamily, right=10cm of main title.west] (p title) {p};
+\node[font=\ttfamily, right=8cm of main title.west] (p title) {p};
 \node[row, below=0pt of p title] (p exit) {exit points: \changed{1}};
-\node[row, below=0pt of p exit] (p c0) {continuation c0: [uninit]};
-\node[row, below=0pt of p c0] (p d0) {local data d0: \changed{"Res: 17"}};
-\node[row, below=0pt of p d0] (p c1) {continuation c1: \changed{[uninit]}};
-\node[row, below=0pt of p c1] (p d1) {local data d1: [uninit]};
-\node[draw, inner sep=0pt, fit=(p title) (p d1)] (p box) {};
-\draw[biarrow] (main c0.east) .. controls +(0.5,0.5) and +(-0.5,0.5) .. (p c0.west);
-\draw[arrow] (p c0.west) .. controls +(-2,-0.5) and +(1,0) .. (main d0.east);
-\draw[arrow] (main c0.east) .. controls +(2,-0.5) and +(-1,0) .. (p d0.west);
+\node[row, below=0pt of p exit] (p c2) {continuation c2: main:rhs, d0, c0};
+\node[row, below=0pt of p c2] (p d2) {data d2: \changed{"Res: 17"}};
+\node[row, below=0pt of p d2] (p c3) {continuation c3: \changed{[uninit]}};
+\node[row, below=0pt of p c3] (p d3) {data d3: [uninit]};
+\node[draw, inner sep=0pt, fit=(p title) (p d3)] (p box) {};
+\node[font=\small\bf, anchor=east] at ([xshift=-2mm]main box.west) {(Step 9, 10)};
 \end{tikzpicture}
 \end{center}
 
-The last instruction to be executed on \texttt{main} is \texttt{finish(c0, exit point)}, which passes control to the location stored in $c_0$, which is the \texttt{ret} block of \texttt{p}, and detaches $c_0$ from its remote end point. The remaining exit point count of \texttt{main} is decremented, reaching $0$. The environment of \texttt{main} is thus destroyed, leaving only the environment of \texttt{p}. The \texttt{printLine(move(d0, string))} instruction then executes, printing the string at $d_0$ to the standard output, and leaving the final state shown below.
+In \textbf{Step 11}, \texttt{finish(c0, exit point)} is executed, passing control to the \texttt{ret} block of \texttt{p}. The exit point count of \texttt{main} is decremented, as before, reaching $0$. This signals that the environment of \texttt{main} will not be used again, and thus, can be destroyed. In \textbf{Step 12}, \texttt{printLine(move(d2, string))} is executed, printing the string \texttt{"Res:\ 17"} to the standard output.
 
 \begin{center}
 \begin{tikzpicture}
 \node[font=\ttfamily] (p title) {p};
 \node[row, below=0pt of p title] (p exit) {exit points: 1};
-\node[row, below=0pt of p exit] (p c0) {continuation c0: [uninit]};
-\node[row, below=0pt of p c0] (p d0) {local data d0: \changed{[uninit]}};
-\node[row, below=0pt of p d0] (p c1) {continuation c1: [uninit]};
-\node[row, below=0pt of p c1] (p d1) {local data d1: [uninit]};
-\node[draw, inner sep=0pt, fit=(p title) (p d1)] (p box) {};
+\node[row, below=0pt of p exit] (p c2) {continuation c2: \changed{[uninit]}};
+\node[row, below=0pt of p c2] (p d2) {data d2: \changed{[uninit]}};
+\node[row, below=0pt of p d2] (p c3) {continuation c3: [uninit]};
+\node[row, below=0pt of p c3] (p d3) {data d3: [uninit]};
+\node[draw, inner sep=0pt, fit=(p title) (p d3)] (p box) {};
+\node[font=\small\bf, anchor=east] at ([xshift=-3mm]p box.west) {(Step 11, 12)};
 \end{tikzpicture}
 \end{center}
 
-Finally, the last instruction to be executed is \texttt{popTask(exit point)}, which pops the next task from the task stack and jumps to it. In this example, the task stack was never modified, and thus contains only the program termination task. Since the instruction is marked as an exit instruction, the exit point count of \texttt{p} reaches $0$, and it is destroyed, ensuring no memory is leaked.
+Finally, in \textbf{Step 13}, \texttt{popTask(exit point)} is executed, which pops the next task from the task stack and jumps to it. In this example, the task stack was never modified, and thus contains only the program termination task. Since the instruction is marked as an exit instruction, the exit point count of \texttt{p} reaches $0$, and it is destroyed, ensuring no memory is leaked.
 
 \subsection{Forwarding continuations}
 
@@ -500,9 +504,9 @@ The exponential is then called twice, first binding its argument continuation to
 
 Finally, within the exponential process, the string is moved from $d_0$ to the remote data of $c_0$, which is either $d_2$ or $d_3$ of the caller, depending on which call was continued. Finally, the continuation is finished, passing control back to the caller, which prints the received string.
 
-\section{Generating IR programs from CLASS} \label{section:IRGeneration}
+\section{Translating CLASS programs into the IR} \label{section:IRGeneration}
 
-This section formally defines the base (unoptimized) translation from \ac{CLASS} to the \ac{IR} defined in the previous section. It starts defining notation for representing and updating the state of the compiler. Then, it defines how session types are mapped to the slot trees introduced in \Cref{subsection:IRSlots}. Next, an overview of the instruction generation scheme is presented, and some important concepts are defined. Finally, the translation from \ac{CLASS} processes to \ac{IR} programs is incrementally defined, starting from simple processes and adding more constructs until the whole language is covered.
+This section defines the base (unoptimized) translation from \ac{CLASS} to the \ac{IR} defined in the previous section. It starts defining notation for representing and updating the state of the compiler. Then, it defines how session types are mapped to the slot trees introduced in \Cref{subsection:IRSlots}. Next, an overview of the instruction generation scheme is presented, and some important concepts are defined. Finally, the translation from \ac{CLASS} processes to \ac{IR} programs is incrementally defined, starting from simple processes and adding more constructs until the whole language is covered.
 
 The presented compilation scheme assumes well-typed \ac{CLASS} processes are given as input, along with the required type information of free names in all processes. The notation $x: A$ is used to indicate that the type checker infers session end point $x$ to be a free name of type $A$ on some process.
 
@@ -580,7 +584,7 @@ The slot tree corresponding to the first segment of a session type $A$ is design
 
 \subsection{Instruction generation}
 
-The \ac{IR} instructions generated from a \ac{CLASS} process $P$ on a given environment $(\theta, \Delta)$ are denoted by $\getinstructions{\theta}{\Delta}{P}$. This function produces a sequence of \ac{IR}, optionally followed by blocks with more instructions, and is defined incrementally in the following sections.
+The \ac{IR} instructions generated from a \ac{CLASS} process $P$ on a given environment $(\theta, \Delta)$ are denoted by $\getinstructions{\theta}{\Delta}{P}$. This function produces a sequence of \ac{IR}, optionally followed by blocks with more instructions, and is defined incrementally in the following sections. \todo{mention that instruction generation is intermingled with actions which creates new instructions. this function works within the scope a process definition. which holds a global meta state which were }
 
 The generated code implements the write-to-read adjustment of the \ac{SAM}, by placing the instruction \texttt{continue} whenever the polarity of a session changes from positive to negative. To simplify the definition of the generation rules, a pseudo-instruction $\texttt{continueIfNegative}(\theta, x, A)$ is used, which is replaced by a \texttt{continue} instruction and a new block for its proceeding instructions if and only if $\polarityof{\theta}{A} = -$.
 
@@ -626,6 +630,8 @@ We start by defining the compilation of a $\cutp$ process, which can be seen bel
     \labelir{rhs}
     \recurse{\theta}{\Delta[x \mapsto (c, d, 0)]}{Q}
 \end{compilation}
+
+\todo{add primitive newcont, newlabel, newdata primitives}
 
 First, a fresh continuation identifier $c$ is generated and added to the process header. Additionally, a data section with unique identifier $d$ is added to the header, with a layout given by $\allslots{\theta}{A}$. In other words, $d$ reserves space for all data which will be both sent and received over the session of type $A$. This is necessary as both sides of the cut share the same data section.
 
@@ -964,7 +970,7 @@ An environment layout $\envlayout$ is a compile-time data structure which descri
 
 The layout of the environment is computed trivially by concatenating the layouts of each of its entries, in the order they appear in the process header. The layout for for data entries is the most noteworthy, as it depends on the stored data type. This layout is computed from $\slotlayout{\sigma}{S}$, where $S$ is the set of slot trees of the data being stored, and $\sigma$ is a mapping between type variables and their layouts, fetched from the environment itself (e.g., $\sigma(t_i) = \texttt{access}(\envlayouttype{\texttt{env}}{t_i})$). Its formal definition is omitted for brevity.
 
-Continuations are stored in the environment as instances of the C type \texttt{struct cont}, shown below. Continuations store the program address of a label to jump to (\texttt{loc}), a pointer to the environment to switch to before jumping (\texttt{env}), a pointer to the writing location (\texttt{write}), and a pointer to the continuation pertaining to the other end point of the session (\texttt{remote}).
+Continuations are stored in the environment as instances of the C type \texttt{struct cont}, shown below. Continuations store a code address to jump to (\texttt{loc}), a pointer to the environment to switch to before jumping (\texttt{env}), a pointer to the writing location (\texttt{write}), and a pointer to the continuation pertaining to the other end point of the session (\texttt{remote}).
 
 \begin{lstlisting}[language=C, frame=bottom]
 struct cont {

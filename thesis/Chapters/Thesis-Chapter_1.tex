@@ -100,12 +100,6 @@ main_entry:
     printf("%d", *(int*)(env + 0));
     /* popTask(exit point) */
     managed_free(env);
-    tmp_ptr1 = task;
-    tmp_ptr2 = task->loc;
-    env = task->env;
-    task = task->next;
-    managed_free(tmp_ptr1);
-    goto *tmp_ptr2;
         \end{lstlisting}
         \caption{Generated C code}
         \label{fig:CIntroExample}
@@ -117,7 +111,7 @@ Before the C generation phase, a set of optimizations are applied to the \ac{IR}
 
 Finally, the optimized \ac{IR} program is compiled into C code. A segment of the generated code is shown in \Cref{fig:CIntroExample}. Due to the continuation-based nature of the \ac{SAM} execution model, processes are not represented as functions, but instead as code blocks within a single function, with control being transferred between them through the use of \texttt{goto} statements. Stack frames are replaced by heap-allocated environments, linked together to form a spaghetti stack, and which contain all local variables and state used by the process. A set of variables are used as registers to keep the current execution state, such as a pointer \texttt{task} to the next task, and a pointer \texttt{env} to the active environment.
 
-The \texttt{main\_entry} label represents the \texttt{entry} block of the \ac{IR} \texttt{main} process. At the start of the program, an environment \texttt{env} is allocated and control is passed to this label. The \texttt{writeExpression} instruction is compiled into a simple assignment to the location of $d_0$ in the environment, which in this case is at offset $0$. The \texttt{print} instruction is compiled into a call to the C \texttt{printf} function, reading the integer from the same location. Finally, the \texttt{popTask} instruction is compiled into code which frees the current environment, and transfers control to the next task. In this case, the only task left is the end of the program, and thus, the program ends immediately.
+The \texttt{main\_entry} label represents the \texttt{entry} block of the \ac{IR} \texttt{main} process. At the start of the program, an environment \texttt{env} is allocated and control is passed to this label. The \texttt{writeExpression} instruction is compiled into a simple assignment to the location of $d_0$ in the environment, which in this case is at offset $0$. The \texttt{print} instruction is compiled into a call to the C \texttt{printf} function, reading the integer from the same location. Finally, the \texttt{popTask} instruction is compiled into code which frees the current environment, and, in this case, ends the program.
 
 \section{Alternative compilation schemes}
 
