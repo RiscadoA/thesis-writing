@@ -506,13 +506,15 @@ Finally, within the exponential process, the string is moved from $d_0$ to the r
 
 \section{Translating CLASS to the IR} \label{section:IRGeneration}
 
-This section defines the base (unoptimized) translation from \ac{CLASS} to the \ac{IR} defined in the previous section. It starts defining notation for representing and updating the state of the compiler. Then, it defines how session types are mapped to the slot trees introduced in \Cref{subsection:IRSlots}. Next, an overview of the instruction generation scheme is presented, and some important concepts are defined. Finally, the translation from \ac{CLASS} processes to \ac{IR} programs is incrementally defined, starting from simple processes and adding more constructs until the whole language is covered.
+This section defines the base (unoptimized) translation from \ac{CLASS} to the \ac{IR} defined in the previous section. It starts defining notation for representing and updating the state of the compiler. Then, it defines how session types are mapped to the slot trees introduced in \Cref{subsection:IRSlots}. Next, an overview of the instruction translation scheme is presented, and some important concepts are defined. Finally, the translation from \ac{CLASS} processes to \ac{IR} programs is incrementally defined, starting from simple processes and adding more constructs until the whole language is covered.
 
 The presented compilation scheme assumes well-typed \ac{CLASS} processes are given as input, along with the required type information of free names in all processes. The notation $x: A$ is used to indicate that the type checker infers session end point $x$ to be a free name of type $A$ on some process.
 
 \subsection{Compiler State}
 
-To compile \ac{CLASS} processes to \ac{IR} programs, the compiler must keep track of information regarding the type parameters and the state of each session end point within the process being compiled. This state is referred to as the environment, and is represented by a tuple $(\theta, \Delta)$, where $\theta$ is the type environment and $\Delta$ is the session environment.
+Compilation of \ac{CLASS} processes into \ac{IR} programs always occurs within the context of a single \ac{IR} process. As \ac{CLASS} processes are compiled into \ac{IR} instructions, new information is added to the \ac{IR} process header, along with the new instructions and blocks. Changes to the header of the \ac{IR} process are performed through the $\makecont{c}$, $\makedata{d}{T}$ and $\makedrop{e}{L, S}$ actions. The first action creates a new continuation identified by $c$. The second creates a new data section with data layout $T$ identified by $d$. The third creates a new drop bit pertaining to data location $L$ and slots $S$, identified by $e$. Additionally, the $\makeblock{l}$ action generates a new block label $l$ unique within the \ac{IR} process.
+
+The compiler must keep track of information regarding the type parameters and the state of each session end point within the process being compiled. This state is referred to as the environment, and is represented by a tuple $(\theta, \Delta)$, where $\theta$ is the type environment and $\Delta$ is the session environment.
 
 \subsubsection{Type Environments} \label{subsubsection:TypeEnvironments}
 
@@ -584,9 +586,9 @@ The slot tree corresponding to the first segment of a session type $A$ is design
 
 \subsection{Instruction Translation}
 
-The \ac{IR} instructions generated from a \ac{CLASS} process $P$ on a given environment $(\theta, \Delta)$ are denoted by $\getinstructions{\theta}{\Delta}{P}$. This function produces a sequence of \ac{IR}, optionally followed by blocks with more instructions, and is defined incrementally in the following sections. \todo{mention that instruction generation is intermingled with actions which creates new instructions. this function works within the scope a process definition. which holds a global meta state which were }
+The \ac{IR} instructions translated from a \ac{CLASS} process $P$ on a given environment $(\theta, \Delta)$ are denoted by $\getinstructions{\theta}{\Delta}{P}$. This function returns a sequence of \ac{IR} instructions, optionally followed by blocks with more instructions, and is defined incrementally in the following sections.
 
-The generated code implements the write-to-read adjustment of the \ac{SAM}, by placing the instruction \texttt{continue} whenever the polarity of a session changes from positive to negative. To simplify the definition of the generation rules, a pseudo-instruction $\texttt{continueIfNegative}(\theta, x, A)$ is used, which is replaced by a \texttt{continue} instruction and a new block for its proceeding instructions if and only if $\polarityof{\theta}{A} = -$.
+The translated code implements the write-to-read adjustment of the \ac{SAM}, by placing the \texttt{continue} instruction whenever the polarity of a session changes from positive to negative. To simplify the definition of the translation rules, a pseudo-instruction $\texttt{continueIfNegative}$ is defined. If and only if $\polarityof{\theta}{A} = -$, $\texttt{continueIfNegative}(\theta, \Delta, x, A)$ is replaced by \texttt{continue($\continuationof{\Delta}{x}$, $l$) }, where $\makeblock{l}$. Instructions following this pseudo-instruction are placed in block $l$. If the polarity of $A$ is positive, the pseudo-instruction is simply removed, and the following instructions are placed in the same block.
 
 All writing operations to a session end point $x$ write to an offset within the remote data of the session, i.e.,  $\writelocof{\Delta}{x}$. All reading operations read from an offset within the local data of the session, i.e., $\readlocof{\Delta}{x}$. Through the mechanism above, whenever the writing side finishes writing data, the session is continued, and the reading side reads from the same location the writing side wrote to.
 
@@ -596,7 +598,7 @@ The reading process, compiled with a session environment $\Delta^2$, reads a con
 
 \subsection{Expression Translation}
 
-Apart from generating instructions for processes, \ac{IR} expressions must be generated from \ac{CLASS} expressions when generating instructions for processes such as $\printp$, $\letp$ and $\ifp$. To achieve this, the function $\getexpression{\Delta}{E}$ is defined, which takes a \ac{CLASS} expression $E$ and a session environment $\Delta$, and produces equivalent an \ac{IR} expression. This function is trivially defined recursively through pattern matching on \ac{CLASS} expressions, as they are exactly the same as \ac{IR} expressions, except for session names $x$, which must be for which the transformation is defined as
+Apart from translating \ac{CLASS} processes to instructions, \ac{CLASS} expressions must also be translated to \ac{IR} expressions. This is necessary for when translating processes such as $\printp$, $\letp$ and $\ifp$. To achieve this, the function $\getexpression{\Delta}{E}$ is defined, which takes a \ac{CLASS} expression $E$ and a session environment $\Delta$, and returns an equivalent \ac{IR} expression. This function is trivially defined recursively through pattern matching on \ac{CLASS} expressions, as they are exactly the same as \ac{IR} expressions, except for session names $x$, for which the translation is defined as
 \[
 \getexpression{\Delta}{x} = \texttt{move}(\readlocof{\Delta}{x}, S)
 \]
@@ -606,7 +608,7 @@ where $S$ is the slot corresponding to the type of the session end point $x$, wh
 
 One other important aspect of the compilation is counting the number of exit points of the generated \ac{IR} code for a given \ac{CLASS} process. This is necessary to ensure that the generated code properly deallocates the process environment when and only when there's no more code left to execute within it.
 
-The number of exit points in a process $P$ is denoted by $\getendpoints{\theta}{P}$, and is defined by pattern matching on processes. It will be incrementally defined along with the instruction generation function in the following sections.
+The number of exit points in a process $P$ is denoted by $\getendpoints{\theta}{P}$, and is defined by pattern matching on processes. It will be incrementally defined along with the instruction translation function in the following sections.
 
 \subsection{Process Definitions} \label{subsection:ProcessDefinitions}
 
@@ -614,15 +616,15 @@ A \ac{CLASS} program is a set of process definitions, each with a unique name. F
 
 For each resulting \ac{IR} process, an environment $(\theta, \Delta)$ is initialized. The type environment $\theta$ maps each type parameter name to a tuple $(p, t)$ such that $p$ is the polarity of the type parameter in the current combination, and $t$ is a unique identifier for the type parameter, which is inserted into the process header.
 
-The session environment $\Delta$ maps each argument session name to a session state $(s, d, 0)$. If the argument is linear, $c$ is a fresh continuation identifier, inserted into the process header. Otherwise, $c = 0$, as exponential sessions don't have an associated continuation. In both cases, $d$ is a fresh local data identifier inserted into the process header, with a layout given by $\alllocalslots{\theta}{A}$, where $A$ is the type of the argument session. This reserves space for all the data which will be received over the session. The offset is initialized to $0$, as no data has been read or written yet.
+The session environment $\Delta$ maps each argument session name to a session state $(c, d, 0)$. If the argument is linear, $\makecont{c}$. Otherwise, $c = 0$, as exponential sessions don't have an associated continuation. In both cases, $\makedata{d}{\alllocalslots{\theta}{A}}$, where $A$ is the type of the argument session. The data layout of $d$ reserves space for all the data which will be received over the session. The offset is initialized to $0$, as no data has been read or written yet.
 
-For each of the exponential arguments of the process, an always set drop bit is also added to the process header, to ensure that the exponential argument data is dropped when the process ends.
+For each of the exponential arguments of the \ac{CLASS} process definition, a new drop bit is added through $\makedrop{e}{d}{A}$. This bit $e$ is marked as always set, guaranteeing that the received exponential data is dropped when the process call finishes.
 
-Finally, we generate the instructions for the process body $P$ (starting by the entry block) through $\getinstructions{\theta}{\Delta}{P}$, and set the number of exit points of the process to $\getendpoints{\theta}{P}$. As instructions are generated, the process header is modified incrementally to include any new continuations, data sections or drop bits which are needed by the generated code.
+Finally, we generate the instructions for the process body $P$ on the \texttt{entry} block through $\getinstructions{\theta}{\Delta}{P}$, and set the number of exit points of the \ac{IR} process to $\getendpoints{\theta}{P}$.
 
 \subsection{Cut, Parallel and Empty}
 
-We start by defining the compilation of a $\cutp$ process, which can be seen below. We assume, without loss of generality, that $A$ is a positive type, and thus, that $P$ will be writing to $x$ before $Q$ executes - if $A$ were negative, we could simply swap $P$ and $Q$. The number of exit points of the generated code is the sum of the number of exit points of both $P$ and $Q$.
+We start by defining the compilation of a $\cutp$ process, which can be seen below. It is assumed, without loss of generality, that $A$ is a positive type, and thus, that $P$ will be writing to $x$ before $Q$ executes - if $A$ were negative, we could simply swap $P$ and $Q$. Both $\makecont{c}$ and $\makedata{d}{\allslots{\theta}{A}}$ are created to implement session $x$. The layout given to $d$ guarantees that enough space is allocated for all data which will be both sent and received over the session of type $A$. This is necessary as both sides of the cut share the same data section.
 \begin{compilation}{\theta}{\Delta}{\cutc{P}{x: A}{Q}}
 {\getendpoints{\theta}{P} + \getendpoints{\theta}{Q}}
     \initcontinuation{c}{\texttt{rhs}}{d}
@@ -631,11 +633,9 @@ We start by defining the compilation of a $\cutp$ process, which can be seen bel
     \recurse{\theta}{\Delta[x \mapsto (c, d, 0)]}{Q}
 \end{compilation}
 
-\todo{add primitive newcont, newlabel, newdata primitives}
+The number of exit points of the generated code is the sum of the number of exit points of both $P$ and $Q$. The process initializes the continuation $c$ with a new block $\makeblock{\texttt{rhs}}$ as the return address, and $d$ as a writing location. Both $P$ and $Q$ are recursively translated with a new environment where the name $x$ is bound to $(c, d, 0)$. $P$ is placed on the original block, and $Q$ placed on the new block \texttt{rhs}.
 
-First, a fresh continuation identifier $c$ is generated and added to the process header. Additionally, a data section with unique identifier $d$ is added to the header, with a layout given by $\allslots{\theta}{A}$. In other words, $d$ reserves space for all data which will be both sent and received over the session of type $A$. This is necessary as both sides of the cut share the same data section.
-
-The process initializes the continuation $c$ with a new block \texttt{rhs} as the target location, and $d$ as a writing location. Then, it recursively compiles both $P$ and $Q$ with a new environment where the name $x$ is bound to $(c, d, 0)$. $P$ is placed on the original block, and $Q$ placed on the new block \texttt{rhs}.
+\todo{CONTINUE HERE}
 
 The compilation of a $\parp$ process is shown below. The process starts by generating code to push a new task for executing $Q$ into the task stack. Then, it compiles $P$, which will be executed immediately. AS with the $\cutp$ process, the number of exit points of the generated code is the sum of the number of exit points of both $P$ and $Q$. Since the task stack is a stack, task pop instructions always execute the most recently pushed task. Thus, it is guaranteed that $Q$ will only execute after $P$ has finished executing completely.
 \begin{compilation}{\theta}{\Delta}{\parc{P}{Q}}
