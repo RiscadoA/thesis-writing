@@ -101,7 +101,7 @@ send:
     \end{lstlisting}
     \end{minipage}
     \hrule
-    \caption{An example IR program (bottom) generated from a simple \ac{CLASS} program (top) with two processes.}
+    \caption{An example IR program (bottom) translated from a simple \ac{CLASS} program (top) with two processes.}
     \label{fig:IRProcessExample}
 \end{figure}
 
@@ -606,13 +606,13 @@ where $S$ is the slot corresponding to the type of the session end point $x$, wh
 
 \subsection{Exit Point Counting}
 
-One other important aspect of the compilation is counting the number of exit points of the generated \ac{IR} code for a given \ac{CLASS} process. This is necessary to ensure that the generated code properly deallocates the process environment when and only when there's no more code left to execute within it.
+One other important aspect of the compilation is counting the number of exit points of the translated \ac{IR} code for a given \ac{CLASS} process. This is necessary to ensure that the translated code properly deallocates the process environment when and only when there's no more code left to execute within it.
 
 The number of exit points in a process $P$ is denoted by $\getendpoints{\theta}{P}$, and is defined by pattern matching on processes. It will be incrementally defined along with the instruction translation function in the following sections.
 
 \subsection{Process Definitions} \label{subsection:ProcessDefinitions}
 
-A \ac{CLASS} program is a set of process definitions, each with a unique name. For each process definition, a set of resulting \ac{IR} processes is generated, one for each possible combination of polarities of its type parameters. This is necessary to ensure that the polarities of type parameters are always known at compile time, as they greatly affect the flow of control of the generated code.
+A \ac{CLASS} program is a set of process definitions, each with a unique name. For each process definition, a set of resulting \ac{IR} processes is generated, one for each possible combination of polarities of its type parameters. This is necessary to ensure that the polarities of type parameters are always known at compile time, as they greatly affect the flow of control of the translated code.
 
 For each resulting \ac{IR} process, an environment $(\theta, \Delta)$ is initialized. The type environment $\theta$ maps each type parameter name to a tuple $(p, t)$ such that $p$ is the polarity of the type parameter in the current combination, and $t$ is a unique identifier for the type parameter, which is inserted into the process header.
 
@@ -930,9 +930,9 @@ Finally, the $\sharec{x}{P}{Q}$ process shares a cell $x$ between $P$ and $Q$, w
 
 \section{Translating the IR to C} \label{section:IRtoC}
 
-The last phase of the compilation pipeline is the C generation phase. This phase takes as input the \ac{IR} produced by the compilation scheme described in the previous section, and produces a C program which implements the semantics of the \ac{IR}. This C program can then be compiled with \ac{GCC} to produce an executable which runs a computation equivalent to the original \ac{CLASS} program. The generated code depends only on the standard C library and on \texttt{pthread}, if concurrency is enabled. Additionally, it makes extensive use of the \ac{GCC} extension for computed gotos, used to efficiently implement continuations.
+The last phase of the compilation pipeline is the translation from the \ac{IR} to C. This phase takes as input the \ac{IR} produced by the compilation scheme described in the previous section, and produces a C program which implements the semantics of the \ac{IR}. This C program can then be compiled with \ac{GCC} to produce an executable which runs a computation equivalent to the original \ac{CLASS} program. The translated code depends only on the standard C library and on \texttt{pthread}, if concurrency is enabled. Additionally, it makes extensive use of the \ac{GCC} extension for computed gotos, used to efficiently implement continuations.
 
-This section starts by describing how the slot trees are translated to concrete data structures in C. Then, an overview of the the C representation of \ac{IR} environments is given. Next, the code layout of the generated C program is laid out. Finally, the implementation in C of the main instructions of the \ac{IR} abstract machine is described.
+This section starts by describing how the slot trees are translated to concrete data structures in C. Then, an overview of the the C representation of \ac{IR} environments is given. Next, the code layout of the translated C program is laid out. Finally, the implementation in C of the main instructions of the \ac{IR} abstract machine is described.
 
 \subsection{Representing Slot Trees in C}
 
