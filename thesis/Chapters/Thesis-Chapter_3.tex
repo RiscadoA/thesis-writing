@@ -607,12 +607,12 @@ The translated code implements the write-to-read adjustment of the \ac{SAM} thro
 \[
 \texttt{continueIfNegative}(\theta, \Delta, x, A) \equiv \begin{cases}
     \begin{array}{l}
-        \quad\texttt{\% }\makeblock{\texttt{label}} \\
+        \quad\textcolor{forestgreen}{\texttt{\% }\makeblock{\texttt{label}}} \\
         \quad\texttt{continue}(\continuationof{\Delta}{x}, \texttt{label}) \\
         \texttt{label:} \\
         \hline
-    \end{array} & \text{ if } \polarityof{\theta}{A} = - \vspace{0.5em}\\
-    \quad\ \ \texttt{\%\ empty} & \text{ otherwise}\\
+    \end{array} & \text{ if } \polarityof{\theta}{A} = -\\
+    \quad\ \ \textcolor{forestgreen}{\texttt{\%\ empty}} & \text{ otherwise}\\
 \end{cases}
 \]
 which means that if and only if $\polarityof{\theta}{A} = -$, $\texttt{continueIfNegative}$ is replaced by a \texttt{continue} instruction, and the next instructions are placed in a new block. Otherwise, \texttt{continueIfNegative} is simply removed from the instruction sequence.

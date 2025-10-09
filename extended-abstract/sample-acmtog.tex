@@ -798,24 +798,334 @@ The \ac{IR} instructions translated from a \ac{CLASS} process $P$ on a given env
 The translated code implements the write-to-read adjustment of the \ac{SAM} through the placement of \texttt{continue} instructions whenever the polarity of a session changes from positive to negative. To simplify the definition of the translation rules, a pseudo-instruction $\texttt{continueIfNegative}(\theta, \Delta, x, A)$ is defined as
 \[\begin{cases}
     \begin{array}{l}
-        \quad\texttt{\% }\makeblock{\texttt{label}} \\
+        \quad\textcolor{forestgreen}{\texttt{\% }\makeblock{\texttt{label}}} \\
         \quad\texttt{continue}(\continuationof{\Delta}{x}, \texttt{label}) \\
         \texttt{label:} \\
         \hline
-    \end{array} & \text{ if } \polarityof{\theta}{A} = - \vspace{0.5em}\\
-    \quad\ \ \texttt{\%\ empty} & \text{ otherwise}\\
+    \end{array} & \text{ if } \polarityof{\theta}{A} = -\\
+    \quad\ \ \textcolor{forestgreen}{\texttt{\%\ empty}} & \text{ otherwise}\\
 \end{cases}\]
 which means that if and only if $\polarityof{\theta}{A} = -$, $\texttt{continueIfNegative}$ is replaced by a \texttt{continue} instruction, and the next instructions are placed in a new block. Otherwise, \texttt{continueIfNegative} is simply removed from the instruction sequence.
 
+\subsubsection{Exit Point Counting}
+
+One other important aspect of the compilation is counting the number of exit points of the translated \ac{IR} code for a given \ac{CLASS} process. This is necessary to ensure that the translated code properly deallocates the process environment when and only when there's no more code left to execute within it.
+
+The number of exit points in a process $P$ is denoted by $\getendpoints{\theta}{P}$, and is defined by pattern matching on processes. It will be incrementally defined along with the instruction translation function in the following sections.
+
+\subsubsection{Process Definitions}
+
+Before moving on to the translation of individual process constructs, it is important to give an overview of how entire \ac{CLASS} process definitions are translated into \ac{IR} processes.
+
+A \ac{CLASS} program is a set of process definitions, each with a unique name. For each process definition, a set of resulting \ac{IR} processes is generated, one for each possible combination of polarities of the process definition type parameters. This guarantees that the polarity of each type parameter is always known at compile time, which is important as it greatly affects the flow of control of the translated code.
+
+For each resulting \ac{IR} process, an environment $(\theta, \Delta)$ is initialized. The type environment $\theta$ maps each type parameter name to a tuple $(p, t)$ such that $p$ is the polarity of the type parameter in the current combination, and $t$ is a unique identifier for the type parameter, which is inserted into the process header. Additionally, each linear and exponential argument of the process definition is mapped to a session state in the session environment, $\Delta$.
+
+Finally, we generate the instructions for the process body $P$ on the \texttt{entry} block through $\getinstructions{\theta}{\Delta}{P}$, and set the number of exit points of the \ac{IR} process to $\getendpoints{\theta}{P}$.
+
+\subsubsection{Cut, Parallel and Empty}
+
+We start by defining the compilation of a $\cutc{P}{x:A}{Q}$ process on an environment $(\theta, \Delta)$. It is assumed, without loss of generality, that $A$ is a positive type, and thus, that $P$ will be writing to $x$ before $Q$ executes - if $A$ were negative, $P$ and $Q$ can simply be swapped. Both the continuation $c$ and the data section $d$ are created to implement session $x$. The layout $\allslots{\theta}{A}$ is given to $d$, guaranteeing that enough space is allocated for all data received by both end points of $x$.
+\begin{compilationacm}{\theta}{\Delta}{\cutc{P}{x: A}{Q}}
+{\getendpoints{\theta}{P} + \getendpoints{\theta}{Q}}
+    \commentline{\makecont{c}, \makeblock{\texttt{rhs}}}
+    \commentline{\makedata{d}{\allslots{\theta}{A}}}
+    \initcontinuation{c}{\texttt{rhs}}{d}
+    \recurse{\theta}{\Delta[x \mapsto (c, d, 0)]}{P}
+    \labelir{rhs}
+    \recurse{\theta}{\Delta[x \mapsto (c, d, 0)]}{Q}
+\end{compilationacm}
+
+The instructions initialize the continuation $c$ with a new block $\makeblock{\texttt{rhs}}$ as the return address and $d$ as a writing location. Both $P$ and $Q$ are recursively translated with a new environment where the name $x$ is bound to $(c, d, 0)$. $P$ is placed on the original block, and $Q$ placed on the new block \texttt{rhs}. The number of exit points of the instructions is the sum of the number of exit points of both $P$ and $Q$. 
+
+The $\parc{P}{Q}$ process, contrary to the $\cutp$ process, does not link the two processes $P$ and $Q$ in any way. The \ac{SAM} implements this construct by executing $Q$ only after $P$ has finished executing. The compilation scheme achieves this through the task stack mechanism. $Q$ is compiled block \texttt{rhs}. A task for \texttt{rhs} is pushed to this stack through the \texttt{pushTask} instruction. Eventually, when $P$ finishes execution, \texttt{popTask} executes, and the program counter jumps to \texttt{rhs}, executing $Q$.
+\begin{compilationacm}{\theta}{\Delta}{\parc{P}{Q}}
+{\getendpoints{\theta}{P} + \getendpoints{\theta}{Q}}
+    \pushtask{rhs} \comment{\makeblock{\texttt{rhs}}}
+    \recurse{\theta}{\Delta}{P}
+    \labelir{rhs}
+    \recurse{\theta}{\Delta}{Q}
+\end{compilationacm}
+
+The $\emptyp$ process represents end of a computation of a process. In this case, control must be passed to the next task in the task stack, potentially terminating the execution. This is achieved through the \texttt{popTask} instruction. Since control might not return to the current \ac{IR} process call, the instruction is marked as an exit point.
+\begin{compilationacm}{\theta}{\Delta}{\emptyc}{1}
+    \poptask{\hasexitpoint}
+\end{compilationacm}
+
+\subsubsection{Close and Wait}
+
+The $\closec{x}$ process indicates that communication over a session $x$ is finished. As on the \ac{SAM}, control is passed to the other end point of $x$, never returning back. This jump is performed with the \texttt{finish} instruction, taking as argument the continuation of session $x$, obtained from $\Delta$. As before, this instruction is marked as an exit point.
+\begin{compilationacm}{\theta}{\Delta}{\closec{x}}{1}
+    \finishcont{\continuationof{\Delta}{x}}{\hasexitpoint}
+\end{compilationacm}
+
+The $\waitc{x}{P}$ process is skipped and simply compiled directly as $P$: $\getendpoints{\theta}{\waitc{x}{P}} \equiv \getendpoints{\theta}{P}$, $\getinstructions{\theta}{\Delta}{\waitc{x}{P}} \equiv \getinstructions{\theta}{\Delta}{P}$. No instructions are generated for the wait action, as the action of waiting for the other side of the channel is already performed implicitly by the \ac{SAM} execution scheme.
+
+\subsubsection{Send and Receive}
+
+The $\sendc{x}{y}{P}Q$ process creates a new session $y$, sending one of its end points over session $x$. The other end point of $y$ is then used in process $P$, while process $Q$ continues using session $x$. To model this behavior, the continuation $c$ and and data section $d$ are created to implement session $y$, where $A$ is the type of session $y$. The layout $\alllocalslots{\theta}{A}$ is given to $d$, guaranteeing that enough space is allocated for all data which will be received by the local end point of $y$.
+
+The continuation $c$ is initialized with a return address pointing to \texttt{lhs} and $d$ as a writing location. The continuation $c$ is then written to the writing location of session $x$, $\writelocof{\Delta}{x}$. As before, a write-to-read adjustment might be necessary, and thus, the \texttt{continueIfNegative} pseudo-instruction is used.
+
+\begin{compilationacm}{\theta}{\Delta}{\sendc{x}{y}{P}{Q}}
+{\getendpoints{\theta}{P} + \getendpoints{\theta}{Q}}
+    \commentline{\makecont{c}, \makeblock{\texttt{lhs}}}
+    \commentline{\makedata{d}{\alllocalslots{\theta}{A}}}
+    \initcontinuation{c}{\texttt{lhs}}{d}
+    \writecontinuation{\writelocof{\Delta}{x}}{c}
+    \continueifneg{\theta}{\Delta}{x}{A} \comment{\text{where } x:A \text{ in }Q}
+    \recurse{\theta}{\advancech{\Delta}{x}{+}{\theta}{\seqst{\conts}}{A}}{Q}
+    \labelir{lhs}
+    \recurse{\theta}{\Delta[y \mapsto (c, d, 0)]}{P}
+\end{compilationacm}
+
+The $\recvc{x}{y}P$ process receives a session end point $y$ over session $x$, which then is used in process $P$. As on the \ac{SAM}, control must be passed to the other side of session end point $y$ if its type is negative, ensuring that the writing side of the session executes first. To receive data through $y$, a data section $d$ is created. A continuation $c$ is also created to bind $y$ to.
+\begin{compilationacm}{\theta}{\Delta}{\recvc{x}{y: A}{P}}
+{\getendpoints{\theta}{P}}
+    \commentline{\makecont{c}}
+    \commentline{\makedata{d}{\alllocalslots{\theta}{A}}}
+    \bindcontinuation{c}{\readlocof{\Delta}{x}}{d} 
+    \continueifneg{\theta}{\Delta}{y}{A}
+    \recurse{\theta}{\advancech{\Delta}{x}{-}{\theta}{\seqst{\conts}}{B}[y \mapsto (c, d, 0)]}{P} \comment{x:B \text{ in }P}
+\end{compilationacm}
+
+\subsubsection{Forwarding}
+
+Given a process $\fwdc{x}{y}$, it can be assumed without loss of generality that $x$ is of negative type and $y$ of positive type - if this is not the case, $x$ and $y$ can be swapped. Forwarding $x$ to $y$, as on the \ac{SAM}, requires moving any unread data which has already been received on $x$ to $y$. This data is described by $\slots{\theta}{A}$, where $y: A$. For example, if $A = \lintt$, then $\seqst{\ints}$ must be moved from $\readlocof{\Delta}{x}$ to the $\writelocof{\Delta}{y}$. Additionally, the continuations referenced by $x$ and $y$ are linked to each other through the \texttt{forwardContinuations} instruction, ensuring that future communication happens directly between the other end points of $x$ and $y$. The \texttt{forwardContinuations} instruction passes control directly to the other end point of $y$, which will not return, and thus, is marked as an exit point.
+\begin{compilationacm}{\theta}{\Delta}{\fwdc{x}{y}}
+{1}
+    \moveslots{\writelocof{\Delta}{y}}{\readlocof{\Delta}{x}}{\slots{\theta}{A}}
+    \forwardcontinuations{\continuationof{\Delta}{x}}{\continuationof{\Delta}{y}}{\hasexitpoint}
+\end{compilationacm}
+
+
 \subsection{Translating the IR to C}
+
+The last phase of the compilation pipeline is the translation from the \ac{IR} to C. This phase takes as input the \ac{IR} produced by the compilation scheme described in the previous section, and produces a C program which implements the semantics of the \ac{IR}. This C program can then be compiled with \ac{GCC} to produce an executable which runs a computation equivalent to the original \ac{CLASS} program. The translated code depends only on the standard C library and on \texttt{pthread}, if concurrency is enabled. Additionally, it makes extensive use of the \ac{GCC} extension for computed gotos, used to efficiently implement continuations.
+
+This section starts by describing how the slot trees are translated to concrete data structures in C. Then, an overview of the the C representation of \ac{IR} environments is given. Next, the code layout of the translated C program is laid out. Finally, the implementation in C of the main instructions of the \ac{IR} abstract machine is described.
+
+\subsubsection{Representing Slot Trees in C}
+
+In the \ac{IR} abstract machine, the concept of data is abstracted away into slots. A slot tree describes the possible sequences of slots which may be stored in a data section. A set of slot trees describes the multiple possible slot trees which may be stored in a data section, only one of them being active at any given time.
+
+When translating \ac{IR} programs to C code, these slot trees must be translated to concrete, byte-addressed, memory layouts. To this end, a memory layout is defined as a tuple $L = (s, a)$, where $s$ is the size in bytes of the layout, and $a$ is the alignment in bytes the layout must have in memory. Both $s$ and $a$ are not constants, but C expressions which can be evaluated at runtime. This is necessary due to type parameters having layouts known only at runtime.
+
+In order to satisfy the alignment requirements of the various C types used to implement the \ac{IR} abstract machine, a C macro \texttt{ALIGN(s, a)} is defined, which rounds up the size \texttt{s} to the nearest multiple of the alignment \texttt{a}. This macro is used extensively when computing memory layouts. Additionally, a C macro \texttt{MAX(a, b)} is defined, which computes the maximum of two integers \texttt{a} and \texttt{b}.
+
+Two memory layouts $L_1 = (s_1, a_1), L_2 = (s_2, a_2)$ can be concatenated to form a new layout $L = L_1 + L_2$, where $L = (\texttt{ALIGN}(s_1, s_2) + s_2,\ \texttt{MAX}(a_1, a_2))$, such that $L_1$ is placed first in memory, followed by $L_2$, with padding added to ensure that $L_2$ starts at an address which is a multiple of $a_2$. Additionally, the maximum of two layouts $L = L_1 \vee L_2$ is defined as $L = (\texttt{MAX}(s_1, s_2),\ \texttt{MAX}(a_1, a_2))$.
+
+The memory layout of a slot $S$ on a given target architecture $\arch$ is given by $\slotlayout{\sigma}{S}$, defined as
+\[\begin{aligned}
+    &\begin{aligned}
+        &\slotlayout{\sigma}{\ints} = \archlayout{int} && \slotlayout{\sigma}{\bools} = \archlayout{unsigned char} \\
+        &\slotlayout{\sigma}{\strings} = \archlayout{char*} && \slotlayout{\sigma}{\conts} = \archlayout{struct cont*} \\
+        &\slotlayout{\sigma}{\tags} = \archlayout{unsigned char} && \slotlayout{\sigma}{\types} = \archlayout{struct type} \\
+        &\slotlayout{\sigma}{\exponentials} = \archlayout{struct exponential*} && \slotlayout{\sigma}{\cells{\dots}} = \archlayout{struct cell*} \\
+    \end{aligned}\\
+    &\slotlayout{\sigma}{t_i} = \layoutofvar{\sigma}{t_i}\\
+\end{aligned}\]
+where $\sigma$ is a map between type parameters and their layouts. A target architecture $\arch$ is a mapping from C types to their memory layouts, such that $\archlayout{type} = (s, a)$ where $s$ and $a$ where, respectively, the size and alignment of \texttt{type} on the target architecture. A definition of $\sigma$ will be introduced in the next section.
+
+The definition of $\slotlayout{\sigma}{s}$ is extended below to support both slot trees, and sets of slot trees. The layout of a slot tree is defined as the concatenation of the layouts of each of its slots, and maximum across any branches, while the layout of a set of slot trees is defined as the maximum layout among all its trees.
+\[\begin{aligned}
+    &\slotlayout{\sigma}{\nilst} = (0, 1) \quad & & \slotlayout{\sigma}{\seqst{S; T}} = \slotlayout{\sigma}{S} + \slotlayout{\sigma}{T}\\
+    &\slotlayout{\sigma}{\tagst{T_1 \tagsepst \dots \tagsepst T_n}} = \bigvee_{i=1}^{n} \slotlayout{\sigma}{T_i} \quad & & \slotlayout{\sigma}{\left\{T_1,\,\dots,\,T_n\right\}} = \bigvee_{i=1}^{n} \slotlayout{\sigma}{T_i}
+\end{aligned}\]
+
+\subsubsection{Environment Memory Layout}
+
+\ac{IR} environments store all state related to a process invocation. In the translated C programs, environments are represented as heap allocated byte buffers. The environment layout $\envlayout$ specifies at compile time how environment buffers will be indexed at runtime.
+
+An environment layout $\envlayout$ is a compile-time data structure which describes the byte offsets at which each entry of the environment can be found. This layout is computed from the header of the \ac{IR} process being compiled. The address of the exit point counter (a C integer or atomic integer if concurrency is enabled) is given by $\envlayouteps{\texttt{env}}$ where \texttt{env} is a pointer to the environment. Drop bits are stored at $\envlayoutdrop{\texttt{env}}$, type information for type variable $t_i$ is stored at $\envlayouttype{\texttt{env}}{t_i}$, continuations $c_i$ are stored at $\envlayoutcont{\texttt{env}}{c_i}$, and data sections $d_i$ at $\envlayoutlocal{\texttt{env}}{d_i}$.
+
+The layout of the environment is computed trivially by concatenating the layouts of each of its entries, in the order they appear in the process header. The layout for data sections is the most noteworthy, as it depends on the stored data type. This layout is computed from $\slotlayout{\sigma}{S}$, where $S$ is the set of slot trees of the data section, and $\sigma(t_i) = \texttt{access}(\envlayouttype{\texttt{env}}{t_i})$ is a mapping between type parameters and their layouts, fetched from the environment itself.
+
+Continuations are stored in environments as instances of the C type \texttt{struct cont}, shown below. Continuations store a return address to jump to (\texttt{loc}), a pointer to the environment to switch to before jumping (\texttt{env}), a pointer to the writing location (\texttt{write}), and a pointer to the continuation pertaining to the other end point of the session (\texttt{remote}).
+
+\begin{lstlisting}[language=C, frame=bottom]
+struct cont {
+  void* loc;
+  char* env;
+  char* write;
+  struct cont* remote;
+};
+\end{lstlisting}
+
+Type information is stored in the environment as instances of the C type \texttt{struct type}, shown below. This structure holds the \texttt{size} and \texttt{alignment} of the data described by the type. This structure is also used to store the value of $\types$ slots in the data sections.
+
+\begin{lstlisting}[language=C, frame=bottom]
+struct type {
+    int size;
+    int alignment;
+};
+\end{lstlisting}
+
+
+\subsubsection{Execution and Registers}
+
+The \texttt{main} function of the generated C program initializes any required global state, such as the allocator, or profiling tools, and invokes a function named \texttt{executor} with a \texttt{NULL} argument. The \texttt{executor} function is the core of the \ac{IR} abstract machine implementation. Each thread of execution runs its own instance of this function, receiving as argument a pointer to its entry task.
+
+At the start of the \texttt{executor} function, registers used to implement the \ac{IR} instructions are declared. The first two registers \texttt{task} and \texttt{env} respectively store pointers to the head of the task stack (introduced in the next subsection) and the current environment, which is state kept across \ac{IR} instructions. The rest of the registers are used to store temporary values used within the execution of each instruction. After declaring the registers, the thread state is initialized.
+
+
+\begin{lstlisting}[language=C, frame=bottom]
+void executor(struct task* entry) {
+    /* Registers */
+    register struct task* task;
+    register char* env;
+    register void* tmp_ptr1;
+    register void* tmp_ptr2;
+    register int tmp_int;
+    struct cont tmp_cont;
+    /* Initialize thread state (...) */
+\end{lstlisting}
+
+After initializing the thread state, control is passed to the entry task (received as argument), which contains a continuation address and environment. If the entry task is \texttt{NULL}, the main process is called instead, as shown below. To call the main process, a new environment is allocated with the size computed from its header, and a jump is performed to its entry block.
+
+\begin{lstlisting}[language=C, frame=bottom]
+    if (entry == NULL) {
+        /* callProcess(main) */
+        tmp_ptr1 = managed_alloc(144);
+        env = ((char*)(tmp_ptr1));
+        goto main_entry;
+    } else {
+        env = entry->env;
+        tmp_ptr1 = entry->loc;
+        managed_free(entry);
+        goto *tmp_ptr1;
+    }
+\end{lstlisting}
+
+After these instructions, still within the \texttt{executor} function, for each block of each process a unique C label is generated, followed by the C code generated from the \ac{IR} instructions in the block. Finally, a label named \texttt{end} is generated, which represents the end of the thread's execution.
+
+\begin{lstlisting}[language=C, frame=bottom]
+main_entry:
+    /* instructions of main's entry block ... */
+foo_cut_lhs_0:
+    /* instructions of foo's cut_lhs_0 block ... */
+    /* other blocks ... */
+end:
+    return 0;
+}
+\end{lstlisting}
+
+
+\subsubsection{Continuation Manipulation}
+
+The \texttt{initContinuation} instruction is compiled as shown below. The continuation at $\envlayoutcont{\texttt{env}}{c_0}$ (in this example, $\texttt{env} + 8$) is initialized with the given program label, the current environment, the address $\envlayoutlocal{\texttt{env}}{d_0}$ (in this case, $\texttt{env} + 40$) as its writing location data, and a pointer to itself as its remote continuation.
+
+\begin{lstlisting}[language=C, frame=bottom]
+    /* initContinuation(c0, cut_lhs_0, d0) */
+    (*(struct cont*)(env + 8)) = (struct cont){
+        .loc=&&main_cut_lhs_0,
+        .env=env,
+        .write=env + 40,
+        .remote=env + 8
+    };
+\end{lstlisting}
+
+The compilation of the \texttt{finish} instruction is shown below. First, the remote continuation of the finished continuation is unlinked from this continuation by setting its \texttt{remote} field to itself. This is necessary to avoid use after free errors in instructions such as \texttt{forwardContinuations} and \texttt{callProcess}. Then, the target location and environment is stored on the registers and the environment's exit point counter is decremented atomically (when concurrency is disabled, a normal integer is used instead). If the counter reaches zero, the environment cleanup code described in \Cref{subsubsection:CEnvironmentCleanup} is executed. Finally, the environment and code address are switched to the continuation values, and a jump is performed.
+
+\begin{lstlisting}[language=C, frame=bottom]
+    /* finish(c0, exit point) */
+    (struct cont*)(env + 8)->remote->remote = (struct cont*)(env + 8)->remote;
+    tmp_ptr1 = (*(struct cont*)(env + 8)).loc;
+    tmp_ptr2 = (*(struct cont*)(env + 8)).env;
+    if (atomic_fetch_sub((atomic_int*)(env), 1) == 1) {
+        /* environment cleanup code */
+    }
+    env = ((char*)(tmp_ptr2));
+    goto *tmp_ptr1;
+\end{lstlisting}
+
+The \texttt{continue} instruction is compiled similarly to \texttt{finish}, as shown below, except that the exit point counter is not decremented, and that the remote continuation must instead be updated so that it eventually jumps back to the correct label.
+
+\begin{lstlisting}[language=C, frame=bottom]
+    /* continue(c0, continue_12) */
+    tmp_ptr1 = (*(struct cont*)(env + 8)).loc;
+    (*(*(struct cont*)(env + 8)).remote).loc = &&main_continue_12;
+    env = (*(struct cont*)(env + 8)).env;
+    goto *tmp_ptr1;
+\end{lstlisting}
+
+The \texttt{forwardContinuations} instruction first stores the continuation of its second argument in the temporary registers. Then, it sets the remotes of both argument continuations to point to each other, ensuring no references are left to the local continuations. A temporary variable is used to store the first argument continuation, as its value may be overwritten due to the possibility of a continuation being its own remote. Finally, the exit point counter is decremented, and control is passed to the location and environment stored in the temporary registers.
+
+\begin{lstlisting}[language=C, frame=bottom]
+    /* forwardContinuations(c0, c1, exit point) */
+    tmp_ptr1 = (*(struct cont*)(env + 40)).loc;
+    tmp_ptr2 = (*(struct cont*)(env + 40)).env;
+    tmp_cont = *(struct cont*)(env + 8);
+    *(*(struct cont*)(env + 8)).remote = *(struct cont*)(env + 40);
+    *(*(struct cont*)(env + 40)).remote = tmp_cont;
+    if (atomic_fetch_sub(*(atomic_int*)(env), 1) == 1) {
+        /* environment cleanup code */
+    }
+    env = (char*)tmp_ptr2;
+    goto *tmp_ptr1;
+\end{lstlisting}
 
 \section{Optimization Techniques} \label{sec:optimizations}
 
 \subsection{Leveraging Type Properties}
 
-\subsection{Efficient Tail Calls}
+The compiler presented in the previous sections does not take any advantage of the fact that many types in the language can be handled more efficiently than the general case. For example, the type $\sendt{\lintt}{\lintt}$ is stored as a reference to a continuation (essentially a closure) followed by an integer. The closure producing the $\lintt$ will eventually be executed, producing a single integer and immediately terminating. Instead of sending this continuation, the integer could be computed immediately and sent directly, saving memory and time, as the pointer indirection would be removed, along with some unnecessary jumps.
+
+Types are optimized based on whether they're \textit{value}, \textit{droppable} or \textit{cloneable} types. These properties are referred to as \textit{type flags}. A type flag of a given type may either be $\guaranteed$ to hold, $\impossible$ to hold, or be dependent on whether some type parameters have some type flags set, which is denoted as $\dependent{F_1,\,\dots,\,F_n}$, where each $F_i$ is either $\depisvalue{t_j}$, $\depisdroppable{t_j}$ or $\depiscloneable{t_j}$ (value, droppable and cloneable flags, respectively), and $t_j$ is a type variable. These requirements are referred to as \text{type flag requirements}.
+
+A type is said to be a value type if it has a strict polarity, being either strictly positive, or strictly negative. A channel of a negative value type will only be read from, and control will not be passed to it. A channel of a positive value type will only be written to, and control will not return to it. For example, $\lintt$ and $\sendt{A}{\closet}$ are both positive value types. A type $A$ is only a value if and only if its type flag requisites are met, which are denoted as $\isvalue{A}$, where $\typeenv$ is a type environment. The definition of $\isvalue{A}$ is omitted for brevity, but is available in the full thesis.
+
+\todo{pick only one kind of type, and discuss that optimization. maybe exponentials are the most interesting?}
+
+\subsection{Optimizing Single Exit Points and Tail Calls}
+
+In the base version of the compiler, every exit point instruction decrements the exit point counter of the process environment, and if it reaches zero, the environment is cleaned up and the process terminates. For processes which have only one exit point, this is wasteful - there's no need to maintain an exit point counter, as it is guaranteed to reach zero when an exit point instruction is executed.
+
+To take advantage of this, the C code generation phase omits any exit point handling code when the \ac{IR} process has only one exit point, avoiding unnecessary memory accesses and branches.
+
+Tail calls, i.e., recursive process calls executed when there's a single exit point left, are optimized to reuse the current process environment instead of allocating a new one, avoiding the overhead of memory allocation and deallocation, and greatly improving performance. This requires branching on the exit point count, to decide on whether a tail call is possible. If the optimization above is applied, the branch becomes unnecessary for processes with a single exit point.
 
 \subsection{IR Simplification}
+
+The previously mentioned transformations introduce many optimization opportunities in the generated \ac{IR} code itself. For example, below is a result of compiling a send of positive value type, as described in \Cref{subsection:SendValueOptimizations}. A new continuation $c_2$ is introduced only for writing to $c_1$. In this case, it could be replaced entirely by direct writes to $c_1$.
+
+\begin{minipage}{0.9\linewidth}
+\begin{lstlisting}[language=IR, frame=bottom]
+    initContinuation(c2, send_rhs_2, c1)
+    writeExpression(c2, 1)
+    finish(c2, exit point)
+send_rhs_2:
+    ... // send rhs
+\end{lstlisting}
+\end{minipage}
+
+To simplify the generated \ac{IR} code, a control flow graph for each \ac{IR} process is built through symbolic execution. For each instruction, the known state of the process environment is updated, storing information such as the known state of each continuation, or the known values of slots in the local data sections. For each visited \ac{IR} block, a node is added to the graph, storing the nodes into which the node may jump to, as well as nodes which become detached from the main control flow, such as blocks referenced by a \texttt{pushTask} instruction. Eventually, all reachable nodes are visited.
+
+The first applied optimization removes jumps to known locations, such as \texttt{continue} instructions of known continuations, or branches with known outcomes. After removing these instructions, the source and target \ac{IR} blocks are merged. The example above becomes:
+
+\begin{lstlisting}[language=IR, frame=bottom]
+    initContinuation(c2, -, c1) // no target location
+    writeExpression(c2, 1)
+    ... // send rhs
+\end{lstlisting}
+
+Next, remote data locations are replaced by their known locations. For example, the writing location of $c_2$ was just initialized to be $c_1$. Thus, the data location $c_2$ can be replaced by $c_1$. This leaves us with a continuation $c_2$ which is initialized but never used, and thus, can be removed.
+
+\begin{lstlisting}[language=IR, frame=bottom]
+    initContinuation(c2, -, c1) // c2 is unused, can be removed
+    writeExpression(c1, 1) // write directly to c1
+    ... // send rhs
+\end{lstlisting}
+
+Another useful result from the symbolic execution is knowing which exit point instructions are guaranteed to not be the last instruction executed by the process. For example, in the following code, the \texttt{finish} instruction will never be the last executed instruction, as there's an outgoing flow from the \texttt{entry} block to \texttt{rhs} block, introduced by \texttt{pushTask}. In cases like these, the exit point markings can be removed from the instructions, and the exit point counter of the process decremented. This makes most processes have a single exit point, which can be optimized as described in \Cref{section:SingleExitPointOptimizations}.
+
+\begin{lstlisting}[language=IR, frame=bottom]
+entry:
+    pushTask(rhs)
+    finish(c1, exit point) // becomes just finish(c1)
+rhs:
+    popTask(exit point)
+\end{lstlisting}
 
 \section{Results}
 
