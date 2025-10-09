@@ -1053,7 +1053,7 @@ end:
 
 \subsection{Tasks}
 
-Tasks are stored in a linked list local to each thread of execution, where each node is of the type shown below. The \texttt{task} register points to the head node of this stack. The \texttt{next} field points to the next task to be executed, while the \texttt{loc} and \texttt{env} fields store the program address and environment to switch to when executing the task. 
+Tasks are stored in a linked list local to each thread of execution, where each node is of the type shown below. The \texttt{task} register points to the head node of this stack. The \texttt{next} field points to the next task to be executed, while the \texttt{loc} and \texttt{env} fields store the code address and environment to switch to when executing the task. 
 
 \begin{lstlisting}[language=C, frame=bottom]
 struct task {
@@ -1107,7 +1107,7 @@ The \texttt{initContinuation} instruction is compiled as shown below. The contin
     };
 \end{lstlisting}
 
-The compilation of the \texttt{finish} instruction is shown below. First, the remote continuation of the finished continuation is unlinked from this continuation by setting its \texttt{remote} field to itself. This is necessary to avoid use after free errors in instructions such as \texttt{forwardContinuations} and \texttt{callProcess}. Then, the target location and environment is stored on the registers and the environment's exit point counter is decremented atomically (when concurrency is disabled, a normal integer is used instead). If the counter reaches zero, the environment cleanup code described in \Cref{subsubsection:CEnvironmentCleanup} is executed. Finally, the environment and program address are switched to the continuation values, and a jump is performed.
+The compilation of the \texttt{finish} instruction is shown below. First, the remote continuation of the finished continuation is unlinked from this continuation by setting its \texttt{remote} field to itself. This is necessary to avoid use after free errors in instructions such as \texttt{forwardContinuations} and \texttt{callProcess}. Then, the target location and environment is stored on the registers and the environment's exit point counter is decremented atomically (when concurrency is disabled, a normal integer is used instead). If the counter reaches zero, the environment cleanup code described in \Cref{subsubsection:CEnvironmentCleanup} is executed. Finally, the environment and code address are switched to the continuation values, and a jump is performed.
 
 \begin{lstlisting}[language=C, frame=bottom]
     /* finish(c0, exit point) */
