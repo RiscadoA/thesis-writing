@@ -930,21 +930,21 @@ Finally, the $\sharec{x}{P}{Q}$ process shares a cell $x$ between $P$ and $Q$, w
 
 \section{Translating the IR to C} \label{section:IRtoC}
 
-The last phase of the compilation pipeline is the C generation phase. This phase takes as input the \ac{IR} produced by the compilation scheme described in the previous section, and produces a C program which implements the semantics of the \ac{IR}. This C program can then be compiled with \ac{GCC} to produce an executable which runs a computation equivalent to the original \ac{CLASS} program. The generated code depends only on the standard C library and on \texttt{pthread}, if concurrency is enabled. Additionally, it makes extensive use of the \ac{GCC} extension for computed gotos, which allows for efficient implementation of continuations.
+The last phase of the compilation pipeline is the C generation phase. This phase takes as input the \ac{IR} produced by the compilation scheme described in the previous section, and produces a C program which implements the semantics of the \ac{IR}. This C program can then be compiled with \ac{GCC} to produce an executable which runs a computation equivalent to the original \ac{CLASS} program. The generated code depends only on the standard C library and on \texttt{pthread}, if concurrency is enabled. Additionally, it makes extensive use of the \ac{GCC} extension for computed gotos, used to efficiently implement continuations.
 
-The first subsection of this section describes how the slot trees are translated to concrete data structures in C. The second subsection describes the environment data structure, which stores the state of a process invocation.  The third subsection shows how the main function and the generated code are laid out. Finally, the the last subsections give an overview of how the main instructions of the \ac{IR} abstract machine are implemented in C.
+This section starts by describing how the slot trees are translated to concrete data structures in C. Then, an overview of the the C representation of \ac{IR} environments is given. Next, the code layout of the generated C program is laid out. Finally, the implementation in C of the main instructions of the \ac{IR} abstract machine is described.
 
-\subsection{Slot Tree Memory Layouts}
+\subsection{Representing Slot Trees in C}
 
-In the \ac{IR} abstract machine, the concept of data is abstracted away into slots, covered in \Cref{subsection:IRSlots}. A slot tree describes the possible slots which may be stored in a data section in sequence, with branching. A set of slot trees describes the multiple possible slot trees which may be stored in a data section, with only one of them being active at any given time.
+In the \ac{IR} abstract machine, the concept of data is abstracted away into slots, covered in \Cref{subsection:IRSlots}. A slot tree describes the possible sequences of slots which may be stored in a data section. A set of slot trees describes the multiple possible slot trees which may be stored in a data section, only one of them being active at any given time.
 
-To generate C code, these slot trees must be translated to concrete, byte-addressed, memory layouts. To this end, a memory layout is defined as a tuple $L = (S, A)$, where $S$ is the size in bytes of the layout, and $A$ is the alignment in bytes the layout must have in memory. Both $S$ and $A$ are not constants, but C expressions which can be evaluated at runtime. This is necessary because polymorphic types have layouts which are only known at runtime.
+When translating \ac{IR} programs to C code, these slot trees must be translated to concrete, byte-addressed, memory layouts. To this end, a memory layout is defined as a tuple $L = (s, a)$, where $s$ is the size in bytes of the layout, and $a$ is the alignment in bytes the layout must have in memory. Both $s$ and $a$ are not constants, but C expressions which can be evaluated at runtime. This is necessary due to type parameters having layouts known only at runtime.
 
 In order to satisfy the alignment requirements of the various C types used to implement the \ac{IR} abstract machine, a C macro \texttt{ALIGN(s, a)} is defined, which rounds up the size \texttt{s} to the nearest multiple of the alignment \texttt{a}. This macro is used extensively when computing memory layouts. Additionally, a C macro \texttt{MAX(a, b)} is defined, which computes the maximum of two integers \texttt{a} and \texttt{b}.
 
-Two memory layouts $L_1 = (S_1, A_1), L_2 = (S_2, A_2)$ can be concatenated to form a new layout $L = L_1 + L_2$, where $L = (\texttt{ALIGN}(S_1, A_2) + S_2,\ \texttt{MAX}(A_1, A_2))$, such that $L_1$ is placed first in memory, followed by $L_2$, with padding added to ensure that $L_2$ starts at an address which is a multiple of $A_2$. Additionally, the maximum of two layouts $L = L_1 \vee L_2$ is defined as $L = (\texttt{MAX}(S_1, S_2),\ \texttt{MAX}(A_1, A_2))$.
+Two memory layouts $L_1 = (s_1, a_1), L_2 = (s_2, a_2)$ can be concatenated to form a new layout $L = L_1 + L_2$, where $L = (\texttt{ALIGN}(s_1, s_2) + s_2,\ \texttt{MAX}(a_1, a_2))$, such that $L_1$ is placed first in memory, followed by $L_2$, with padding added to ensure that $L_2$ starts at an address which is a multiple of $a_2$. Additionally, the maximum of two layouts $L = L_1 \vee L_2$ is defined as $L = (\texttt{MAX}(s_1, s_2),\ \texttt{MAX}(a_1, a_2))$.
 
-The memory layout of a slot $s$ on a given target architecture $\arch$ is given by $\slotlayout{\sigma}{s}$, defined as
+The memory layout of a slot $S$ on a given target architecture $\arch$ is given by $\slotlayout{\sigma}{S}$, defined as
 \[\begin{aligned}
     &\begin{aligned}
         &\slotlayout{\sigma}{\ints} = \archlayout{int} && \slotlayout{\sigma}{\bools} = \archlayout{unsigned char} \\
@@ -954,23 +954,23 @@ The memory layout of a slot $s$ on a given target architecture $\arch$ is given 
     \end{aligned}\\
     &\slotlayout{\sigma}{t_i} = \layoutofvar{\sigma}{t_i}\\
 \end{aligned}\]
-where $\sigma$ is a map between type variables and their layouts. A target architecture $\arch$ is a mapping from C types to their memory layouts, such that $\archlayout{type} = (S, A)$ where $S$ and $A$ where, respectively, the size and alignment of \texttt{type} on the target architecture. A concrete definition of $\sigma$ will be introduced in \Cref{subsection:CEnvironments}.
+where $\sigma$ is a map between type parameters and their layouts. A target architecture $\arch$ is a mapping from C types to their memory layouts, such that $\archlayout{type} = (s, a)$ where $s$ and $a$ where, respectively, the size and alignment of \texttt{type} on the target architecture. A definition of $\sigma$ will be introduced in the next section.
 
-The definition of $\slotlayout{\sigma}{s}$ is extended below to support both trees of slots, and sets of slot trees. The layout of a tree of slots is defined as the concatenation of the layouts of each of its slots, and maximum across any branches, while the layout of a set of slot trees is defined as the maximum layout among all its trees.
+The definition of $\slotlayout{\sigma}{s}$ is extended below to support both slot trees, and sets of slot trees. The layout of a slot tree is defined as the concatenation of the layouts of each of its slots, and maximum across any branches, while the layout of a set of slot trees is defined as the maximum layout among all its trees.
 \[\begin{aligned}
-    &\slotlayout{\sigma}{\nilst} = (0, 1) \quad & & \slotlayout{\sigma}{\seqst{s; T}} = \slotlayout{\sigma}{s} + \slotlayout{\sigma}{T}\\
+    &\slotlayout{\sigma}{\nilst} = (0, 1) \quad & & \slotlayout{\sigma}{\seqst{S; T}} = \slotlayout{\sigma}{S} + \slotlayout{\sigma}{T}\\
     &\slotlayout{\sigma}{\tagst{T_1 \tagsepst \dots \tagsepst T_n}} = \bigvee_{i=1}^{n} \slotlayout{\sigma}{T_i} \quad & & \slotlayout{\sigma}{\left\{T_1,\,\dots,\,T_n\right\}} = \bigvee_{i=1}^{n} \slotlayout{\sigma}{T_i}
 \end{aligned}\]
 
 \subsection{Environments} \label{subsection:CEnvironments}
 
-The main data structure used to implement the execution state of the \ac{IR} abstract machine is the environment, which stores all state related to a process invocation. In the generated code, environments are compiled to heap allocated byte arrays, which are indexed through an environment layout $\envlayout$.
+\ac{IR} environments store all state related to a process invocation. In the translated C programs, environments are represented as a heap allocated byte buffers. These buffers can be indexed at compile time through an environment layout $\envlayout$.
 
-An environment layout $\envlayout$ is a compile-time data structure which describes the byte offsets at which each entry of the environment can be found, and is computed from the header of the \ac{IR} process being compiled. The address of the exit point counter (a C integer or atomic integer if concurrency is enabled) is given by $\envlayouteps{\texttt{env}}$ where \texttt{env} is a pointer to the environment. Drop bits are stored at $\envlayoutdrop{\texttt{env}}$, type information for type variable $t_i$ is stored at $\envlayouttype{\texttt{env}}{t_i}$, continuations $c_i$ are stored at $\envlayoutcont{\texttt{env}}{c_i}$, and local data $d_i$ at $\envlayoutlocal{\texttt{env}}{d_i}$.
+An environment layout $\envlayout$ is a compile-time data structure which describes the byte offsets at which each entry of the environment can be found. This layout is computed from the header of the \ac{IR} process being compiled. The address of the exit point counter (a C integer or atomic integer if concurrency is enabled) is given by $\envlayouteps{\texttt{env}}$ where \texttt{env} is a pointer to the environment. Drop bits are stored at $\envlayoutdrop{\texttt{env}}$, type information for type variable $t_i$ is stored at $\envlayouttype{\texttt{env}}{t_i}$, continuations $c_i$ are stored at $\envlayoutcont{\texttt{env}}{c_i}$, and data sections $d_i$ at $\envlayoutlocal{\texttt{env}}{d_i}$.
 
-The layout of the environment is computed trivially by concatenating the layouts of each of its entries, in the order they appear in the process header. The layout for for data entries is the most noteworthy, as it depends on the stored data type. This layout is computed from $\slotlayout{\sigma}{S}$, where $S$ is the set of slot trees of the data being stored, and $\sigma$ is a mapping between type variables and their layouts, fetched from the environment itself (e.g., $\sigma(t_i) = \texttt{access}(\envlayouttype{\texttt{env}}{t_i})$). Its formal definition is omitted for brevity.
+The layout of the environment is computed trivially by concatenating the layouts of each of its entries, in the order they appear in the process header. The layout for data sections is the most noteworthy, as it depends on the stored data type. This layout is computed from $\slotlayout{\sigma}{S}$, where $S$ is the set of slot trees of the data section, and $\sigma(t_i) = \texttt{access}(\envlayouttype{\texttt{env}}{t_i})$ is a mapping between type parameters and their layouts, fetched from the environment itself.
 
-Continuations are stored in the environment as instances of the C type \texttt{struct cont}, shown below. Continuations store a code address to jump to (\texttt{loc}), a pointer to the environment to switch to before jumping (\texttt{env}), a pointer to the writing location (\texttt{write}), and a pointer to the continuation pertaining to the other end point of the session (\texttt{remote}).
+Continuations are stored in environments as instances of the C type \texttt{struct cont}, shown below. Continuations store a return address to jump to (\texttt{loc}), a pointer to the environment to switch to before jumping (\texttt{env}), a pointer to the writing location (\texttt{write}), and a pointer to the continuation pertaining to the other end point of the session (\texttt{remote}).
 
 \begin{lstlisting}[language=C, frame=bottom]
 struct cont {
@@ -992,7 +992,7 @@ struct type {
 
 \subsubsection{Environment Cleanup} \label{subsubsection:CEnvironmentCleanup}
 
-When the exit point counter of an environment reaches zero, any set drop bits must be processed, dropping their associated data. Thus, whenever an instruction decrements the exit point counter, it must check if it reached zero, and if so, run the cleanup code. Only then can the environment itself be freed. For example, the code below decrements the exit point counter, checking if it reached zero, and if so, checks if the drop bit $0$ is set, dropping its associated data if so, before freeing the environment itself.
+Whenever an instruction decrements the exit point counter, it checks if it reached zero. If so, any drop bits set in the environment are processed, dropping their associated data. Then, the environment itself is freed. The following C snippet illustrates this cleanup code, where \texttt{env} points to the environment.
 
 \begin{lstlisting}[language=C, frame=bottom]
 if (atomic_fetch_sub(&(*(atomic_int*)(env)), 1) == 1) {
@@ -1006,7 +1006,7 @@ if (atomic_fetch_sub(&(*(atomic_int*)(env)), 1) == 1) {
 
 \subsection{Execution and Registers}
 
-The \texttt{main} function of the generated C program initializes any required global state (such as the allocator, or profiling tools), and invokes a function named \texttt{executor} with a \texttt{NULL} argument. The \texttt{executor} function is the core of the \ac{IR} abstract machine implementation. Each thread of execution runs its own instance of this function, receiving as argument a pointer to its entry task.
+The \texttt{main} function of the generated C program initializes any required global state, such as the allocator, or profiling tools, and invokes a function named \texttt{executor} with a \texttt{NULL} argument. The \texttt{executor} function is the core of the \ac{IR} abstract machine implementation. Each thread of execution runs its own instance of this function, receiving as argument a pointer to its entry task.
 
 At the start of the \texttt{executor} function, registers used to implement the \ac{IR} instructions are declared. The first two registers \texttt{task} and \texttt{env} respectively store pointers to the head of the task stack (introduced in the next subsection) and the current environment, which is state kept across \ac{IR} instructions. The rest of the registers are used to store temporary values used within the execution of each instruction. After declaring the registers, the thread state is initialized.
 
@@ -1245,7 +1245,7 @@ To clone or drop type parameter slots $t_i$, type information for each type para
 
 \subsection{Process Calls}
 
-Process calls are performed through the \texttt{callProcess} instruction. This instruction receives the identifier of the process to be called, a list of type arguments, a list of continuation arguments and a list of data arguments. The generated C code for this instruction is shown below.
+Process calls are performed through the \texttt{callProcess} instruction. This instruction receives the identifier of the process to be called, a list of type parameters, a list of continuation arguments and a list of data arguments. The generated C code for this instruction is shown below.
 
 \begin{lstlisting}[language=C, frame=bottom]
     /* callProcess(foo, exit point, c0 <- c0) */
@@ -1259,7 +1259,7 @@ Process calls are performed through the \texttt{callProcess} instruction. This i
     goto foo_entry;
 \end{lstlisting}
 
-Type arguments are passed by writing their information to the appropriate offsets in the new environment. Continuation arguments are passed by initializing the continuations in the new environment, and connecting them to the local continuations passed as arguments. This implies updating the remote of the argument continuations to point to the continuations in the new environment. Finally, data arguments are passed by simply moving or cloning the data from the current environment to the new environment, in the same way as the \texttt{moveSlots} and \texttt{cloneSlots} instructions.
+Type parameters are passed by writing their information to the appropriate offsets in the new environment. Continuation arguments are passed by initializing the continuations in the new environment, and connecting them to the local continuations passed as arguments. This implies updating the remote of the argument continuations to point to the continuations in the new environment. Finally, data arguments are passed by simply moving or cloning the data from the current environment to the new environment, in the same way as the \texttt{moveSlots} and \texttt{cloneSlots} instructions.
 
 Before jumping to the entry block of the called process, the exit point counter of the current environment is decremented, and if it reaches zero, the current environment is cleaned up and freed, as described in \Cref{subsubsection:CEnvironmentCleanup}. Control is then passed to the entry block of the called process, with the new environment set as the current environment.
 
