@@ -34,7 +34,6 @@ The execution of an \ac{IR} program is described by an abstract machine with sta
 
 To introduce the \ac{IR} and its abstractions, the execution of an example program will be covered step by step on the next section.
 
-
 \begin{figure}[H]
     \hrule
     \begin{minipage}[t]{0.5\textwidth}
@@ -288,6 +287,8 @@ In \textbf{Step 11}, \texttt{finish(c0, exit point)} is executed, passing contro
 \end{center}
 
 Finally, in \textbf{Step 13}, \texttt{popTask(exit point)} is executed, which pops the next task from the task stack and jumps to it. In this example, the task stack was never modified, and thus contains only the program termination task. Since the instruction is marked as an exit instruction, the exit point count of \texttt{p} reaches $0$, and it is destroyed, ensuring no memory is leaked.
+
+In the next subsections, various aspects of the \ac{IR} which were not covered in the example execution are described.
 
 \subsection{Forwarding Continuations}
 

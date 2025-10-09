@@ -106,7 +106,11 @@
 \usepackage[nolist]{acronym}
 \usepackage{cleveref}
 \usepackage{url}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit}
 \input{../commands.tex}
+
+\setlength{\belowcaptionskip}{-10pt}
 
 \lstset{
   basicstyle=\linespread{0.9}\ttfamily\small, % smaller and tighter
@@ -122,6 +126,34 @@
   commentstyle=\color{gray}\itshape,          % color comments
   stringstyle=\color{orange},                 % color strings
   showstringspaces=false                      % no visible spaces
+}
+
+
+\tikzset{
+    frame/.style={draw, thick, fill=gray!10, inner sep=0pt},
+    row/.style={
+        fill=white,
+        minimum width=6cm,
+        minimum height=0.5cm,
+        anchor=west,
+        font=\ttfamily\small,
+        inner xsep=6pt,
+        text width=5.7cm,
+        align=left,
+        append after command={
+            \pgfextra{\draw (\tikzlastnode.north west) -- (\tikzlastnode.north east);}
+        }
+    },
+    arrow/.style={->, thick, >=Stealth},
+    biarrow/.style={<->, thick, >=Stealth},
+    doublearrow/.style={
+        ->,
+        double,
+        line width=0.6pt,
+        double distance=1pt,
+        >=Stealth,
+        thick
+    }
 }
 
 \begin{acronym}
@@ -511,42 +543,182 @@ Its execution is shown below. The initial state of the \ac{SAM} is $(P, \emptyse
 
 One of the main contributions of this work is the design and implementation of the first \acf{IR} for session-based languages which can be translated to efficient C code. Multiple abstractions were developed to model the execution of session-based programs in a low-level imperative language. This section starts by both describing the structure of \ac{IR} programs and introducing the abstract machine which executes them. Then, an example execution is covered step by step. Finally, an overview is given on various aspects of the \ac{IR} which were not covered in the example.
 
-The \ac{IR} is an imperative stateful language, inspired by the execution model of the \ac{SAM}, sequentially executing session-based programs through buffered communication. Sessions are split into two different concepts: \textit{continuations}, which model the flow of control between two end points of a session, and \textit{data sections}, which store data received through sessions. Continuations store both the program point to jump to when passing control to them, as well as the data location to write to, when sending data through the session. Thus, writing operations on a session always write to the data location stored on its continuation, which refers to a data section in the opposite end point. Reading operations on a session then read from this data section.
+The \ac{IR} is an imperative stateful language, inspired by the execution model of the \ac{SAM}, sequentially executing session-based programs through buffered communication. The concept of sessions is split into two parts: \textit{continuations}, which model the flow of control between two end points of a session, and \textit{data sections}, which store data received in sessions. A continuation can be seen as a representation of a session end point which stores the necessary information to communicate with and pass control to the opposite end point.
 
-This separation brings the representation of sessions much closer to variables and function calls in languages such as C. For example, for a given session end point $x: \lintt$, a continuation is stored which holds the program point to jump to after producing an integer through $x$, similarly to a return address. For the other end point of $x$, $y: \colintt$, no continuation is required, and only a data section is stored to hold the integer which will be written through $x$.
+A continuation is composed of a return address, a writing location, and a reference to another continuation. The return address is a code address, which is jumped to when passing control to the opposite end point. The writing location is a data location where data to be read by the opposite end point should be written to. Finally, the continuation reference is a reference to the continuation which the opposite end point will use to pass control back to this point. The purpose of this reference will become clear in the example execution covered by the next section.
 
-% \begin{figure}
-%     \begin{minipage}[t]{0.5\textwidth}
-%     \begin{lstlisting}[language=IR,firstnumber=1]
-% main:
-%     end points: 2
-%     types: none
-%     sessions: s0
-%     data d0: <[]> (s0)
-% entry:
-%     initializeSession(s0, cut_lhs_0, d0)
-%     callProcess(p, end point, s0 <- s0)
-% cut_lhs_0:
-%     printLine("wait")
-%     popTask(end point)
-%     \end{lstlisting}
-%     \end{minipage}
-%     \hfill
-%     \begin{minipage}[t]{0.4\textwidth}
-%     \begin{lstlisting}[language=IR,firstnumber=12]
-% p:
-%     end points: 1
-%     types: none
-%     sessions: s0
-%     data d0: <[]> (s0)
-% entry:
-%     printLine("close")
-%     finishSession(s0, end point)
-%     \end{lstlisting}
-%     \end{minipage}
-%     \caption{An example \ac{IR} program with two processes}
-%     \label{fig:IRProcessExample}
-% \end{figure}
+Data sections and continuations bring the representation of sessions much closer to variables and function calls in languages such as C. For example, for a given session end point $x: \lintt$, a continuation is stored which holds the return address to jump to after producing an integer to $x$. In the other end point of $x$, $y: \colintt$, a data section is stored to hold the integer which will be written to $x$.
+
+\subsubsection{Programs and the IR Abstract Machine}
+
+An \ac{IR} program is a set of named process definitions, each consisting of a header and a body. The header declares properties and resources used by the process, such as continuations, data sections and any type parameters, while the body is a set of named instruction blocks, each consisting of a list of instructions to be executed sequentially.
+
+During execution, whenever a process is called, an \textit{environment} is created. An \textit{environment} is a data structure which holds the state of the process, similar to a stack frame in languages such as C. An environment holds the states of the continuations and data sections described in the header of its process. Additionally, the environment also stores the number of remaining exit points of the process. An exit point is an instruction through which control leaves the scope of the current environment, without a guarantee of coming back. When all exit points of a called process have been reached, its environment can be safely destroyed. Essentially, exit points are used as a reference counting mechanism for environments.
+
+The execution of an \ac{IR} program is described by an abstract machine with state $\langle E, T, C \rangle$, where $E$ is the environment of the process being executed, $T$ is the stack of pending tasks, and $C$ is the program counter. The stack $T$ of pending tasks is used to model the $\parp$ process of \ac{CLASS}. Each task stores a code address and an environment, on which execution should resume when the task is popped from the stack.
+
+To introduce the \ac{IR} and its abstractions, the execution of an example program will be covered step by step on the next section.
+
+\begin{figure}
+    \hrule
+    \begin{lstlisting}[language=CLASS]
+proc main() {
+    cut {
+        p(x)
+        |x: @recv colint@; @lstring@|
+        recv x(y);
+        let x "Res: " + y
+    }
+};;
+
+proc foo(x: @send lint@; @colstring@) {
+    send x(17);
+    println(x);
+    ()
+};;
+    \end{lstlisting}
+    \begin{lstlisting}[language=IR,firstnumber=1]
+main:
+    exit points: 2
+    continuations: c0
+    data d0: <[int]>
+entry:
+    initContinuation(c0, rhs, d0)
+    callProcess(foo, exit point, c1 <- c0)
+rhs:
+    writeExpression(c0, "Res: " + move(d0, int))
+    finish(c0, exit point)
+   
+foo:
+    exit points: 1
+    continuations: c1
+    data d1: <[string]> (c1)
+entry:
+    writeExpression(c1, 17)
+    continue(c1, ret)
+ret:
+    printLine(move(d1, string))
+    popTask(exit point)
+    \end{lstlisting}
+    \caption{An example IR program (bottom) translated from a simple \ac{CLASS} program (top) with two processes.}
+    \label{fig:IRProcessExample}
+    \Description{An example IR program translated from a simple CLASS program with two processes.}
+\end{figure}
+
+\subsubsection{Execution Example}
+
+The example \ac{CLASS} program shown in \Cref{fig:IRProcessExample} consists of two process definitions, \texttt{main} and \texttt{foo}. When executed, the two processes communicate through session $x$. Process \texttt{foo} sends the integer $17$ over $x$, which, on \texttt{main}, is received and used to produce a string. This string is sent back to \texttt{p}, which prints it to the standard output and terminates.
+
+The \ac{IR} program translated from the source \ac{CLASS} program is also shown in \Cref{fig:IRProcessExample}. It consists of two processes with the same names as in the source program. Before delving into the inner workings of the execution, a brief overview of the execution trace is given. The execution starts at the \texttt{entry} block of the \texttt{main} process. The steps of the execution are as follows:
+
+\begin{enumerate}
+  \item \texttt{initContinuation(c0, rhs, d0)} --- initializes $c_0$ in \texttt{main}.
+  \item \texttt{callProcess(foo, exit point, c1 <- c0)} --- calls process \texttt{foo}, passing $c_0$ as an argument.
+  \item \texttt{writeExpression(c1, 17)} --- writes $17$ to the writing location of $c_1$, which is $d_0$.
+  \item \texttt{continue(c1, ret)} --- yields control to $c_1$, jumping to \texttt{rhs} in \texttt{main}.
+  \item \texttt{writeExpression(c0, "Res:\ " + move(d0, int))} --- reads $17$ from $d_0$ and writes the string \texttt{"Res:\ 17"} to the writing location of $c_0$, which is $d_1$.
+  \item \texttt{finish(c0, exit point)} --- jumps to \texttt{ret} in \texttt{foo}.
+  \item \texttt{printLine(move(d1, string))} --- reads \texttt{"Res:\ 17"} from $d_1$ and prints it.
+  \item \texttt{popTask(exit point)} --- finishes execution.
+\end{enumerate}
+
+Now, each step of the execution will be covered in detail, along with the changes to the abstract machine's state. Each environment is shown as a table, with the process name at the top, followed by the number of exit points, and the states of its continuations and data sections. Changes between steps are highlighted in orange.
+
+When the program starts, the \texttt{main} process is called, and a new environment is created for it from the information declared in the header of \texttt{main}. This initial environment is shown below.
+
+\begin{center}
+\begin{tikzpicture}
+\node[font=\ttfamily] (main title) {main};
+\node[row, below=0pt of main title] (main exit) {exit points: 2};
+\node[row, below=0pt of main exit] (main c0) {continuation c0: [uninit]};
+\node[row, below=0pt of main c0] (main d0) {data d0: [uninit]};
+\node[draw, inner sep=0pt, fit=(main title) (main d0)] (main box) {};
+\node[font=\bf, anchor=east] at ([xshift=-1mm, yshift=-2.5mm]main box.north west) {(0)};
+\end{tikzpicture}
+\end{center}
+
+In step \textbf{(1)}, \texttt{initContinuation(c0, rhs, d0)} is executed. This instruction initializes $c_0$, setting its return address to the block \texttt{rhs}, its writing location to $d_0$, and its remote continuation reference to itself. This reference links $c_0$ to itself, as the other end point of the session, which is the right-hand-side of the $\cutp$ in the source program, is within the same environment and uses the same continuation $c_0$.
+
+\begin{center}
+\begin{tikzpicture}
+\node[font=\ttfamily] (main title) {main};
+\node[row, below=0pt of main title] (main exit) {exit points: 2};
+\node[row, below=0pt of main exit] (main c0) {continuation c0: \changed{main:rhs, d0, c0}};
+\node[row, below=0pt of main c0] (main d0) {data d0: [uninit]};
+\node[draw, inner sep=0pt, fit=(main title) (main d0)] (main box) {};
+\node[font=\bf, anchor=east] at ([xshift=-1mm, yshift=-2.5mm]main box.north west) {(1)};
+\end{tikzpicture}
+\end{center}
+
+In step \textbf{(2)}, \texttt{callProcess(foo, exit point, c1 <- c0)} is executed, moving the program counter to the \texttt{entry} block of \texttt{foo}, and creating a new environment for \texttt{foo}. Since $c_0$ was passed as an argument, it is copied to $c_2$ in \texttt{foo}. The continuation referenced by $c_0$, which is $c_0$ itself, is linked to $c_1$. Both environments now hold opposite end points of the same session $x$, represented by $c_0$ and $c_1$, which are linked to each other. The writing location of $c_0$ is changed to $d_2$, allowing data written by \texttt{main} to be read by \texttt{foo}. Finally, since the instruction is marked as an exit point, the remaining exit point count of \texttt{main} is decremented. The new state of the environments is shown below.
+
+\begin{center}
+\begin{tikzpicture}
+\node[font=\ttfamily] (main title) {main};
+\node[row, below=0pt of main title] (main exit) {exit points: \changed{1}};
+\node[row, below=0pt of main exit] (main c0) {continuation c0: main:rhs, \changed{d1, c1}};
+\node[row, below=0pt of main c0] (main d0) {data d0: [uninit]};
+\node[draw, inner sep=0pt, fit=(main title) (main d0)] (main box) {};
+\node[font=\ttfamily, below=2cm of main title.south] (foo title) {foo};
+\node[row, below=0pt of foo title] (foo exit) {exit points: 1};
+\node[row, below=0pt of foo exit] (foo c1) {continuation c1: \changed{main:rhs, d0, c0}};
+\node[row, below=0pt of foo c1] (foo d1) {data d1: [uninit]};
+\node[draw, inner sep=0pt, fit=(foo title) (foo d1)] (foo box) {};
+\node[font=\bf, anchor=east] at ([xshift=-1mm, yshift=-2.5mm]main box.north west) {(2)};
+\end{tikzpicture}
+\end{center}
+
+In step \textbf{(3)}, \texttt{writeExpression(c1, 17)} is executed, which writes the integer $17$ to the writing location of $c_1$, which is $d_0$.
+
+In step \textbf{(4)}, \texttt{continue(c1, ret)} is executed, passing control back to the code address stored in $c_1$, which is the \texttt{rhs} block in \texttt{main}. The continuation referenced by $c_1$, $c_0$, has its return address set to the \texttt{ret} block in \texttt{foo}, allowing control to return to \texttt{foo} later on.
+
+\begin{center}
+\begin{tikzpicture}
+\node[font=\ttfamily] (main title) {main};
+\node[row, below=0pt of main title] (main exit) {exit points: 1};
+\node[row, below=0pt of main exit] (main c0) {continuation c0: \changed{foo:ret}, d1, c1};
+\node[row, below=0pt of main c0] (main d0) {data d0: \changed{17}};
+\node[draw, inner sep=0pt, fit=(main title) (main d0)] (main box) {};
+\node[font=\ttfamily, below=2cm of main title.south] (foo title) {foo};
+\node[row, below=0pt of foo title] (foo exit) {exit points: 1};
+\node[row, below=0pt of foo exit] (foo c1) {continuation c1: main:rhs, d0, c0};
+\node[row, below=0pt of foo c1] (foo d1) {data d1: [uninit]};
+\node[draw, inner sep=0pt, fit=(foo title) (foo d1)] (foo box) {};
+\node[font=\bf, anchor=east] at ([xshift=0mm, yshift=-2.5mm]main box.north west) {(3,4)};
+\end{tikzpicture}
+\end{center}
+
+In step \textbf{(5)}, \texttt{writeExpression(c0, "Res:\ " + move(d0, int))} is executed. This instruction reads the integer $17$ from $d_0$, constructs the string \texttt{"Res:\ 17"}, and writes it to the writing location of $c_0$, which is $d_1$.
+
+In step \textbf{(6)}, \texttt{finish(c0, exit point)} is executed, causing a jump to the code address stored in $c_0$, which is the \texttt{ret} block of \texttt{foo}. Both $c_0$ and the continuation it references, $c_1$, are considered uninitialized and will not be used again. The exit point count of \texttt{main} is decremented, as before, reaching $0$. This signals that the environment of \texttt{main} will not be used again, and thus, can be destroyed.
+
+\begin{center}
+\begin{tikzpicture}
+\node[font=\ttfamily] (foo title) {foo};
+\node[row, below=0pt of foo title] (foo exit) {exit points: 1};
+\node[row, below=0pt of foo exit] (foo c1) {continuation c1: main:rhs, d0, c0};
+\node[row, below=0pt of foo c1] (foo d1) {data d1: \changed{"Res:\ 17"}};
+\node[draw, inner sep=0pt, fit=(foo title) (foo d1)] (foo box) {};
+\node[font=\bf, anchor=east] at ([xshift=0mm, yshift=-2.5mm]foo box.north west) {(5,6)};
+\end{tikzpicture}
+\end{center}
+
+In step \textbf{(7)}, \texttt{printLine(move(d1, string))} is executed, printing the string \texttt{"Res:\ 17"} to the standard output.
+
+Finally, in \textbf{(8)}, \texttt{popTask(exit point)} is executed, which pops the next task from the task stack and jumps to it. In this example, the task stack was never modified, and thus contains only the program termination task. Since the instruction is marked as an exit instruction, the exit point count of \texttt{p} reaches $0$, and it is destroyed, ensuring no memory is leaked.
+
+\begin{center}
+\begin{tikzpicture}
+\node[font=\ttfamily] (foo title) {foo};
+\node[row, below=0pt of foo title] (foo exit) {exit points: 1};
+\node[row, below=0pt of foo exit] (foo c1) {continuation c1: main:rhs, d0, c0};
+\node[row, below=0pt of foo c1] (foo d1) {data d1: \changed{[uninit]}};
+\node[draw, inner sep=0pt, fit=(foo title) (foo d1)] (foo box) {};
+\node[font=\bf, anchor=east] at ([xshift=0mm, yshift=-2.5mm]foo box.north west) {(7)};
+\end{tikzpicture}
+\end{center}
+
+In the next subsections, various aspects of the \ac{IR} which were not covered in the example execution are described.
 
 \subsection{Translating CLASS to the IR}
 
@@ -610,7 +782,7 @@ All program data, excluding exponential closures and shared state cells, is stor
 
 Communication over channels is compiled into direct memory writes into and reads from these frames, with sizes and offsets determined at compile time, excluding polymorphic code sections. When a sequence of writes on a given session finishes, control is passed back to the continuation stored in the active frame, following the execution model of the \ac{SAM}.
 
-An implementation of the developed scheme was created, covering all of the features of \ac{CLASS}, including polymorphism, recursion and exponentials. The implementation, available on GitHub \footnote{\todo{add link to repo}}, was built in Java, on top of the existing \ac{SAM} codebase. A suite of tests was created to validate the correctness of the implementation, and the performance of the generated code was evaluated through a series of benchmarks, across different configurations. The compiler was shown to generate programs competitive with equivalent Haskell GHC compiled programs, being able to surpass them in some cases.
+An implementation of the developed scheme was created, covering all of the features of \ac{CLASS}, including polymorphism, recursion and exponentials. The implementation, available on GitHub\footnote{\url{https://github.com/RiscadoA/class}}, was built in Java, on top of the existing \ac{SAM} codebase. A suite of tests was created to validate the correctness of the implementation, and the performance of the generated code was evaluated through a series of benchmarks, across different configurations. The compiler was shown to generate programs competitive with equivalent Haskell GHC compiled programs, being able to surpass them in some cases.
 
 % #############################################################################
 \subsection{Future Work}
