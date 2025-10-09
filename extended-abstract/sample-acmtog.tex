@@ -375,13 +375,7 @@ For each session type, there is a corresponding action process which performs th
 
 A \ac{CLASS} program is composed of a collection of type and process definitions. A type definition associates a name $X$ to a session type $A$, and can either be a simple type definition, or a recursive type definition. Optionally, type definitions may also receive type parameters, which are bound in $A$.
 
-A process definition associates a name $\texttt{proc\_id}$ to a process $P$, which receives a list of channels $x_1,\,\ldots,\,x_n$ to be bound in $P$, with types $A_1, \ldots, A_n$, respectively. As with type definitions, process definitions may also receive type parameters. The BNF grammar for process definitions is as follows:
-\[\begin{aligned}
-    & \text{ProcDef} ::=\  \procdefc{proc\_id}{x_1: A_1,\ \dots,\ x_n: A_n}{P}                        \\
-    & |\                   \procdefgc{proc\_id}{X_1,\ \dots,\ X_n}{x_1: A_1,\ \dots,\ x_n: A_n}{P}    \\
-    & |\                   \recprocdefc{proc\_id}{x_1: A_1,\ \dots,\ x_n: A_n}{P}                     \\
-    & |\                   \recprocdefgc{proc\_id}{X_1,\ \dots,\ X_n}{x_1: A_1,\ \dots,\ x_n: A_n}{P}
-\end{aligned}\]
+A process definition associates a name $\texttt{proc\_id}$ to a process $P$, which receives a list of channels $x_1,\,\ldots,\,x_n$ to be bound in $P$, with types $A_1, \ldots, A_n$, respectively. As with type definitions, process definitions may also receive type parameters.
 
 \subsubsection{Example programs}
 
@@ -513,15 +507,13 @@ Its execution is shown below. The initial state of the \ac{SAM} is $(P, \emptyse
 
 % This section starts by describing the \ac{IR}'s constructs and its abstract machine. Then, the compilation from \ac{CLASS} to the \ac{IR} is described. Finally, an overview is given on how the \ac{IR} is translated to C code.
 
-\subsection{Intermediate Representation}
+\subsection{Abstractions for the IR}
 
 One of the main contributions of this work is the design and implementation of the first \acf{IR} for session-based languages which can be translated to efficient C code. Multiple abstractions were developed to model the execution of session-based programs in a low-level imperative language. This section starts by both describing the structure of \ac{IR} programs and introducing the abstract machine which executes them. Then, an example execution is covered step by step. Finally, an overview is given on various aspects of the \ac{IR} which were not covered in the example.
 
 The \ac{IR} is an imperative stateful language, inspired by the execution model of the \ac{SAM}, sequentially executing session-based programs through buffered communication. Sessions are split into two different concepts: \textit{continuations}, which model the flow of control between two end points of a session, and \textit{data sections}, which store data received through sessions. Continuations store both the program point to jump to when passing control to them, as well as the data location to write to, when sending data through the session. Thus, writing operations on a session always write to the data location stored on its continuation, which refers to a data section in the opposite end point. Reading operations on a session then read from this data section.
 
 This separation brings the representation of sessions much closer to variables and function calls in languages such as C. For example, for a given session end point $x: \lintt$, a continuation is stored which holds the program point to jump to after producing an integer through $x$, similarly to a return address. For the other end point of $x$, $y: \colintt$, no continuation is required, and only a data section is stored to hold the integer which will be written through $x$.
-
-\subsubsection{Program Structure}
 
 % \begin{figure}
 %     \begin{minipage}[t]{0.5\textwidth}
@@ -556,9 +548,9 @@ This separation brings the representation of sessions much closer to variables a
 %     \label{fig:IRProcessExample}
 % \end{figure}
 
-\subsection{From CLASS to the IR}
+\subsection{Translating CLASS to the IR}
 
-\subsection{From the IR to C}
+\subsection{Translating the IR to C}
 
 \section{Optimization Techniques} \label{sec:optimizations}
 
