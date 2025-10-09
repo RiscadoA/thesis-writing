@@ -308,7 +308,7 @@ In this example two continuations $c_0$ and $c_1$ are initialized as before. The
 
 \subsection{Data Representation} \label{subsection:IRSlots}
 
-\ac{IR} programs are completely platform agnostic, and thus, data types and addresses are described through their composition of \textit{slots}, instead of concrete byte sizes and offsets. A slot $S$ is a unit of data in the \ac{IR}, as is defined as
+\ac{IR} programs are completely platform agnostic, and thus, data types and addresses are described through their composition of \textit{slots}, instead of concrete byte sizes and offsets. A slot $S$ is a unit of data in the \ac{IR}, and is defined as
 \[
 S ::= \ints \mid \bools \mid \strings \mid \tags \mid \conts \mid \cells{T} \mid \exponentials \mid \types \mid \vars{i}\]
 where $\ints$, $\bools$ and $\strings$ represent the basic data types, $\tags$ represents a \ac{CLASS} choice, $\conts$ a continuation reference, $\cells{T}$ a reference to a shared state cell with contents described by the slot tree $T$ (introduced below), $\exponentials$ an exponential reference, $\types$ a stored type parameter, and $\vars{i}$ a type parameter declared in the current process header. 
@@ -323,7 +323,7 @@ Data sections are described within process headers by a sum of slot trees descri
 
 \subsubsection{Addressing Data} \label{subsection:DataAddressing}
 
-A \textit{data location} is denoted as $\dataol{b}{o}$, where $b$ is a base address and $o$ an offset. A base address can be either a local data section (e.g., $d_0$), a writing location given by a continuation (e.g., $c_0$), or a cell location (e.g., $c(d0)$). An offset is defined by two slot trees, written as $\offs{P}{F}$, $P$ describing the data being skipped (named \textit{past}), and $F$ describing the data that may come next (named \textit{future}). The future tree is necessary to determine the alignment of the data being accessed. For example, $\offs{\seqst{\ints; \bools}}{\seqst{\strings}}$ is an offset which skips an integer followed by a boolean, and expects a string to come next. When the past slot tree is empty, the future slot tree is unnecessary, and the offset is simply written as $0$. 
+A \textit{data location} is denoted as $\dataol{b}{o}$, where $b$ is a base address and $o$ an offset. A base address can be either a local data section (e.g., $d_0$), a writing location given by a continuation (e.g., $c_0$), or a cell location (e.g., $c(d_0)$). An offset is defined by two slot trees, written as $\offs{P}{F}$, $P$ describing the data being skipped (named \textit{past}), and $F$ describing the data that may come next (named \textit{future}). The future tree is necessary to determine the alignment of the data being accessed. For example, $\offs{\seqst{\ints; \bools}}{\seqst{\strings}}$ is an offset which skips an integer followed by a boolean, and expects a string to come next. When the past slot tree is empty, the future slot tree is unnecessary, and the offset is simply written as $0$. 
 
 To exemplify, the location $\datal{d_0}{\seqst{\ints}}{\seqst{\ints}}$ refers to the second integer stored in $d_0$, while the location $\datal{c_0}{\seqst{\bools}}{\seqst{\strings}}$ refers to a string stored in the writing location of the continuation $c_0$, after a boolean. When the offset is zero, it is omitted for brevity. For example, $d_0$ as a data location is equivalent to $\datal{d_0}{\nilst}{\nilst}$ or just $d_0.0$ - the future slot trees are unnecessary for empty past slot trees.
 
@@ -507,13 +507,23 @@ Finally, within the exponential process, the string is moved from $d_0$ to the r
 
 \section{Translating CLASS to the IR} \label{section:IRGeneration}
 
-This section defines the base (unoptimized) translation from \ac{CLASS} to the \ac{IR} defined in the previous section. It starts defining notation for representing and updating the state of the compiler. Then, it defines how session types are mapped to the slot trees introduced in \Cref{subsection:IRSlots}. Next, an overview of the instruction translation scheme is presented, and some important concepts are defined. Finally, the translation from \ac{CLASS} processes to \ac{IR} programs is incrementally defined, starting from simple processes and adding more constructs until the whole language is covered.
+This section defines the base (unoptimized) translation from \ac{CLASS} to the \ac{IR} defined in the previous section. It starts by defining notation for representing and updating the state of the compiler. Then, it defines how session types are mapped to the slot trees introduced in \Cref{subsection:IRSlots}. Next, an overview of the instruction translation scheme is presented, and some important concepts are defined. Finally, the translation from \ac{CLASS} processes to \ac{IR} programs is incrementally defined, starting from simple processes and adding more constructs until the whole language is covered.
 
 The presented compilation scheme assumes well-typed \ac{CLASS} processes are given as input, along with the required type information of free names in all processes. The notation $x: A$ is used to indicate that the type checker infers session end point $x$ to be a free name of type $A$ on some process.
 
 \subsection{Compiler State}
 
-Compilation of \ac{CLASS} processes into \ac{IR} programs always occurs within the context of a single \ac{IR} process. As \ac{CLASS} processes are compiled into \ac{IR} instructions, new information is added to the \ac{IR} process header, along with the new instructions and blocks. Changes to the header of the \ac{IR} process are performed through the $\makecont{c}$, $\makedata{d}{T}$ and $\makedrop{e}{L}{S}$ actions. The first action creates a new continuation identified by $c$. The second creates a new data section with data layout $T$ identified by $d$. The third creates a new drop bit pertaining to data location $L$ and slots $S$, identified by $e$. Additionally, the $\makeblock{l}$ action generates a new block label $l$ unique within the \ac{IR} process.
+Compilation of \ac{CLASS} processes into \ac{IR} programs always occurs within the context of a single \ac{IR} process. As \ac{CLASS} processes are compiled into \ac{IR} instructions, new information is added to the \ac{IR} process header, along with the new instructions and blocks. Changes to the header of the \ac{IR} process are performed through the actions shown below.
+
+\begin{minipage}{0.45\textwidth}\begin{equation}\makecont{c}\label{eq:makecont}\end{equation}\end{minipage}
+\hfill
+\begin{minipage}{0.45\textwidth}\begin{equation}\makedata{d}{T}\label{eq:makedata}\end{equation}\end{minipage}
+
+\begin{minipage}{0.45\textwidth}\begin{equation}\makedrop{e}{L}{S}\label{eq:makedrop}\end{equation}\end{minipage}
+\hfill
+\begin{minipage}{0.45\textwidth}\begin{equation}\makeblock{l}\label{eq:makeblock}\end{equation}\end{minipage}
+
+Action \Cref{eq:makecont} adds a new continuation to the process header, identified by $c$. Action \Cref{eq:makedata} creates a new data section with data layout $T$ identified by $d$. Action \Cref{eq:makedrop} creates a new drop bit pertaining to data location $L$ and slots $S$, identified by $e$. Action \Cref{eq:makeblock} generates a unique label $l$ for a new instruction block within the process body.
 
 The compiler must keep track of information regarding the type parameters and the state of each session end point within the process being compiled. This state is referred to as the environment, and is represented by a tuple $(\theta, \Delta)$, where $\theta$ is the type environment and $\Delta$ is the session environment.
 
@@ -543,18 +553,20 @@ Note that due to affine types being implemented as a choice between using the da
 
 A session environment $\Delta$ is a mapping from session end point names to session states. Each session state is a tuple $(c, d, o)$, where $c$ is the continuation identifier associated with the session end point (or $0$ if there's no continuation), $d$ is the identifier of the data section from which data is read (or $0$ if there's no data section), and $o$ is the data offset to apply to the location of the next write or read operation on the session. The data offset is represented as a slot tree, as explained in \Cref{subsection:DataAddressing}.
 
-Given a session environment $\Delta$, $\Delta[x \mapsto (c, d, o)]$ is defined as the session environment $\Delta$ where session end point $x$ is mapped to the state $(c, d, o)$, overwriting any previous mapping for $x$. Additionally $\continuationof{\Delta}{x}$, $\localdataof{\Delta}{x}$ and $\offsetof{\Delta}{x}$ are defined as the continuation identifier, local data identifier and data offset associated with session $x$ in the session environment $\Delta$, respectively.
+Given a session environment $\Delta$, $\Delta[x \mapsto (c, d, o)]$ is defined as the updated mapping where session end point $x$ is mapped to the new session state $(c, d, o)$. Additionally $\continuationof{\Delta}{x}$, $\localdataof{\Delta}{x}$ and $\offsetof{\Delta}{x}$ are defined as the continuation identifier, local data identifier and data offset associated with session $x$ in the session environment $\Delta$, respectively.
+
+During development, in the unfinished compiler, session data offsets were maintained as runtime state, being updated whenever a read or write operation was performed. This approach was later abandoned in favor of the current version, where offsets are known at compile time, greatly simplifying the generated code and reducing runtime overhead.
 
 \subsubsection{Writing and Reading Locations}
 
-For convenience, $\readlocof{\Delta}{x}$ and $\writelocof{\Delta}{x}$ are defined as the current data location from which data of session end point $x$ is to be read, and the data location into which data for session $x$ is to be written, respectively. Both take into account the offset, and are formally defined as
+For convenience, $\readlocof{\Delta}{x}$ and $\writelocof{\Delta}{x}$ are denoted as the current data location from which data of session end point $x$ is to be read, and the data location into which data for session $x$ is to be written, respectively. Both take into account the offset, and are defined as
 
 \centerline{\vspace{2pt}
 $\readlocof{\Delta}{x} = \dataol{\localdataof{\Delta}{x}}{\offsetof{\Delta}{x}} \hspace{5em} \writelocof{\Delta}{x} = \dataol{\continuationof{\Delta}{x}}{\offsetof{\Delta}{x}}$}
 
 \subsubsection{Advancing Session Offsets} \label{subsubsection:AdvancingOffsets}
 
-When more than one slot is read from or written to a session end point in succession, the session's offset must be advanced accordingly. To this end, the concatenation of offsets must be defined. Given two offsets $o_1 = (P_1, F_1)$ and $o_2 = (P_2, F_2)$, their concatenation is defined as $\concatst{o_1}{o_2} = (\concatst{P_1}{P_2}, F_2)$, where $\concatst{P_1}{P_2}$ is the concatenation of the two slot trees. In other words, when two offsets are concatenated, the resulting offset has concatenates both of the past slot trees, and keeps the future slot tree of the second offset. Slot tree concatenation is defined as replacing every leaf of the first slot tree with the second slot tree. \todo{mention the first version which maintained a runtime variable}
+When more than one slot is read from or written to a session end point in succession, the session's offset must be advanced accordingly. To this end, the concatenation of offsets must be defined. Given two offsets $o_1 = \offs{P_1}{F_1}$ and $o_2 = \offs{P_2}{F_2}$, their concatenation is defined as $\concatst{o_1}{o_2} = \offs{(\concatst{P_1}{P_2})}{F_2}$, where $\concatst{P_1}{P_2}$ is the concatenation of the two slot trees. In other words, when two offsets are concatenated, the resulting offset has concatenates both past slot trees, and keeps the future slot tree of the second offset. Slot tree concatenation is defined as replacing every leaf of the first slot tree with the second tree.
 
 To simplify the definitions in the next sections, $\advancech{\Delta}{x}{p}{\theta}{S}{A}$ denotes the session environment $\Delta$ where the offset of session $x$ is either reset, or advanced by the necessary offset to skip over the slots $S$. The decision is made based on whether the polarity $p$ (either $+$ or $-$) matches the polarity of the type $A$ in the type environment $\theta$. If they match, the new offset is computed as $\concatst{\offsetof{\Delta}{x}}{(\slotoffset{S}{\slots{\theta}{A}})}$, where $S$ is a slot tree describing the data which was just read or written, and $\slots{\theta}{A}$ is the slot tree corresponding to type $A$, which will be defined in the next section. Otherwise the new offset is $0$. Formally:
 \[
@@ -591,13 +603,19 @@ The slot tree corresponding to the first segment of a session type $A$ is design
 
 The \ac{IR} instructions translated from a \ac{CLASS} process $P$ on a given environment $(\theta, \Delta)$ are denoted by $\getinstructions{\theta}{\Delta}{P}$. This function returns a sequence of \ac{IR} instructions, optionally followed by blocks with more instructions, and is defined incrementally in the following sections.
 
-The translated code implements the write-to-read adjustment of the \ac{SAM}, by placing the \texttt{continue} instruction whenever the polarity of a session changes from positive to negative. To simplify the definition of the translation rules, a pseudo-instruction $\texttt{continueIfNegative}$ is defined. If and only if $\polarityof{\theta}{A} = -$, $\texttt{continueIfNegative}(\theta, \Delta, x, A)$ is replaced by \texttt{continue($\continuationof{\Delta}{x}$, $l$) }, where $\makeblock{l}$. Instructions following this pseudo-instruction are placed in block $l$. If the polarity of $A$ is positive, the pseudo-instruction is simply removed, and the following instructions are placed in the same block.
-
-All writing operations to a session end point $x$ write to an offset within the remote data of the session, i.e.,  $\writelocof{\Delta}{x}$. All reading operations read from an offset within the local data of the session, i.e., $\readlocof{\Delta}{x}$. Through the mechanism above, whenever the writing side finishes writing data, the session is continued, and the reading side reads from the same location the writing side wrote to.
-
-For example, consider two processes communicating over a session of type $\sendt{A}{\recvt{B}{\waitt}}$, where the positive end point is named $x$ and the negative end point is named $y$. The writing process, compiled with the session environment $\Delta^1$, writes a continuation to $\writelocof{\Delta^1}{x}$, which points to the same location as $\readlocof{\Delta^2}{y}$. Since $\recvt{B}{\waitt}$ is negative, a write-to-read adjustment is performed, and thus, a \texttt{continue} instruction is executed on $\continuationof{\Delta^1}{x}$.
-
-The reading process, compiled with a session environment $\Delta^2$, reads a continuation from $\readlocof{\Delta^2}{y}$. Then, it writes to $\writelocof{\Delta^2}{y}$ another continuation, corresponding to a session of type $B$. The writing offset is zero, since we performed a read-to-write adjustment after reading $A$. Finally, it finishes the continuation $\continuationof{\Delta^2}{y}$, returning control to the writing process. The writing process reads from $\readlocof{\Delta^1}{x}$ (same location as $\writelocof{\Delta^2}{y}$) the just written continuation, and the communication is complete.
+The translated code implements the write-to-read adjustment of the \ac{SAM} through the placement of \texttt{continue} instructions whenever the polarity of a session changes from positive to negative. To simplify the definition of the translation rules, a pseudo-instruction $\texttt{continueIfNegative}$ is defined as
+\[
+\texttt{continueIfNegative}(\theta, \Delta, x, A) \equiv \begin{cases}
+    \begin{array}{l}
+        \quad\texttt{\% }\makeblock{\texttt{label}} \\
+        \quad\texttt{continue}(\continuationof{\Delta}{x}, \texttt{label}) \\
+        \texttt{label:} \\
+        \hline
+    \end{array} & \text{ if } \polarityof{\theta}{A} = - \vspace{0.5em}\\
+    \quad\ \ \texttt{\%\ empty} & \text{ otherwise}\\
+\end{cases}
+\]
+which means that if and only if $\polarityof{\theta}{A} = -$, $\texttt{continueIfNegative}$ is replaced by a \texttt{continue} instruction, and the next instructions are placed in a new block. Otherwise, \texttt{continueIfNegative} is simply removed from the instruction sequence.
 
 \subsection{Expression Translation}
 
@@ -627,9 +645,10 @@ Finally, we generate the instructions for the process body $P$ on the \texttt{en
 
 \subsection{Cut, Parallel and Empty}
 
-We start by defining the compilation of a $\cutc{P}{x:A}{Q}$ process on an environment $(\theta, \Delta)$. It is assumed, without loss of generality, that $A$ is a positive type, and thus, that $P$ will be writing to $x$ before $Q$ executes - if $A$ were negative, $P$ and $Q$ can simply be swapped. Both $\makecont{c}$ and $\makedata{d}{\allslots{\theta}{A}}$ are created to implement session $x$. The layout $\allslots{\theta}{A}$ given to $d$ guarantees that enough space is allocated for all data received by both end points of $x$.
+We start by defining the compilation of a $\cutc{P}{x:A}{Q}$ process on an environment $(\theta, \Delta)$. It is assumed, without loss of generality, that $A$ is a positive type, and thus, that $P$ will be writing to $x$ before $Q$ executes - if $A$ were negative, $P$ and $Q$ can simply be swapped. Both the continuation $c$ and the data section $d$ are created to implement session $x$. The layout $\allslots{\theta}{A}$ is given to $d$, guaranteeing that enough space is allocated for all data received by both end points of $x$.
 \begin{compilation}{\theta}{\Delta}{\cutc{P}{x: A}{Q}}
 {\getendpoints{\theta}{P} + \getendpoints{\theta}{Q}}
+    \commentline{\makecont{c}, \makedata{d}{\allslots{\theta}{A}}, \makeblock{\texttt{rhs}}}
     \initcontinuation{c}{\texttt{rhs}}{d}
     \recurse{\theta}{\Delta[x \mapsto (c, d, 0)]}{P}
     \labelir{rhs}
@@ -638,10 +657,10 @@ We start by defining the compilation of a $\cutc{P}{x:A}{Q}$ process on an envir
 
 The instructions initialize the continuation $c$ with a new block $\makeblock{\texttt{rhs}}$ as the return address and $d$ as a writing location. Both $P$ and $Q$ are recursively translated with a new environment where the name $x$ is bound to $(c, d, 0)$. $P$ is placed on the original block, and $Q$ placed on the new block \texttt{rhs}. The number of exit points of the instructions is the sum of the number of exit points of both $P$ and $Q$. 
 
-The $\parc{P}{Q}$ process, contrary to the $\cutp$ process, does not link the two processes $P$ and $Q$ in any way. The \ac{SAM} implements this construct by executing $Q$ only after $P$ has finished executing. The compilation scheme achieves this through the task stack mechanism. $Q$ is compiled on a block $\makeblock{\texttt{rhs}}$. A task for \texttt{rhs} is pushed to this stack through the \texttt{pushTask} instruction. Eventually, when $P$ finishes execution, \texttt{popTask} executes, and the program counter jumps to \texttt{rhs}, executing $Q$.
+The $\parc{P}{Q}$ process, contrary to the $\cutp$ process, does not link the two processes $P$ and $Q$ in any way. The \ac{SAM} implements this construct by executing $Q$ only after $P$ has finished executing. The compilation scheme achieves this through the task stack mechanism. $Q$ is compiled block \texttt{rhs}. A task for \texttt{rhs} is pushed to this stack through the \texttt{pushTask} instruction. Eventually, when $P$ finishes execution, \texttt{popTask} executes, and the program counter jumps to \texttt{rhs}, executing $Q$.
 \begin{compilation}{\theta}{\Delta}{\parc{P}{Q}}
 {\getendpoints{\theta}{P} + \getendpoints{\theta}{Q}}
-    \pushtask{rhs}
+    \pushtask{rhs} \comment{\makeblock{\texttt{rhs}}}
     \recurse{\theta}{\Delta}{P}
     \labelir{rhs}
     \recurse{\theta}{\Delta}{Q}
@@ -675,7 +694,7 @@ The $\scanc{x}$ process is near identical except that instead of computing an ex
 
 \begin{compilation}{\theta}{\Delta}{\scanc{x}}
 {1}
-    \writescan{\writelocof{\Delta}{x}}{\slots{\theta}{\tau}} \comment \text{where } x:\tau
+    \writescan{\writelocof{\Delta}{x}}{\slots{\theta}{\tau}} \comment{\text{where } x:\tau}
     \finishcont{\continuationof{\Delta}{x}}{\hasexitpoint}
 \end{compilation}
 
@@ -709,7 +728,7 @@ Finally, instructions for the remainder process $P$ are generated within an envi
 \begin{compilation}{\theta}{\Delta}{\choosec{a}{x}{P}}
 {\getendpoints{\theta}{P}}
     \writetag{\writelocof{\Delta}{x}}{i(\#a)}
-    \continueifneg{\theta}{\Delta}{x}{A} \comment \text{where } x:A \text{ in }P
+    \continueifneg{\theta}{\Delta}{x}{A} \comment{\text{where } x:A \text{ in }P}
     \recurse{\theta}{\advancech{\Delta}{x}{+}{\theta}{\seqst{\tags}}{A}}{P}
 \end{compilation}
 
@@ -718,36 +737,37 @@ The compilation of a $\casec{x}{\dots}$ process is shown below. The compiler gen
     {\max(\getendpoints{\theta}{A},\,\dots,\,\getendpoints{\theta}{Z})}
     \branchtag{\readlocof{\Delta}{x}}{\texttt{a}:\getendpoints{\theta}{A},\,\dots,\,\texttt{z}:\getendpoints{\theta}{Z}}
     \labelir{a}
-    \recurse{\theta}{\advancech{\Delta}{x}{-}{\theta}{\seqst{\tags}}{\tau_A}}{A} \comment \text{where } x:\tau_A \text{ in }A
+    \recurse{\theta}{\advancech{\Delta}{x}{-}{\theta}{\seqst{\tags}}{\tau_A}}{A} \comment{\text{where } x:\tau_A \text{ in }A}
     \beginir\dots
     \labelir{z}
-    \recurse{\theta}{\advancech{\Delta}{x}{-}{\theta}{\seqst{\tags}}{\tau_Z}}{Z} \comment \text{where } x:\tau_Z \text{ in }Z
+    \recurse{\theta}{\advancech{\Delta}{x}{-}{\theta}{\seqst{\tags}}{\tau_Z}}{Z} \comment{\text{where } x:\tau_Z \text{ in }Z}
 \end{compilation}
 
 The number of exit points of branching processes is given by the maximum number of exit points across all branches. During execution, only one branch is executed, and the current exit point count is adjusted accordingly, as described in \Cref{subsection:Branching}.
 
 \subsection{Send and Receive}
 
-The $\sendc{x}{y}{P}Q$ process creates a new session $y$, sending one of its end points over session $x$. The other end point of $y$ is then used in process $P$, while process $Q$ continues using session $x$. To model this behavior, $\makecont{c}$ and $\makedata{d}{\alllocalslots{\theta}{A}}$ are created to implement session $y$, where $A$ is the type of session $y$. The layout $\alllocalslots{\theta}{A}$ given to $d$ guarantees that enough space is allocated for all data which will be received by the local end point of $y$.
+The $\sendc{x}{y}{P}Q$ process creates a new session $y$, sending one of its end points over session $x$. The other end point of $y$ is then used in process $P$, while process $Q$ continues using session $x$. To model this behavior, the continuation $c$ and and data section $d$ are created to implement session $y$, where $A$ is the type of session $y$. The layout $\alllocalslots{\theta}{A}$ is given to $d$, guaranteeing that enough space is allocated for all data which will be received by the local end point of $y$.
 
-The newly created continuation $c$ is initialized with a new block $\makeblock{\texttt{lhs}}$ as the return address and $d$ as a writing location. The continuation $c$ is then written to the writing location of session $x$, $\writelocof{\Delta}{x}$. As before, a write-to-read adjustment might be necessary, and thus, the \texttt{continueIfNegative} pseudo-instruction is used.
+The continuation $c$ is initialized with a return address pointing to \texttt{lhs} and $d$ as a writing location. The continuation $c$ is then written to the writing location of session $x$, $\writelocof{\Delta}{x}$. As before, a write-to-read adjustment might be necessary, and thus, the \texttt{continueIfNegative} pseudo-instruction is used.
 
 \begin{compilation}{\theta}{\Delta}{\sendc{x}{y}{P}{Q}}
 {\getendpoints{\theta}{P} + \getendpoints{\theta}{Q}}
+    \commentline{\makecont{c}, \makedata{d}{\alllocalslots{\theta}{A}}, \makeblock{\texttt{lhs}}}
     \initcontinuation{c}{\texttt{lhs}}{d}
     \writecontinuation{\writelocof{\Delta}{x}}{c}
-    \continueifneg{\theta}{\Delta}{x}{A} \comment \text{where } x:A \text{ in }Q
+    \continueifneg{\theta}{\Delta}{x}{A} \comment{\text{where } x:A \text{ in }Q}
     \recurse{\theta}{\advancech{\Delta}{x}{+}{\theta}{\seqst{\conts}}{A}}{Q}
     \labelir{lhs}
     \recurse{\theta}{\Delta[y \mapsto (c, d, 0)]}{P}
 \end{compilation}
 
-The $\recvc{x}{y}P$ process receives a session end point $y$ over session $x$, which then is used in process $P$. As on the \ac{SAM}, control must be passed to the other side of session end point $y$ if its type is negative, ensuring that the writing side of the session executes first. To receive data through $y$, a data section $\makedata{d}{\alllocalslots{\theta}{A}}$ is created, where $A$ is the type of session $y$. A continuation $\makecont{c}$ is also created to bind the received session end point $y$ to.
+The $\recvc{x}{y}P$ process receives a session end point $y$ over session $x$, which then is used in process $P$. As on the \ac{SAM}, control must be passed to the other side of session end point $y$ if its type is negative, ensuring that the writing side of the session executes first. To receive data through $y$, a data section $d$ is created. A continuation $c$ is also created to bind $y$ to.
 \begin{compilation}{\theta}{\Delta}{\recvc{x}{y: A}{P}}
 {\getendpoints{\theta}{P}}
-    \bindcontinuation{c}{\readlocof{\Delta}{x}}{d}
-    \continueifneg{\theta}{\Delta}{c}{A} \comment \text{where } x:A \text{ in }P
-    \recurse{\theta}{\advancech{\Delta}{x}{-}{\theta}{\seqst{\conts}}{A}[y \mapsto (c, d, 0)]}{P}
+    \bindcontinuation{c}{\readlocof{\Delta}{x}}{d} \comment{\makecont{c}, \makedata{d}{\alllocalslots{\theta}{A}}}
+    \continueifneg{\theta}{\Delta}{y}{A}
+    \recurse{\theta}{\advancech{\Delta}{x}{-}{\theta}{\seqst{\conts}}{B}[y \mapsto (c, d, 0)]}{P} \comment{\text{where } x:B \text{ in }P}
 \end{compilation}
 
 \subsection{Forwarding}
@@ -775,9 +795,9 @@ Finally, the list of data arguments $D_1,\,\dots,\,D_{m+k}$ is generated similar
 
 \subsection{Creating and Calling Exponentials}
 
-The right-hand-side $P$ of a $\bangc{x}{y}{P}$ process is compiled as a separate \ac{IR} process, with a unique identifier $id$ generated from the name of the process definition being compiled. This new process inherits the same type parameters as the current process. Session $y$ is bound to a continuation $\makecont{c}$ in the new process header, along with a data section $\makedata{d}$ with layout $\alllocalslots{\theta}{A}$, where $y: A$. The number of exit points of the new process is set to $\getendpoints{\theta}{P}$.
+The right-hand-side $P$ of a $\bangc{x}{y}{P}$ process is compiled as a separate \ac{IR} process, with a unique identifier $id$ generated from the name of the process definition being compiled. This new process inherits the same type parameters as the current process. Session $y$ is bound to a continuation $\makecont{c}$ in the new process header, along with a data section $\makedata{d}{\alllocalslots{\theta}{A}}$, where $y: A$. The number of exit points of the new process is set to $\getendpoints{\theta}{P}$.
 
-The type system of \ac{CLASS} guarantees that free names in $P$ other than $y$ are exponentials. For each free name $z_i \neq y$, a data section $\makedata{d_i}$ is created in the new process header, with layout $\alllocalslots{\theta}{\whynott{\tau}}$, where $z_i: \tau$. The environment used to compile $P$ is then $(\theta^*, \Delta^*) = (\theta, [y \mapsto (c, d, 0), z_1 \mapsto (0, d_1, 0), \dots, z_m \mapsto (0, d_m, 0)])$.
+The type system of \ac{CLASS} guarantees that free names in $P$ other than $y$ are exponentials. For each free name $z_i \neq y$, a data section $\makedata{d_i}{\alllocalslots{\theta}{\whynott{\tau}}}$ is created in the new process header, where $z_i: \tau$. The environment used to compile $P$ is then $(\theta^*, \Delta^*) = (\theta, [y \mapsto (c, d, 0), z_1 \mapsto (0, d_1, 0), \dots, z_m \mapsto (0, d_m, 0)])$.
 
 On the original process, a \texttt{writeExponential} instruction is generated referencing the new process identifier, passing any necessary arguments. After writing the exponential, control is passed to the continuation of session $x$, as in a $\closep$ process, and thus, the instruction is marked as an exit point.
 \begin{compilation}{\theta}{\Delta}{\bangc{x}{y}{P}}
@@ -816,7 +836,7 @@ In both cases, the process finishes by recursing on the right-hand-side $P$ of t
 \begin{minipage}{0.45\textwidth}
     \begin{compilation}{\theta}{\Delta}{\unfoldnuc{x}{P}}
     {\getendpoints{\theta}{P}}
-        \beginir\%\ \text{where } x:A \text{ in }P
+        \commentline{\text{where } x:A \text{ in }P}
         \continueifneg{\theta}{\Delta}{x}{A}
         \recurse{\theta}{\Delta[x \mapsto (\continuationof{\Delta}{x}, \localdataof{\Delta}{x}, 0)]}{P}
     \end{compilation}
@@ -837,13 +857,15 @@ The information sent by $\sendtyp$ and received by $\recvtyp$ consists of three 
 
 Type parameters $T$ are obtained from the current type environment $\theta$, with an extra entry for $X$, read from $\readlocof{\Delta}{x}$. Continuation arguments and data arguments $C$ and $D$ are generated in the same way as for process calls, from the free names in $P$ and their state in $\Delta$. The name $x$ on the right-hand-side $P$ has its continuation replaced by the continuation at $\concatst{\readlocof{\Delta}{x}}{\slotoffset{\seqst{\types}}{\seqst{\conts; \tags}}}$, and its offset reset to $0$.
 
-On the other hand, the $\sendtyc{x}{A}{P}$ process is compiled in a more direct manner, as shown below. This is possible because the type variable has a concrete type $A$ at the point of sending, known at compile time. First, $\makecont{c}$ is initialized with $\makeblock{\texttt{cont}}$ as return address, and writing address pointing to $\makedata{d}{\alllocalslots{\theta}{B}}$, where $x: B$ in $P$. Then, the type $A$ is written to $x$, along with a reference to $c$ and a $\tags$ indicating $A$'s polarity. Future communication over $x$ will happen through $c$, so the old continuation of $x$ is finished.
+On the other hand, the $\sendtyc{x}{A}{P}$ process is compiled in a more direct manner, as shown below. This is possible because the type variable has a concrete type $A$ at the point of sending, known at compile time. First, a new continuation $c$ is initialized with $\texttt{cont}$ as return address, and writing address pointing to a new data section $d$. Then, the type $A$ is written to $x$, along with a reference to $c$ and a $\tags$ indicating $A$'s polarity. Future communication over $x$ will happen through $c$, so the old continuation of $x$ is finished.
 \begin{compilation}{\theta}{\Delta}{\sendtyc{x}{A}{P}}
 {\getendpoints{\theta}{P}}
+    \commentline{\makecont{c}, \makeblock{\texttt{cont}}}
+    \commentline{\makedata{d}{\alllocalslots{\theta}{B}}, \text{ where }x: B \text{ in }P}
     \initcontinuation{c}{\texttt{cont}}{d}
     \writetype{\writelocof{\Delta}{x}}{\slots{\theta}{A}}
     \writecontinuation{\concatst{\writelocof{\Delta}{x}}{\slotoffset{\seqst{\types}}}{\seqst{\conts; \tags}}}{c}
-    \writetag{\concatst{\writelocof{\Delta}{x}}{\slotoffset{\seqst{\types; \conts}}{\seqst{\tags}}}}{p} \comment \text{where } p = 0 \text{ if } \polarityof{\theta}{A} = - \text{ or } 1 \text{ otherwise}
+    \writetag{\concatst{\writelocof{\Delta}{x}}{\slotoffset{\seqst{\types; \conts}}{\seqst{\tags}}}}{p} \comment{\text{where } p = 0 \text{ if } \polarityof{\theta}{A} = - \text{ or } 1 \text{ otherwise}}
     \finishcont{\continuationof{\Delta}{x}}{\hasexitpoint}
     \labelir{cont}
     \recurse{\theta}{\Delta[x \mapsto (c, d, 0)]}{P}
@@ -851,14 +873,14 @@ On the other hand, the $\sendtyc{x}{A}{P}$ process is compiled in a more direct 
 
 \subsection{Affine, Use and Discard}
 
-The compilation of the $\affinec{x}P$ process, shown below, implements the affine protocol mentioned in \Cref{subsection:IRDroppingData}: a $\tags$indicating whether $x$ is being used or discarded is received on $x$. If $x$ is being used, the execution continues to $P$. If $x$ is discarded, any co-affine data free in $P$ is also discarded and the $x$ is finished, returning control to the end point which discarded $x$.
+The compilation of the $\affinec{x}P$ process, shown below, implements the affine protocol mentioned in \Cref{subsection:IRDroppingData}: a $\tags$ indicating whether $x$ is being used or discarded is received on $x$. If $x$ is being used, the execution continues to $P$. If $x$ is discarded, any co-affine data free in $P$ is also discarded and the $x$ is finished, returning control to the end point which discarded $x$.
 \begin{compilation}{\theta}{\Delta}{\affinec{x}{P}}
 {\getendpoints{\theta}{P}}
     \branchtag{\localdataof{\Delta}{x}}{\texttt{use:}\getendpoints{\theta}{P},\,\texttt{discard:1}}
     \labelir{use}
-    \recurse{\theta}{\advancech{\Delta}{x}{-}{\theta}{\seqst{\tags}}{A}}{P} \comment \text{where } x:A \text{ in }P
+    \recurse{\theta}{\advancech{\Delta}{x}{-}{\theta}{\seqst{\tags}}{A}}{P} \comment{\text{where } x:A \text{ in }P}
     \labelir{discard}
-    \recurse{\theta}{\Delta}{\discardc{y_i}} \comment \text{for each free co-affine name }y_i\text{ in }P
+    \recurse{\theta}{\Delta}{\discardc{y_i}} \comment{\text{for each free co-affine name }y_i\text{ in }P}
     \finishcont{\continuationof{\Delta}{x}}{\hasexitpoint}
 \end{compilation}
 
@@ -866,27 +888,27 @@ The process $\discardc{x}$ writes a discard tag to the writing location of $x$ a
 
 \begin{compilation}{\theta}{\Delta}{\discardc{x}}
 {1}
-    \writetag{\writelocof{\Delta}{x}}{1} \comment \text{indicating discard}
+    \writetag{\writelocof{\Delta}{x}}{1} \comment{\text{indicating discard}}
     \continue{\continuationof{\Delta}{x},\,\texttt{cont}}
     \labelir{cont}
-    \poptask{\hasexitpoint} \comment \text{unless part of an affine discard branch}
+    \poptask{\hasexitpoint} \comment{\text{unless part of an affine discard branch}}
 \end{compilation}
 
 Finally, the $\usec{x}{P}$ process is compiled as shown below. A tag is written to the remote data of channel $x$ indicating that the session is being used. Then, if the continuation is negative, the control is passed to the other side of the session. Otherwise, the process continues executing immediately.
 \begin{compilation}{\theta}{\Delta}{\usec{x}{P}}
 {\getendpoints{\theta}{P}}
-    \writetag{\writelocof{\Delta}{x}}{0} \comment \text{indicating use}
-    \continueifneg{\theta}{\Delta}{x}{A} \comment \text{where } x:A \text{ in }P
+    \writetag{\writelocof{\Delta}{x}}{0} \comment{\text{indicating use}}
+    \continueifneg{\theta}{\Delta}{x}{A} \comment{\text{where } x:A \text{ in }P}
     \recurse{\theta}{\advancech{\Delta}{x}{+}{\theta}{\seqst{\tags}}{A}}{P}
 \end{compilation}
 
 \subsection{Shared State}
 
-The process $\cellc{x}{y}{P}$ writes a new shared cell to channel $x$, initialized with a new session $y$ which is used in process $P$. Similarly to $\letc{x}{E}$, session $x$ is finished after writing the cell. A continuation $\makecont{c}$ and a data section $\makedata{d}{\alllocalslots{\theta}{A}}$ are created to implement session $y$, where $y: A$.
-
-The written cell is initialized with space for a single $\conts$ slot, to which a reference to $c$ is written. $c$ is initialized with $\makeblock{\texttt{cont}}$ as return address, and $d$ as writing location.
+The process $\cellc{x}{y}{P}$ writes a new shared cell to channel $x$, initialized with a new session $y$ which is used in process $P$. Similarly to $\letc{x}{E}$, session $x$ is finished after writing the cell. A continuation $c$ and a data section $d$ are created to implement session $y$. The written cell is initialized with space for a single $\conts$ slot, to which a reference to $c$ is written. Continuation $c$ is initialized with \texttt{cont} as its return address, and $d$ as writing location.
 \begin{compilation}{\theta}{\Delta}{\cellc{x}{y}{P}}
 {\getendpoints{\theta}{P} + 1}
+    \commentline{\makecont{c}, \makeblock{\texttt{cont}}}
+    \commentline{\makedata{d}{\alllocalslots{\theta}{A}} \text{ where } y:A \text{ in }P}
     \writecell{\writelocof{\Delta}{x}}{\seqst{\conts}}
     \initcontinuation{c}{\texttt{cont}}{d}
     \writecontinuation{c(\writelocof{\Delta}{x})}{c}
@@ -895,18 +917,21 @@ The written cell is initialized with space for a single $\conts$ slot, to which 
     \recurse{\theta}{\Delta[y \mapsto (c, d, 0)]}{P}
 \end{compilation}
 
-The process $\takec{x}{y}P$ operates on a shared cell received on $x$. It starts by locking the cell through the \texttt{lockCell} instruction. Then, the continuation stored in the cell is read and bound to $\makecont{c}$. The writing location of $c$ is set to $\makedata{d}{\alllocalslots{\theta}{A}}$, where $y: A$ in $P$. If $A$ is negative, control must be passed to the other end point of $y$, such that data is written to $d$.
+The process $\takec{x}{y}P$ operates on a shared cell received on $x$. It starts by locking the cell through the \texttt{lockCell} instruction. Then, the continuation stored in the cell is read and bound to a new continuation $c$. The writing location of $c$ is set to a new data section $d$. Given $y: A$ in $P$, if $A$ is negative, control must be passed to the other end point of $y$, such that data is written to $d$.
 \begin{compilation}{\theta}{\Delta}{\takec{x}{y}{P}}
 {\getendpoints{\theta}{P}}
+    \commentline{\makecont{c}, \makedata{d}{\alllocalslots{\theta}{A}}}
     \lockcell{\readlocof{\Delta}{x}}
     \bindcontinuation{c}{c(\readlocof{\Delta}{x})}{d}
-    \continueifneg{\theta}{\Delta}{x}{A} \comment \text{where } x:A \text{ in }P
+    \continueifneg{\theta}{\Delta}{y}{A} \comment{\text{where } y:A \text{ in }P}
     \recurse{\theta}{\Delta[y \mapsto (c, d, 0)]}{P}
 \end{compilation}
 
 The process $\putc{x}{y}{P}Q$, similarly to the $\cellp$ process, initializes a new session $y$. In this case, the existing cell is written to, instead of creating a new cell. After writing to the cell, it is unlocked, and execution continues on process $Q$.
 \begin{compilation}{\theta}{\Delta}{\putc{x}{y}{P}{Q}}
 {\getendpoints{\theta}{P} + \getendpoints{\theta}{Q}}
+    \commentline{\makecont{c}, \makeblock{\texttt{lhs}}}
+    \commentline{\makedata{d}{\alllocalslots{\theta}{A}} \text{ where } y:A \text{ in }P}
     \initcontinuation{c}{\texttt{lhs}}{d}
     \writecontinuation{c(\readlocof{\Delta}{x})}{c}
     \unlockcell{\readlocof{\Delta}{x}}

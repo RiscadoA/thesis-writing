@@ -107,6 +107,8 @@
 \usepackage{cleveref}
 \usepackage{url}
 \usepackage{tikz}
+\crefname{equation}{}{}
+\Crefname{equation}{}{}
 \usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit}
 \input{../commands.tex}
 
@@ -718,9 +720,92 @@ Finally, in \textbf{(8)}, \texttt{popTask(exit point)} is executed, which pops t
 \end{tikzpicture}
 \end{center}
 
-In the next subsections, various aspects of the \ac{IR} which were not covered in the example execution are described.
+
+\subsubsection{Data Representation} \label{subsubsection:IRSlots}
+
+\ac{IR} programs are completely platform agnostic, and thus, data types and addresses are described through their composition of \textit{slots}, instead of concrete byte sizes and offsets. A slot $S$ is a unit of data in the \ac{IR}, and is defined as
+\[\begin{aligned}
+S ::= &\ \ints \mid \bools \mid \strings \mid \tags \mid \conts\\\mid&\ \cells{T} \mid \exponentials \mid \types \mid \vars{i}\end{aligned}\]
+where $\ints$, $\bools$ and $\strings$ represent the basic data types, $\tags$ represents a \ac{CLASS} choice, $\conts$ a continuation reference, $\cells{T}$ a reference to a shared state cell with contents described by the slot tree $T$ (introduced below), $\exponentials$ an exponential reference, $\types$ a stored type parameter, and $\vars{i}$ a type parameter declared in the current process header. 
+
+In order to model branching data types (such as choices from \ac{CLASS}), data layouts are described through trees of slots, instead of plain sequences. A slot tree $T$ is defined recursively as
+\[
+T ::= \nilst \mid \seqst{S_1; \dots; S_n; T} \mid \tagst{T_1 \tagsepst \dots \tagsepst T_n}
+\]
+where $\nilst$ is the empty slot tree, $\seqst{S_1; \dots; S_n; T}$ is a sequence of a slots $S_1; \dots; S_n$ followed by a slot tree $T$, and $\tagst{T_1 \tagsepst \dots \tagsepst T_n}$ is a $\tags$ slot followed by a choice between the slot trees $T_1$ to $T_n$. For example, $\seqst{\ints; \tagst{\seqst{\bools} \tagsepst \seqst{\strings}}}$ describes an integer followed by a tag, which, if $0$, is followed by a boolean, or if $1$, is followed by a string.
+
+Data sections are described within process headers by a sum of slot trees describing the possible layouts of data that can be stored on them. For example, $\texttt{data d0:}\ \combst{\seqst{\ints; \bools} + \seqst{\strings}}$ describes a data section $d_0$ which can either store an $\ints$ followed by a $\bools$, or a $\strings$.
+
+\paragraph{Addressing Data} \label{subsection:DataAddressing}
+
+A \textit{data location} is denoted as $\dataol{b}{o}$, where $b$ is a base address and $o$ an offset. A base address can be either a local data section (e.g., $d_0$), a writing location given by a continuation (e.g., $c_0$), or a cell location (e.g., $c(d_0)$). An offset is defined by two slot trees, written as $\offs{P}{F}$, $P$ describing the data being skipped (named \textit{past}), and $F$ describing the data that may come next (named \textit{future}). The future tree is necessary to determine the alignment of the data being accessed. For example, the location $\datal{d_0}{\seqst{\ints}}{\seqst{\ints}}$ refers to the second integer stored in $d_0$, while the location $\datal{c_0}{\seqst{\bools}}{\seqst{\strings}}$ refers to a string stored in the writing location of the continuation $c_0$, after a boolean. When the offset is zero, it is omitted for brevity. For example, $d_0$ as a data location is equivalent to $\datal{d_0}{\nilst}{\nilst}$ or just $d_0.0$ - the future slot trees are unnecessary for empty past slot trees.
 
 \subsection{Translating CLASS to the IR}
+
+This subsection gives an overview of the base (unoptimized) translation from \ac{CLASS} to the \ac{IR} described in the previous subsection. It starts by defining notation for representing and updating the state of the compiler. Then, it defines how session types are mapped to the slot trees introduced in \Cref{subsubsection:IRSlots}. Next, an overview of the instruction translation scheme is presented, and some important concepts are defined. Finally, the translation from \ac{CLASS} processes to \ac{IR} programs is defined for some interesting process constructs.
+
+\subsubsection{Compiler State}
+
+Compilation of \ac{CLASS} processes into \ac{IR} programs always occurs within the context of a single \ac{IR} process. As \ac{CLASS} processes are compiled into \ac{IR} instructions, new information is added to the \ac{IR} process header, along with the new instructions and blocks. Changes to the header of the \ac{IR} process are performed through the actions shown below.
+\begin{equation}\makecont{c}\label{eq:makecont}\end{equation}
+\begin{equation}\makedata{d}{T}\label{eq:makedata}\end{equation}
+\begin{equation}\makedrop{e}{L}{S}\label{eq:makedrop}\end{equation}
+\begin{equation}\makeblock{l}\label{eq:makeblock}\end{equation}
+Action \Cref{eq:makecont} adds a new continuation to the process header, identified by $c$. Action \Cref{eq:makedata} creates a new data section with data layout $T$ identified by $d$. Action \Cref{eq:makedrop} creates a new drop bit pertaining to data location $L$ and slots $S$, identified by $e$. Action \Cref{eq:makeblock} generates a unique label $l$ for a new instruction block within the process body.
+
+The compiler must keep track of information regarding the type parameters and the state of each session end point within the process being compiled. This state is referred to as the environment, and is represented by a tuple $(\theta, \Delta)$, where $\theta$ is the type environment and $\Delta$ is the session environment.
+
+\paragraph{Type environments} A type environment $\theta$ is a mapping from type variables to a tuple $(p, t)$ where $p$ is the polarity of the type variable ($+$ or $-$) and $t$ is its identifier (e.g, $t_0$, $t_1$) within the header of the process being compiled. $\polarityof{\theta}{X}$ and $\typeidof{\theta}{X}$ are defined as the polarity and identifier of type variable $X$ in the type environment $\theta$, respectively. A type with positive polarity is one for which sessions of that type are used to write data, while a type with negative polarity is one for which sessions of that type are used to read data.
+
+The function $\polarityof{\theta}{A}$ is further extended to all session types $A$ through pattern matching. For example, \[\polarityof{\theta}{\colintt} = - \quad\text{and}\quad \polarityof{\theta}{\bangt{A}} = +\]
+
+\paragraph{Session environments} A session environment $\Delta$ is a mapping from session end point names to session states. Each session state is a tuple $(c, d, o)$, where $c$ is the continuation identifier associated with the session end point (or $0$ if there's no continuation), $d$ is the identifier of the data section from which data is read (or $0$ if there's no data section), and $o$ is the data offset to apply to the location of the next write or read operation on the session.
+
+Given a session environment $\Delta$, $\Delta[x \mapsto (c, d, o)]$ is defined as the updated mapping where session end point $x$ is mapped to the new session state $(c, d, o)$. Additionally $\continuationof{\Delta}{x}$, $\localdataof{\Delta}{x}$ and $\offsetof{\Delta}{x}$ are defined as the continuation identifier, local data identifier and data offset associated with session $x$ in the session environment $\Delta$, respectively.
+
+For convenience, $\readlocof{\Delta}{x}$ and $\writelocof{\Delta}{x}$ are denoted as the current data location from which data of session end point $x$ is to be read, and the data location into which data for session $x$ is to be written, respectively. Both take into account the offset, and are defined as \[\readlocof{\Delta}{x} = \dataol{\localdataof{\Delta}{x}}{\offsetof{\Delta}{x}} \hspace{5em} \writelocof{\Delta}{x} = \dataol{\continuationof{\Delta}{x}}{\offsetof{\Delta}{x}}\]
+
+\paragraph{Advacing Offsets}
+
+When more than one slot is read from or written to a session end point in succession, the session's offset must be advanced accordingly. To this end, the concatenation of offsets must be defined. Given two offsets $o_1 = \offs{P_1}{F_1}$ and $o_2 = \offs{P_2}{F_2}$, their concatenation is defined as $\concatst{o_1}{o_2} = \offs{(\concatst{P_1}{P_2})}{F_2}$, where $\concatst{P_1}{P_2}$ is the concatenation of the two slot trees. In other words, when two offsets are concatenated, the resulting offset has concatenates both past slot trees, and keeps the future slot tree of the second offset. Slot tree concatenation is defined as replacing every leaf of the first slot tree with the second tree.
+
+To simplify the translation definitions, $\advancech{\Delta}{x}{p}{\theta}{S}{A}$ is denoted as the session environment $\Delta$ where the offset of session $x$ is either reset, or advanced by the necessary offset to skip over the slots $S$. The decision is made based on whether the polarity $p$ (either $+$ or $-$) matches the polarity of the type $A$ in the type environment $\theta$. If they match, the new offset is computed as $\concatst{\offsetof{\Delta}{x}}{(\slotoffset{S}{\slots{\theta}{A}})}$, where $S$ is a slot tree describing the data which was just read or written, and $\slots{\theta}{A}$ is the slot tree corresponding to type $A$, which will be defined below. Otherwise the new offset is $0$. Formally, $\advancech{\Delta}{x}{p}{\theta}{S}{A}$ is defined as
+\[\begin{cases}
+    \Delta[x \mapsto (\continuationof{\Delta}{x}, \localdataof{\Delta}{x}, \concatst{\offsetof{\Delta}{x}}{(\slotoffset{S}{\slots{\theta}{A}})})] & \text{if } p = \polarityof{\theta}{A} \\
+    \Delta[x \mapsto (\continuationof{\Delta}{x}, \localdataof{\Delta}{x}, 0)] & \text{otherwise}
+\end{cases}\]
+
+\subsubsection{Mapping Session Types to Slot Trees} \label{subsubsection:MappingSessionTypesToSlots}
+
+Since \ac{IR} data types are represented through slot trees, a mapping from session types to slot trees is necessary. This mapping is denoted by $\slots{\theta}{A}$, where $\theta$ is the type environment and $A$ is the session type being mapped. The full definition of the mapping is omitted for brevity. The mapping is defined first for strictly positive session types. For example,
+\[\begin{aligned}&\slots{\theta}{\closet} = \nilst\\
+  &\slots{\theta}{\lintt} = \seqst{\ints}\\
+  &\slots{\theta}{\sendt{A}{B}} = \seqst{\conts; \slots{\theta}{B}}\\
+  &\slots{\theta}{X} = \seqst{\typeidof{\theta}{X}} \text { s.t. } \polarityof{\theta}{X} = +\\
+\end{aligned}\]
+
+To extended this concept to all session types, we must consider that session types may have multiple segments of data exchange, separated by changes in polarity. We can separate a session type into its segments by replacing every continuation of a different polarity with the unit type of that polarity ($\closet$ or $\waitt$) on the current segment and starting a new segment with the continuation. 
+
+For example, $\sendt{\lintt}{\recvt{\lstringt}{\closet}}$ can be split into three segments: first $\sendt{\lintt}{\closet}$, then $\recvt{\lstringt}{\waitt}$ and finally  $\closet$. Each segment is either strictly positive or strictly negative. Strictly negative segments can be turned into strictly positive segments by computing their dual types. Thus, we can map each segment to a slot tree through the $\slots{\theta}{A}$ function defined above.
+
+The slot tree corresponding to the first segment of a session type $A$ is designated as its \textit{active slot tree}  (denoted simply by $\slots{\theta}{A}$), and the slot trees corresponding to the remaining segments as its \textit{remainder slot trees}. Additionally, we denote positive segments as \textit{remote slot trees} and negative segments as \textit{local slot trees}, as positive segments correspond to data which is sent (and thus stored remotely), while negative segments correspond to data which is received (and thus stored locally). The local set of slot trees of a session type $A$ is denoted by $\alllocalslots{\theta}{A}$, and the total set of slot trees by $\allslots{\theta}{A}$. Sets of slot trees are termed \textit{layouts}, as they describe the full set of data that may be exchanged over a session.
+
+
+\subsubsection{Instruction Translation}
+
+The \ac{IR} instructions translated from a \ac{CLASS} process $P$ on a given environment $(\theta, \Delta)$ are denoted by $\getinstructions{\theta}{\Delta}{P}$. This function returns a sequence of \ac{IR} instructions, optionally followed by blocks with more instructions, and is defined incrementally in the following sections.
+
+The translated code implements the write-to-read adjustment of the \ac{SAM} through the placement of \texttt{continue} instructions whenever the polarity of a session changes from positive to negative. To simplify the definition of the translation rules, a pseudo-instruction $\texttt{continueIfNegative}(\theta, \Delta, x, A)$ is defined as
+\[\begin{cases}
+    \begin{array}{l}
+        \quad\texttt{\% }\makeblock{\texttt{label}} \\
+        \quad\texttt{continue}(\continuationof{\Delta}{x}, \texttt{label}) \\
+        \texttt{label:} \\
+        \hline
+    \end{array} & \text{ if } \polarityof{\theta}{A} = - \vspace{0.5em}\\
+    \quad\ \ \texttt{\%\ empty} & \text{ otherwise}\\
+\end{cases}\]
+which means that if and only if $\polarityof{\theta}{A} = -$, $\texttt{continueIfNegative}$ is replaced by a \texttt{continue} instruction, and the next instructions are placed in a new block. Otherwise, \texttt{continueIfNegative} is simply removed from the instruction sequence.
 
 \subsection{Translating the IR to C}
 
