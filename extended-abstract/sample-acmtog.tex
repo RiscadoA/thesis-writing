@@ -105,6 +105,7 @@
 \usepackage{listings}
 \usepackage[nolist]{acronym}
 \usepackage{cleveref}
+\usepackage{url}
 \input{../commands.tex}
 
 \lstset{
@@ -555,265 +556,11 @@ This separation brings the representation of sessions much closer to variables a
 %     \label{fig:IRProcessExample}
 % \end{figure}
 
-An \ac{IR} program is a set of named processes, each consisting of a header and a body. The header contains the number of end points of the process, the names of the type parameters, the names of the session parameters, the names of the data sections and their data layouts, and finally, the data to be dropped when the process finishes execution (see \Cref{fig:IRProcessExample} for an example).
-
-\subsubsection{Environments}
-
-Each process invocation creates an \textit{environment} which holds its dynamic state, similarly to a stack frame in a traditional function call. This state includes the number of remaining end points, the properties of any type parameters, the state of all sessions, the local data being used by the process and finally, a bitset indicating which data locations should be dropped when the process terminates. All instructions in a process implicitly operate on its environment. When an instruction refers to a session or a data location, it is referring to the respective section in the current environment.
-
-\subsubsection{Sessions}
-
-\ac{IR} sessions are similar to both return addresses and coroutines. They are used to model the flow of control between two end points of a \ac{CLASS} session.
-A session is described by four properties: a reference to its opposite end point session (which might be itself), a data location to write to when sending data to it, and a continuation address and environment to switch to when passing control to it.
-
-Sessions are stored in the environment of each process, and are referenced by their index in the environment's session section. For example, $s_0$ refers to the first session in the environment, $s_1$ to the second session, and so on. Additionally, references to sessions can be passed around as data through the \texttt{session} slot.
-
-Sessions are manipulated through the three main instructions: \texttt{initializeSession}, \texttt{continueSession} and \texttt{finishSession}. An example control flow using a session is shown below:
-\begin{lstlisting}[language=IR]
-entry:
-    initializeSession(s0, rhs, d0) // 1
-    continueSession(s0, cont)      // 2
-rhs:
-    finishSession(s0)              // 3
-cont:
-    ...                            // 4
-\end{lstlisting}
-
-The \texttt{initializeSession(s0, rhs, d0)} instruction initializes the session $s_0$ in the current environment such that its remote counterpart (opposite end point) is itself, its writing data location is $d_0$ and its continuation is the block \texttt{rhs} on the current process.
-
-Then, the \texttt{continueSession(s0)} instruction is executed, which jumps to the continuation of $s_0$ and replaces the continuation of $s_0$'s remote session (itself in this case) with the block \texttt{cont} on the current process. This means that when $s_0$ is continued again, control will be passed to \texttt{cont}.
-
-Finally, the \texttt{finishSession(s0)} instruction is executed, which passes control to the continuation of $s_0$, which is \texttt{cont}. Additionally, it detaches $s_0$ from its remote session by setting its remote session reference to \texttt{NULL}. This instruction is similar to continue, but with the difference that flow of control won't ever return.
-
-Additionally, the instruction \texttt{forwardContinuations} is used to model forwarding of \ac{CLASS} channels. An example snippet using this instruction is shown below:
-\begin{lstlisting}[language=IR]
-entry:
-    initializeSession(s0, lhs, d0) // 1
-    initializeSession(s1, rhs, d1) // 2
-    forwardContinuations(s0, s1)        // 3
-lhs:
-    ...                            // 5
-rhs:
-    finishSession(s1)              // 4
-\end{lstlisting}
-
-In this example two sessions $s_0$ and $s_1$ are initialized as before. Then, the \texttt{forwardContinuations(s0, s1)} instruction is executed, which makes the remote session of $s_0$ be the remote session of $s_1$, and vice-versa. After linking the sessions, the instruction jumps to the continuation of its second argument ($s_1$ in this case, and thus, the block \texttt{rhs}). On the \texttt{rhs} block, the instruction \texttt{finishSession(s1)} is executed, which just like before passes control to the continuation of $s_1$, which was set to \texttt{lhs} by the forwarding instruction.
-
-\subsubsection{Data Storage}
-
-All data in \ac{IR} programs (excluding meta data such as sessions and type information) is stored in one of two places: within a local data section on an environment, or within a cell. Local data sections are referenced by identifiers such as $d_0$ and $d_1$, similarly to sessions, while cells are referenced through cell slots (see \Cref{subsection:Cells}).
-
-\paragraph{Slots} \label{subsection:IRSlots}
-
-\ac{IR} programs are completely platform agnostic, and thus, data types and addresses are described through their composition of \textit{slots}, instead of concrete byte sizes and offsets. A slot $S$ is a unit of data in the \ac{IR}, as is defined as
-\[
-S ::= \ints \mid \bools \mid \strings \mid \tags \mid \conts \mid \cells{T} \mid \exponentials \mid \vars{i}
-\]
-where $\ints$, $\bools$ and $\strings$ represent the basic data types, $\tags$ represents a \ac{CLASS} choice, $\conts$ a session reference, $\cells{T}$ a reference to a cell with contents described by the slot tree $T$, $\exponentials$ an exponential reference, and $\vars{i}$ a type parameter, identified by the index $i$ of the type parameter in the process header. 
-
-In order to model branching data types (such as choices from \ac{CLASS}), data layouts are described through trees of slots, instead of plain sequences. A slot tree $T$ is defined recursively as
-\[
-T ::= \nilst \mid \seqst{S_1; \dots; S_n; T} \mid \tagst{T_1 \tagsepst \dots \tagsepst T_n}
-\]
-where $\nilst$ is the empty slot tree, $\seqst{S_1; \dots; S_n; T}$ is a sequence of a slots $S_1; \dots; S_n$ followed by a slot tree $T$, and $\tagst{T_1 \tagsepst \dots \tagsepst T_n}$ is a $\tags$ slot followed by a choice between the slot trees $T_1$ to $T_n$. For example, $\seqst{\ints; \tagst{\seqst{\bools} \tagsepst \seqst{\strings}}}$ describes an integer followed by a tag, which, if $0$, is followed by a boolean, or if $1$, is followed by a string.
-
-Local data sections are described in process headers by their identifier and by a slot tree sum representing the possible data layouts to be stored on them. For example, $\texttt{data d0:}\ \combst{\seqst{\ints; \bools} + \seqst{\strings}}$ describes a local data section $d_0$ which can either store an $\ints$ followed by a $\bools$, or a $\strings$. Additionally, data sections may be associated to a session, indicating that a session passed as an argument to a process should receive data from that data section (e.g., $\texttt{data d0:}\ \combst{\seqst{\ints}}\ \texttt{(s0)}$).
-
-Data is addressed through \textit{data locations}, which are denoted as $\dataol{b}{o}$, where $b$ is a base address and $o$ an offset. A base address can be either a local data section (e.g., $d_0$), remote data referenced by a session (e.g., $s_0$), or a cell location (e.g., $c(d0)$). An offset is defined by two slot trees, written as $\offs{P}{F}$, $P$ describing the data being skipped (named \textit{past}), and $F$ describing the data that may come next (named \textit{future}). The future slot tree is necessary to determine the alignment of the data being accessed. For example, $\offs{\seqst{\ints; \bools}}{\seqst{\strings}}$ is an offset which skips an integer followed by a boolean, and expects a string to come next. When the past slot tree is empty, the future slot tree is unnecessary, and the offset is simply written as $0$.  For example, the location $\datal{d_0}{\seqst{\ints}}{\seqst{\ints}}$ refers to the second integer stored in the local data section $d_0$, while the location $\datal{s_0}{\seqst{\bools}}{\seqst{\strings}}$ refers to a string stored in the remote data of the session $s_0$, after a boolean. When the offset is zero, it is omitted for brevity. For example, $d_0$ as a data location is equivalent to $\datal{d_0}{\nilst}{\nilst}$ or just $d_0.0$ - the future slot trees are unnecessary for empty past slot trees.
-
-\subsubsection{Handling data}
-
-The \texttt{moveSlots} and \texttt{cloneSlots} instructions allow moving and cloning data from one location to another. Both takes as arguments a destination location, a source location and a slot tree describing the data. For example,
-\[\texttt{moveSlots(s1, $\datal{d_0}{\seqst{\bools}}{\seqst{\strings; \ints}}, \seqst{\strings; \ints}$)}\] moves a $\strings$ followed by an $\ints$ from the local data section $d_0$ after a $\bools$ to the start of the remote data section of session $s_1$.
-
-Although \ac{CLASS} is a linear language, it also supports both affine and exponential types. Thus, it is necessary to be able to drop some types of data if they are no longer needed. To this end, two instructions are provided: \texttt{dropSlots} and \texttt{deferDrop}. The first instruction immediately drops data from a location and a slot tree, while the second marks data to be dropped when the process terminates.
-
-\subsubsection{Writing and binding sessions}
-
-References to sessions ($\conts$ slots) can be written to and read from data locations using the instructions \texttt{writeContinuation} and \texttt{bindContinuation}, respectively. An example of writing a session to local data and then binding it to another session is shown below.
-
-\begin{lstlisting}[language=IR]
-    initializeSession(s1, d1, s1_cont) // 1
-    writeContinuation(d0, s1)               // 2
-    bindContinuation(d0, s2, d2)            // 3
-    continueSession(s2, s2_cont)       // 4
-s1_cont:
-    finishSession(s1)                  // 5
-s2_cont:
-    ...                                // 6
-\end{lstlisting}
-
-First, a session $s_1$ is initialized with its remote end point being itself, its writing location being $d_1$ and its continuation being the block \texttt{s1\_cont}. Then, a reference to the remote counterpart of session $s_1$ is written to the local data section $d_0$. Next, the reference stored at $d_0$ is read and bound to the session $s_2$, with its remote writing location being modified to $d_2$. At this point, the remote session of $s_2$ is $s_1$, and vice-versa. Finally, $s_2$ is continued, jumping to \texttt{s1\_cont}, and setting the continuation of $s_1$ to the current block. Thus, when executing \texttt{finishSession(s1)}, control will jump to \texttt{s2\_cont}.
-
-\subsubsection{Tags and branching} \label{subsection:Branching}
-
-Branching is done through the \texttt{branchTag} and \texttt{branchExpression} instructions. The first instruction branches on a tag stored a data location, similarly to a switch statement in C, and the second instruction branches on the result of a boolean expression, similarly to an if statement in C. Each possible branch is defined by a code location (block label) and an integer indicating how many end points are behind that branch. This is used to keep track of the number of remaining end points in the environment, and is explained in more detail in \Cref{subsection:EndPoints}.
-
-Tags are written to data locations through the \texttt{writeTag} instruction, which takes as arguments a data location and a constant tag value. Below is an example of writing a tag and then branching on it.
-
-\begin{lstlisting}[language=IR]
-main:
-    data d0: <tag[[int] | [string]]>
-entry:
-    writeTag(d0, 1)
-    branchTag(d0, if_int:1, if_string:1)
-if_int: // ...
-if_string: // ...
-\end{lstlisting}
-
-\subsubsection{Tasks}
-
-Tasks are a flow control mechanism completely separate from sessions, used to model the $\parp$ construct from \ac{CLASS}. For each thread of execution, there's a stack of tasks, where each task stores a continuation to be executed when the current task is finished.
-
-Tasks can be pushed to the stack through the \texttt{pushTask} instruction, which takes a code location as argument. To finish the current task and jump to the continuation of the topmost task, the \texttt{popTask} instruction is used.
-
-At the start of a thread, the task stack is initialized with a single task responsible for terminating the thread. Thus, the last instruction to be executed in a thread is always \texttt{popTask}.
-
-\subsubsection{Cells} \label{subsection:Cells}
-
-Cells are used to model the shared state part of \ac{CLASS}. They're mutable memory locations which can be safely shared between multiple threads of execution. Cells are referenced through $\cells{T}$ slots, and maintain a mutex to ensure safe concurrent access, as well as a reference count to guarantee proper deallocation.
-
-A new cell can be created through the \texttt{writeCell} instruction, which takes as arguments a data location to write the $\cells{T}$ slot to, and a slot tree $T$ describing the data that will be stored in the cell. The reference count of a cell can be incremented and decremented through the \texttt{acquireCell} and \texttt{releaseCell} instructions, respectively. Finally, the mutex of a cell can be locked and unlocked through the \texttt{lockCell} and \texttt{unlockCell} instructions, respectively.
-
-Below is an example of creating a cell, writing data to it, acquiring and releasing references to it, and finally deallocating it:
-\begin{lstlisting}[language=IR]
-main:
-    data d0: <cell[int]>
-entry:
-    writeCell(d0, [int]) // create int cell
-    lockCell(c(d0)) // lock the cell mutex
-    writeExpression(c(d0), 42) // store 42
-    unlockCell(c(d0)) // unlock the cell mutex
-    acquireCell(c(d0)) // reference count is now 2
-    releaseCell(c(d0)) // reference count is now 1
-    releaseCell(c(d0)) // cell is deallocated
-\end{lstlisting}
-
-While other slots are described solely by their kind, $\cells{T}$ slots require a slot tree $T$ as an argument. This slot tree describes the data that will be stored in the cell, and is necessary to properly drop the data when the cell is deallocated.
-
-\subsubsection{Threads} \label{subsection:IRThreads}
-
-New threads of execution can be launched through the \texttt{launchThread} instruction, which takes as arguments a code location to start executing at. The new thread starts with a single task responsible for terminating it, and shares the same environment as the parent thread, but a separate task stack.
-
-Accesses to the environment are not synchronized except for reference and end point counting, and it is the responsibility of the \ac{IR} generator to ensure different threads do not access the same data concurrently.
-
-\subsubsection{Writing type parameters}
-
-Processes in the \ac{IR} may be type parametrized. These type parameters are identified by names which start with \texttt{t} followed by a number, such as $t_0$ and $t_1$, and are assigned when the process is called. Within the process, types parameters may be used directly as slots in slot trees (e.g.: $\seqst{t_2; \ints; t_0}$). To model the \ac{CLASS} $\sendtyp$ and $\recvtyp$ constructs, it is necessary to send type information dynamically through sessions. To achieve this, the \texttt{writeType} instruction takes as arguments a target data location and a slot tree describing the data layout of the type. This instruction writes the necessary type information to the data location, producing a $\types$ slot. For example, \texttt{writeType(d0, [int; t1])} writes information to $d_0$ describing the slot tree $\seqst{\ints; t_1}$. The written $\types$ slot can then later be passed as a type parameter when calling a process.
-
-\subsubsection{Process calls}
-
-The \texttt{callProcess} instruction can be used to call processes, taking as arguments the name of the process to invoke, a list of type parameters, and lists of session and data arguments to initialize the new process environment.
-
-A type parameter is described by the target type parameter identifier on the new process, and by either a data location containing a $\types$ slot, or by a slot tree directly. For example, \texttt{t0 <- [int]} initializes the type parameter $t_0$ of the new process to be a type which stores an integer, while \texttt{t1 <- d3.[int]$\mathtt{\sim}$[type]} initializes $t_1$ to the type parameter stored after an integer at $d_3$.
-
-A session argument is described by the target session identifier on the new process, by either a source session identifier or a data location containing a \texttt{session} slot, and finally, by a data offset to apply to the writing location of the session. For example, \texttt{s0 <- s1+[int]$\mathtt{\sim}$[int]} initializes the session parameter $s_0$ of the new process to be the same as session $s_1$ of the current process, but with its writing location pointing at $\datal{s_1}{\seqst{\ints}}{\seqst{\ints}}$. If the offset is zero, it is omitted for brevity.
-
-Finally, a data argument is described by the target data identifier on the new process, by a source data location, by a slot tree describing the data, and by a flag indicating whether to clone the data or not. For example, \texttt{d0 =[string] d1} writes to $d_0$ a clone of the string stored at $d_1$, while \texttt{d1 <-[string] d2} moves to $d_1$ the string stored at $d_2$ without cloning it.
-
-An example of calling a process with type, session and data arguments is shown below. First, the session $s_0$ is initialized to have its remote end point be itself, its writing location be $d_0$ and its continuation be the block \texttt{rhs}. Then, the integer \texttt{42} is written to the remote data of $s_0$ (which is $d_0$) Next, the process \texttt{foo} is called, with its type parameter $t_0$ being set to an integer, its session $s_0$ being set to the current session $s_0$, and its data section $d_0$ being initialized by a move of the local data section $d_0$. Inside \texttt{foo}, the integer stored at its local data section $d_0$ (received from \texttt{main}) is moved to the remote data of its session $s_0$ (which is still $d_0$ from the \texttt{main} process), and then, the session is finished, passing control back to the block \texttt{rhs} of the calling process. Finally, the integer stored at $d_0$ is printed.
-\begin{lstlisting}[language=IR]
-foo:
-    types: t0
-    sessions: s0
-    data d0: <[t0]>
-entry:
-    moveSlots(s0, d0, [t0]) // 4
-    finishSession(s0)       // 5
-
-main:
-    sessions: s0
-    data d0: <[int]>
-entry:
-    initializeSession(s0, d0, rhs)  // 1
-    writeExpression(s0, 42)         // 2
-    callProcess(foo, t0 <- [int], s0 <- s0,
-                     d0 <-[int] d0) // 3
-rhs:
-    printLine(move(d0, int)) // 6
-\end{lstlisting}
-
-\subsubsection{Exponentials}
-
-Exponentials in \ac{CLASS} can be modeled through the $\exponentials$ slot, which stores the necessary data to dynamically call a process closure, taking care of any captured data. Exponentials are created through the \texttt{writeExponential} instruction, which takes the same arguments as \texttt{callProcess}, with the exception that session arguments are not allowed, and that passed data must be cloneable. Additionally, the referenced process is expected to follow the exponential process convention.
-
-The convention for exponential processes is simply that they must take a single session argument, $s_0$, which will be used to communicate with the caller. This session is initialized by the \texttt{callExponential} instruction, which invokes the process. This instruction takes as arguments a data location containing an $\exponentials$ slot, a session identifier to bind the exponential process session to, and a data location to set as the writing location on the exponential process.
-
-One important detail is that exponentials are reference counted data, and the \texttt{exponential} slot must be dropped when no longer needed, or at the end of the process, if it was not moved. This is done through the \texttt{dropSlots} or \texttt{deferDrop} instructions, as explained in the \Cref{subsection:IRDroppingData} section. Drops of exponentials decrement this reference count, and clones increment it.
-
-Below is an example of creating and calling an exponential.
-\begin{lstlisting}[language=IR]
-foo:
-    types: t0
-    sessions: s0
-    data d0: <[t0]>
-entry:
-    moveSlots(s0, d0, [t0]) // 6, 10
-    finishSession(s0)       // 7, 11
-
-main:
-    sessions: s0 s1
-    data d0: <[string]>
-    data d1: <[exponential]>
-    data d2: <[string]>
-    data d3: <[string]>
-    drop e0: [exponential] at d1
-entry:
-    writeExpression(d0, "Hello, World!")                        // 1
-    writeExponential(d1, foo, t0 <- [string], d0 <-[string] d0) // 2
-    deferDrop(e0)               // 3
-    callExponential(d1, s0, d2) // 4
-    callExponential(d1, s1, d3) // 4
-    continueSession(s0, rhs0)   // 5
-rhs0:
-    printLine(move(d2, string)) // 8
-    continueSession(s1, rhs1)   // 9
-rhs1:
-    printLine(move(d3, string)) // 12
-\end{lstlisting}
-
-In this example, the process \texttt{foo} is a simple polymorphic process which takes a type parameter $t_0$, a session $s_0$ and a data section $d_0$. It moves data of type $\seqst{\strings}$ from its local data section $d_0$ to the remote data of its session $s_0$, and then finishes the session, passing control back to the caller.
-
-The \texttt{main} process writes a new string to $d_0$, and then creates a new exponential at $d_1$ for the process \texttt{foo}, moving the just written string to it. This string will be cloned every time the exponential is called, and dropped when the exponential is freed. The exponential will be dropped at the end of the process through the drop bit \texttt{e0}, which is set by the \texttt{deferDrop(e0)} instruction.
-
-The exponential is then called twice, first binding its argument session to $s_0$ and its writing location to $d_2$, and then binding its session to $s_1$ and its writing location to $d_3$. Each call will clone the string stored at $d_0$ and pass it to the exponential process. Control is not immediately passed to the exponential process. Instead, it is passed when the argument sessions, either $s_0$ or $s_1$, are continued, as their continuations were set by the \texttt{callExponential} instruction to be the entry block of the exponential process.
-
-Finally, within the exponential process, the string is moved from $d_0$ to the remote data of $s_0$, which is either $d_2$ or $d_3$ of the caller, depending on which call was continued. Finally, the session is finished, passing control back to the caller, which prints the received string.
-
-\subsubsection{End points} \label{subsection:EndPoints}
-
-One important aspect of the \ac{IR} not mentioned yet is the concept of end points. These are used to ensure proper deallocation of the process environment when there's no more code left to execute within it. Each environment maintains a count of the number of remaining end points, which is specified in the process header (omitted in previous examples for brevity).
-
-Each instruction which passes control to another block without a continuation might be marked as an end point. These instructions are \texttt{finishSession}, \texttt{forwardContinuations}, \texttt{popTask} and \texttt{callProcess}. When such an instruction is executed, the environment's end point count is decremented. When it reaches zero, the environment is deallocated, and any remaining data is dropped according to the drop bits defined in the process header. A simple example of this mechanism is shown below.
-
-\begin{lstlisting}[language=IR]
-main:
-    end points: 2
-    sessions: s0
-    data d0: <[]>
-entry:
-    initializeSession(s0, d0, rhs)
-    finishSession(s0, end point) // end points decremented to 1
-rhs:
-    popTask(end point) // end points decremented to 0, environment is freed
-\end{lstlisting}
-
-The only other instructions which interact with the end point mechanism are the branching instructions mentioned in \Cref{subsection:Branching}. Each possible branch of a branching instruction is marked with the number of end points behind that branch. When a given branch is taken, the environment's end point count is decremented by the difference between the maximum end point count across all branches and the end point count of the chosen branch. An example of this mechanism is shown below.
-\begin{lstlisting}[language=IR]
-foo:
-    end points: 2
-    data d0: <[int]>
-entry:
-    branchExpression(move(d0, int) > 0, if_true:2, if_false:1) // max = 2
-if_true: // ... 0 end points removed (max - curr = 2 - 2 = 0)
-if_false: // ... 1 end point removed (max - curr = 2 - 1 = 1)
-\end{lstlisting}
-
 \subsection{From CLASS to the IR}
 
 \subsection{From the IR to C}
 
-\section{Optimization Techniques}
+\section{Optimization Techniques} \label{sec:optimizations}
 
 \subsection{Leveraging Type Properties}
 
@@ -822,6 +569,32 @@ if_false: // ... 1 end point removed (max - curr = 2 - 1 = 1)
 \subsection{IR Simplification}
 
 \section{Results}
+
+To measure the performance of the compiler, benchmarking CLASS programs were developed along with equivalent Haskell implementations. Different compiler configurations were benchmarked, including the interpreted execution of the same program using both the \ac{CLASS} and \ac{SAM} interpreters, and the equivalent Haskell implementations, compiled with GHC \texttt{-O2}. All presented results are averaged over 10 runs, and were obtained on a machine with an Intel Core i9-12900K CPU and 32GB of RAM, running NixOS 25.05.
+
+\begin{figure*}
+    \centering
+    \includegraphics[width=0.49\textwidth]{./Images/execution_time_sieve_compiler_vs_alternatives.pdf}
+    \includegraphics[width=0.49\textwidth]{./Images/memory_usage_sieve_compiler_vs_alternatives.pdf}
+    \caption{Prime sieve benchmarks averaged over 10 runs, parametrized over prime count. Compares the original interpreter, the SAM, the baseline compiler, the compiler with all optimizations enabled, and GHC.}
+    \label{fig:SieveBenchmarkCompilerVsAlternatives}
+    \Description{Prime sieve benchmarks averaged over 10 runs, parametrized over prime count. Compares the original interpreter, the SAM, the baseline compiler, the compiler with all optimizations enabled, and GHC.}
+\end{figure*}
+
+The first benchmark program computes prime sieve numbers using the Turner's Sieve algorithm, generating a list of prime numbers up to a given count, taken as input. This benchmark was chosen because it is a simple yet computationally intensive program. On \Cref{fig:SieveBenchmarkCompilerVsAlternatives}, the execution time and the maximum \ac{RSS}, representing the peak memory usage, are compared between the original \ac{CLASS} interpreter, the \ac{SAM} interpreter, the unoptimized (baseline) compiler, the fully optimized compiler, and the equivalent Haskell implementation. The original interpreter cannot handle more than 150 primes due to operating system limits on the number of threads. The results show that the fully optimized compiler achieves a speed up of more than 100x compared to the \ac{SAM} interpreter, a speedup of more than 5x compared to the unoptimized compiler, and also that it outperforms the Haskell implementation, while using significantly less memory.
+
+\begin{figure*}
+    \centering
+    \includegraphics[width=0.49\textwidth]{./Images/execution_time_gol_compiler_vs_ghc.pdf}
+    \includegraphics[width=0.49\textwidth]{./Images/memory_usage_gol_compiler_vs_ghc.pdf}
+    \caption{Game of Life benchmarks averaged over 10 runs, parametrized over generation count. Compares the baseline compiler, the compiler with all optimizations enabled, and GHC. Both the original interpreter and the SAM were unable to run this benchmark.}
+    \Description{Game of Life benchmarks averaged over 10 runs, parametrized over generation count. Compares the baseline compiler, the compiler with all optimizations enabled, and GHC. Both the original interpreter and the SAM were unable to run this benchmark.}
+    \label{fig:GOLBenchmarkCompilerVsGHC}
+\end{figure*}
+
+The second benchmark program implements a functional version of the Game of Life cellular automaton \citep{GameOfLife:1970}. All runs were given the same 17x17 initial configuration containing the \textit{Kok's Galaxy}\footnote{\url{https://conwaylife.com/wiki/Kok\%27s_galaxy}, accessed 2025-10-04} pattern, and were parametrized by the number of generations to compute. In this benchmark, shown in \Cref{fig:GOLBenchmarkCompilerVsGHC}, the optimized compiler performs slower than the Haskell implementation, by a factor of approximately 2.5x. The memory usage of the generated program is, however, significantly lower than the Haskell implementation. We suspect that with further optimizations, such as allocating data in registers and reusing sessions and data sections, the Haskell implementation can be matched or even surpassed.
+
+A third benchmark, covering the shared state features of \ac{CLASS}, was also developed, but is not presented here due to space constraints. On each benchmark, the performance of multiple compiler configurations was also evaluated, covering different combinations of the optimizations presented in \Cref{sec:optimizations}. The results are shown in detail in the full thesis document.
 
 \section{Conclusion and Future Work}
 
