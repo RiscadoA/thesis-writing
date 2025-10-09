@@ -7,6 +7,8 @@
 % The following line allows to ref this chapter
 \label{chap:evaluation}
 
+\todo{the achieved goals should be mentioned}
+
 This chapter gives an overview of the implementation of the compiler, which is covered on the first section, as well as the testing strategy, on the second section, and the performance evaluation strategy and results, on the third section.
 
 The compiler has been fully implemented in Java, within the existing \ac{CLASS} and \ac{SAM} interpreters code base. The implementation follows the architecture described in \Cref{chap:architecture}, and includes all the optimizations described in \Cref{chap:optimizations}.
@@ -31,9 +33,9 @@ On the C generation phase, a number of helper classes are used to make both the 
 
 The project repository includes a comprehensive suite of more than 180 unit tests written in the \ac{CLASS} language, which cover all features of the language, including edge cases relevant to the implemented optimizations. Each test is composed of a \ac{CLASS} source file, and optionally, a number of input and expected output files. Tests are categorized into folders based on the language feature they cover, such as exponentials, polymorphism, or process calls.
 
-Multiple complex \ac{CLASS} programs, both existing ones and newly written (such as game of life and merge sort) were also integrated into the test suite, in addition to the smaller unit tests, in order to further validate the correctness of the generate code when many features are combined.
+Multiple complex \ac{CLASS} programs were compiled, tested and integrated into the test suite in order to further validate the correctness of the generated code when many features are combined. These programs include a functional implementation of the Game of Life cellular automaton \cite{GameOfLife:1970}, a prime sieve, a linked list implementation, a simulation of the dining philosophers problem, and other programs making extensive use of both shared state, polymorphism, recursion and exponentials.
 
-In order to easily find memory errors, a compiler flag \texttt{--profiling} can be enabled to compile the programs with allocation counters for each type of structure (e.g., processes, tasks, exponentials) and report any memory leaks when the program finishes execution. Additionally, the compilation script supports passing flags to \texttt{gcc} to enable the address and thread sanitizers, helping find and troubleshoot memory access errors and data races.
+In order to easily find memory errors, a compiler flag \texttt{-{}-profiling} can be enabled to compile the programs with allocation counters for each type of structure (e.g., processes, tasks, exponentials) and report any memory leaks when the program finishes execution. Additionally, the compilation script supports passing flags to \texttt{gcc} to enable the address and thread sanitizers, helping find and troubleshoot memory access errors and data races.
 
 Tests are executed through a bash script \texttt{test\_compiler.sh}, which runs each test in the suite, with an optional filter to select specific tests. The script compiles each test using the available debugging flags. If successfully compiled, and if input files are provided, the generated executable is run for each input file and the output is compared with the expected output file (if provided). If there are no input files, the executable is simply run to check for runtime errors. The script reports the results of each test, including compilation errors, runtime errors, memory leaks, and output mismatches. Compiler flags can also be passed to the script to test different configurations. To speed up the testing process, tests are distributed across multiple jobs.
 

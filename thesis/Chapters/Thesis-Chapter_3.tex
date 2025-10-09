@@ -524,14 +524,14 @@ A type with positive polarity is one for which sessions of that type are used to
 
 \begin{figure}
     \centering
-    \begin{align*}
+    \[\begin{aligned}
         &\polarityof{\theta}{\lintt} = + && \polarityof{\theta}{\colintt} = - && \polarityof{\theta}{\lboolt} = + && \polarityof{\theta}{\colboolt} = - \\
         &\polarityof{\theta}{\lstringt} = + && \polarityof{\theta}{\colstringt} = - && \polarityof{\theta}{\closet} = + && \polarityof{\theta}{\waitt} = - \\
         &\polarityof{\theta}{\choicet{\dots}} = + && \polarityof{\theta}{\offert{\dots}} = - && \polarityof{\theta}{\sendt{A}{B}} = + && \polarityof{\theta}{\recvt{A}{B}} = - \\
         &\polarityof{\theta}{\bangt{A}} = + && \polarityof{\theta}{\whynott{A}} = - && \polarityof{\theta}{\sendtyt{X}{A}} = + && \polarityof{\theta}{\recvtyt{X}{A}} = - \\
         &\polarityof{\theta}{\coaffinet{A}} = + && \polarityof{\theta}{\affinet{A}} = - && \polarityof{\theta}{\statet{A}} = + && \polarityof{\theta}{\usaget{A}} = - \\
         &\polarityof{\theta}{\rect{X}{A}} = + && \polarityof{\theta}{\corect{X}{A}} = - && \polarityof{\theta}{\statelt{A}} = + && \polarityof{\theta}{\usagelt{A}} = - \\
-    \end{align*}
+    \end{aligned}\]
     \caption{Polarity of session types}
     \label{fig:TypePolarity}
 \end{figure}
@@ -547,13 +547,15 @@ Given a session environment $\Delta$, $\Delta[x \mapsto (c, d, o)]$ is defined a
 \subsubsection{Writing and Reading Locations}
 
 For convenience, $\readlocof{\Delta}{x}$ and $\writelocof{\Delta}{x}$ are defined as the current data location from which data of session end point $x$ is to be read, and the data location into which data for session $x$ is to be written, respectively. Both take into account the offset, and are formally defined as
-\[\readlocof{\Delta}{x} = \dataol{\localdataof{\Delta}{x}}{\offsetof{\Delta}{x}} \hspace{5em} \writelocof{\Delta}{x} = \dataol{\continuationof{\Delta}{x}}{\offsetof{\Delta}{x}}\]
+
+\centerline{\vspace{2pt}
+$\readlocof{\Delta}{x} = \dataol{\localdataof{\Delta}{x}}{\offsetof{\Delta}{x}} \hspace{5em} \writelocof{\Delta}{x} = \dataol{\continuationof{\Delta}{x}}{\offsetof{\Delta}{x}}$}
 
 \subsubsection{Advancing Session Offsets} \label{subsubsection:AdvancingOffsets}
 
-When more than one slot is read from or written to a session end point in succession, the session's offset must be advanced accordingly. To this end, the concatenation of offsets must be defined. Given two offsets $o_1 = (P_1, F_1)$ and $o_2 = (P_2, F_2)$, their concatenation is defined as $\concatst{o_1}{o_2} = (\concatst{P_1}{P_2}, F_2)$, where $\concatst{P_1}{P_2}$ is the concatenation of the two slot trees. In other words, when two offsets are concatenated, the resulting offset has concatenates both of the past slot trees, and keeps the future slot tree of the second offset. Slot tree concatenation is defined as replacing every leaf of the first slot tree with the second slot tree.
+When more than one slot is read from or written to a session end point in succession, the session's offset must be advanced accordingly. To this end, the concatenation of offsets must be defined. Given two offsets $o_1 = (P_1, F_1)$ and $o_2 = (P_2, F_2)$, their concatenation is defined as $\concatst{o_1}{o_2} = (\concatst{P_1}{P_2}, F_2)$, where $\concatst{P_1}{P_2}$ is the concatenation of the two slot trees. In other words, when two offsets are concatenated, the resulting offset has concatenates both of the past slot trees, and keeps the future slot tree of the second offset. Slot tree concatenation is defined as replacing every leaf of the first slot tree with the second slot tree. \todo{mention the first version which maintained a runtime variable}
 
-To simplify the definitions in the next sections, $\advancech{\Delta}{x}{p}{\theta}{S}{A}$ is defined as the session environment $\Delta$ where the offset of session $x$ is either reset, or advanced by the necessary offset to skip over the slots $S$. The decision is made based on whether the polarity $p$ (either $+$ or $-$) matches the polarity of the type $A$ in the type environment $\theta$. If they match, the new offset is computed as $\concatst{\offsetof{\Delta}{x}}{(\slotoffset{S}{\slots{\theta}{A}})}$, where $S$ is a slot tree describing the data which was just read or written, and $\slots{\theta}{A}$ is the slot tree corresponding to type $A$, which will be defined in the next section. Otherwise the new offset is $0$. Formally:
+To simplify the definitions in the next sections, $\advancech{\Delta}{x}{p}{\theta}{S}{A}$ denotes the session environment $\Delta$ where the offset of session $x$ is either reset, or advanced by the necessary offset to skip over the slots $S$. The decision is made based on whether the polarity $p$ (either $+$ or $-$) matches the polarity of the type $A$ in the type environment $\theta$. If they match, the new offset is computed as $\concatst{\offsetof{\Delta}{x}}{(\slotoffset{S}{\slots{\theta}{A}})}$, where $S$ is a slot tree describing the data which was just read or written, and $\slots{\theta}{A}$ is the slot tree corresponding to type $A$, which will be defined in the next section. Otherwise the new offset is $0$. Formally:
 \[
 \advancech{\Delta}{x}{p}{\theta}{S}{A} = \begin{cases}
     \Delta[x \mapsto (\continuationof{\Delta}{x}, \localdataof{\Delta}{x}, \concatst{\offsetof{\Delta}{x}}{(\slotoffset{S}{\slots{\theta}{A}})})] & \text{if } p = \polarityof{\theta}{A} \\
@@ -962,9 +964,9 @@ The definition of $\slotlayout{\sigma}{s}$ is extended below to support both slo
     &\slotlayout{\sigma}{\tagst{T_1 \tagsepst \dots \tagsepst T_n}} = \bigvee_{i=1}^{n} \slotlayout{\sigma}{T_i} \quad & & \slotlayout{\sigma}{\left\{T_1,\,\dots,\,T_n\right\}} = \bigvee_{i=1}^{n} \slotlayout{\sigma}{T_i}
 \end{aligned}\]
 
-\subsection{Environments} \label{subsection:CEnvironments}
+\subsection{Environment Memory Layout} \label{subsection:CEnvironments}
 
-\ac{IR} environments store all state related to a process invocation. In the translated C programs, environments are represented as a heap allocated byte buffers. These buffers can be indexed at compile time through an environment layout $\envlayout$.
+\ac{IR} environments store all state related to a process invocation. In the translated C programs, environments are represented as heap allocated byte buffers. The environment layout $\envlayout$ specifies at compile time how environment buffers will be indexed at runtime.
 
 An environment layout $\envlayout$ is a compile-time data structure which describes the byte offsets at which each entry of the environment can be found. This layout is computed from the header of the \ac{IR} process being compiled. The address of the exit point counter (a C integer or atomic integer if concurrency is enabled) is given by $\envlayouteps{\texttt{env}}$ where \texttt{env} is a pointer to the environment. Drop bits are stored at $\envlayoutdrop{\texttt{env}}$, type information for type variable $t_i$ is stored at $\envlayouttype{\texttt{env}}{t_i}$, continuations $c_i$ are stored at $\envlayoutcont{\texttt{env}}{c_i}$, and data sections $d_i$ at $\envlayoutlocal{\texttt{env}}{d_i}$.
 

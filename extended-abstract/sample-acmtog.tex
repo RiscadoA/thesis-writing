@@ -499,7 +499,7 @@ Its execution is shown below. The initial state of the \ac{SAM} is $(P, \emptyse
          & \Mapsto && (\emptyc, \emptyset)
 \end{aligned}\]
 
-\section{Compilation Scheme}
+\section{Compilation Scheme} \label{sec:architecture}
 
 % The base compilation scheme developed on this thesis generates native code which executes in a sequential and deterministic manner, closely resembling the execution of the \ac{SAM}, implementing continuation-based coroutining. Associated to each process is a block of data called an environment, similar to a stack frame of traditional imperative languages. This environment stores the continuations of each session, as well as any data received through them. Whenever a process finishes writing data to a session, a jump is made to its other end point, which will read the data and continue execution.
 
@@ -562,7 +562,17 @@ This separation brings the representation of sessions much closer to variables a
 
 \section{Results}
 
-To measure the performance of the compiler, benchmarking CLASS programs were developed along with equivalent Haskell implementations. Different compiler configurations were benchmarked, including the interpreted execution of the same program using both the \ac{CLASS} and \ac{SAM} interpreters, and the equivalent Haskell implementations, compiled with GHC \texttt{-O2}. All presented results are averaged over 10 runs, and were obtained on a machine with an Intel Core i9-12900K CPU and 32GB of RAM, running NixOS 25.05.
+\subsection{Correctness}
+
+The compiler was fully implemented in Java, within the existing \ac{CLASS} and \ac{SAM} interpreters code base \citep{Rocha:2021:artifact,Caires:2024:artifact}. The implementation follows the architecture described in \Cref{sec:architecture}, and includes all the optimizations described in \Cref{sec:optimizations}.
+
+A comprehensive suite of more than 180 unit tests written in the \ac{CLASS} language was developed. This suite covers all features of the language, including edge cases relevant to the implemented optimizations. Each test is composed of a \ac{CLASS} source file, and optionally, a number of input and expected output files. This suite was run with \texttt{valgrind} and multiple \texttt{gcc} sanitizers enabled, such as the address and thread sanitizers, to further validate the absence of memory errors data races. The \texttt{-{}-profiling} flag, provided by the implemented compiler, was also used. This flag counts allocations and deallocations, reporting any memory leaks at the end of execution.
+
+Multiple complex \ac{CLASS} programs were compiled, tested and integrated into the test suite in order to further validate the correctness of the generated code when many features are combined. These programs include an implementation of the Game of Life cellular automaton \citep{GameOfLife:1970}, a prime sieve, a linked list implementation, a simulation of the dining philosophers problem, and other programs making extensive use of both shared state, polymorphism, recursion and exponentials.
+
+\subsection{Benchmarks}
+
+After the entirety of \ac{CLASS} was supported by the compiler, and extensive testing was performed to validate the correctness of the generated code, focus was shifted to measuring and improving the performance of the generated code. To this end, benchmarking \ac{CLASS} programs were developed along with equivalent Haskell implementations. Different compiler configurations were benchmarked, including the interpreted execution of the same program using both the \ac{CLASS} and \ac{SAM} interpreters, and the equivalent Haskell implementations, compiled with GHC \texttt{-O2}. All presented results are averaged over 10 runs, and were obtained on a machine with an Intel Core i9-12900K CPU and 32GB of RAM, running NixOS 25.05.
 
 \begin{figure*}
     \centering
