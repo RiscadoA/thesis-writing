@@ -467,7 +467,7 @@ The choice rule, shown below, given an action $\choosec{c}{x}P$, pushes the labe
     (P,H[x:A\langle q@\labelp{c}, Q\rangle y:B])^{wr}
 \end{aligned}\]
 
-The offer rule, shown below, performs the dual operation of the choice rule - it pops a label from the session queue, and transitions to the continuation of the $\casep$ action corresponding to the label. The rule performs a read-to-write adjustment, denoted by $[x:A\langle q, Q\rangle y:B]^{rw}$. This adjustment swaps the two end points of the session record, $x:A$ and $y:B$, if and only if $q$ is empty. Since processes are well-typed, then, if $q$ is empty, $P$ should have no more reads to perform. This adjustment then allows $P$ to start writing to the session.
+Finally, the offer rule, shown below, performs the dual operation of the choice rule - it pops a label from the session queue, and transitions to the continuation of the $\casep$ action corresponding to the label. The rule performs a read-to-write adjustment, denoted by $[x:A\langle q, Q\rangle y:B]^{rw}$. This adjustment swaps the two end points of the session record, $x:A$ and $y:B$, if and only if $q$ is empty. Since processes are well-typed, then, if $q$ is empty, $P$ should have no more reads to perform. This adjustment then allows $P$ to start writing to the session.
 \[\begin{aligned}
         &(\casec{x}{\dots}, H[x:A\langle \labelp{c}@q, Q\rangle y:\offert{\dots}])
         \Mapsto\\
@@ -475,34 +475,15 @@ The offer rule, shown below, performs the dual operation of the choice rule - it
         (P_c,H[x:A\langle q, Q\rangle y:B_c]^{rw})
 \end{aligned}\]
 
-Finally, the $\fwdp$ rule is shown below, where it is assumed that, without loss of generality, $B^+$ is a positive type. The rule merges two session records, $(z:A\langle q_1, Q\rangle x:\dual{B^+})$ and $(y:B^+\langle q_2, Q\rangle w:C)$, into a single session record with continuation $P$ and queue $q_2@q_1$. If $B^+$ is a negative type, $x$ and $y$ can be swapped, producing the equivalent process $\fwdc{y}{x}$. Since $x$ is the read end point of the session and $y$ is the write end point, then $Q$ must have written through $z$ the contents of $q_1$. and the current process will have written through $y$ the contents of $q_2$. Thus, $P$ is waiting to read the contents of $q_2@q_1$.
-\[\begin{aligned}
-        &(\fwdc{x}{y}, H[z:A\langle q_1, Q\rangle x:\dual{B^+}][y:B^+\langle q_2, P\rangle w:C])
-        \Mapsto\\
-        \Mapsto&
-        (P,H[z:A\langle q_2@q_1, Q\rangle w:C])
-\end{aligned}\]
-
 \subsubsection{Example Execution}
 
-In this section two simple examples of process execution are presented. These examples iteratively apply the reduction rules shown in the previous section. The type annotations are omitted for brevity. Consider the process $P$ shown below:
+In this section a simple example of process execution is presented. This example iteratively applies the reduction rules shown in the previous section. The type annotations are omitted for brevity. Consider the process $P$ shown below:
 \[
-    P \equiv \cutc{\waitc{x}{\emptyc}}{x}{\closec{x}}
+    P \equiv \cutc{\choosec{inl}{x}\waitc{x}\emptyc}{x}{\casec{x}{\labelc{inl}{\closec{x}}\dots}
+    }
 \]
 
-The execution of $P$ is shown below. The initial state of the \ac{SAM} is $(P, \emptyset)$. First, the $\cutp$ rule is applied, which allocates a new session record in the heap, and transitions to $\closep$, as it corresponds to the positive type $\closet$. Then, the $\closep$ rule is applied, which pushes the close token $\checkmark$ into the queue, and transitions to the session record continuation $\waitp$. Finally, the $\waitp$ rule is applied, which pops the close token $\checkmark$ from the queue, and transitions to the continuation $\emptyc$, reaching the final state $(\emptyc, \emptyset)$.
-\[\begin{aligned}
-        (P, \emptyset)
-         & \equiv
-        (\cutc{\waitc{x}{\emptyc}}{x}{\closec{x}}, \emptyset)                \\
-         & \Mapsto
-        (\closec{x}, x\langle nil, \waitc{y}\emptyc\rangle y)                \\
-         & \Mapsto (\waitc{y}\emptyc, x\langle \checkmark, \emptyp\rangle y) \\
-         & \Mapsto
-        (\emptyc, \emptyset)
-\end{aligned}\]
-
-The second example is the process $Q$ whose definition and execution is shown below. First, the $\cutp$ rule is applied, which inserts a new session record in the heap. Then, the choice rule is applied, which pushes the label $\labelp{inl}$ into the queue of the session record, after which, a write-to-read adjustment and a transition to the continuation $\casep$ is performed. Then, the $\casep$ reduction rule is applied, which pops the label $\labelp{inl}$ from the queue, and transitions to the continuation matching the label. Next, a read-to-write adjustment is performed, which means the session end points are swapped. With the end points swapped, the $\closep$ and $\waitp$ rules are applied as in the previous example and the final state $(\emptyc, \emptyset)$ is finally reached.
+Its execution is shown below. The initial state of the \ac{SAM} is $(P, \emptyset)$. First, the $\cutp$ rule is applied, which inserts a new session record in the heap. Then, the choice rule is applied, which pushes the label $\labelp{inl}$ into the queue of the session record, after which, a write-to-read adjustment and a transition to the continuation $\casep$ is performed. Then, the $\casep$ reduction rule is applied, which pops the label $\labelp{inl}$ from the queue, and transitions to the continuation matching the label. Next, a read-to-write adjustment is performed, which means the session end points are swapped. With the end points swapped, the $\closep$ and $\waitp$ rules are applied, producing the final state $(\emptyc, \emptyset)$ .
 \[\begin{aligned}
     &&&(\cutc{
         \choosec{inl}{x}
