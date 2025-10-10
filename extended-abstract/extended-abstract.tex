@@ -353,52 +353,6 @@ $$
 $$
 which runs $P$ and $Q$ concurrently, without any communication between them. This composition corresponds to the mix rule of linear logic: no linear name appears in both $P$ and $Q$.
 
-% \begin{figure}
-%     \[\begin{aligned}&\begin{aligned}
-%         P, Q ::=\ &\cutc{P}{x: A}{Q}                                          &  & |\ \parc{P}{Q}                                                 \\
-%         |\         & \fwdc{x}{y}                                                &  & |\ \emptyc                                                     \\
-%         |\         & \closec{x}                                                 &  & |\ \waitc{x}{P}                                                \\
-%         |\         & \choosec{c}{x}{P} &  & |\ \casec{x}{\labelc{c$_1$}{P_1}\ \dots\ \labelc{c$_n$}{P_n}}                                           \\
-%         |\         & \sendc{x}{y}{P}{Q}                                         &  & |\ \recvc{x}{y}{Q}                                             \\
-%         |\         & \bangc{x}{y}{P}                                            &  & |\ \whynotc{x}{P}                                              \\
-%         |\         & \sendtyc{x}{B}{P}                                          &  & |\ \recvtyc{x}{X}{P}                                           \\
-%         |\         & \unfoldmuc{x}{P}                                           &  & |\ \unfoldnuc{x}{P}                                            \\
-%         |\         & \affinec{x}P                                               &  & |\ \discardc{x}                                                \\
-%         |\         & \usec{x}P                                                  &  & |\ \cellc{x}{y}{P}                                             \\
-%         |\         & \releasec{x}                                               &  & |\ \takec{x}{y}{P}                                             \\
-%         |\         & \putc{x}{y}{P}Q                                            &  & |\ \scanc{x}                                                   \\
-%         |\         & \printc{E}{P}                                              &  & |\ \printlnc{E}{P}                                             \\
-%         |\         & \letc{x}{E}                                                &  & |\ \ifc{E}{P}{Q} \\
-%         |\         & \callc{x}{y} & & |\ \proccallc{proc\_id}{x_1,\,\dots\,,x_n} \\
-%     \end{aligned}\\
-%         & \makebox[\widthof{P, Q ::=}][r]{|}\ \proccallgc{proc\_id}{X_1,\,\dots,\,X_n}{x_1,\,\dots,\,x_m} \\
-%     \end{aligned}\]
-%     \caption{CLASS process grammar, where $x$ and $y$ are channels, $E$ is an expression, and $c$, $c_1$, and $c_n$ are choice labels.}
-%     \label{fig:CLASSProcessGrammar}
-%     \Description{CLASS process grammar}
-% \end{figure}
-
-% \begin{figure}
-%     \[\begin{aligned}
-%         A, B ::=\  & X \text{ (type variable)}              &  & |\ \closet \\
-%         |\ & \dualt{X} \text{ (dual type variable)} &  & |\ \waitt \\
-%         |\ & \choicet{\labelt{$c_1$}{A}\dots\labelt{$c_n$}{B}} & & |\ \affinet{A} \\
-%         |\ & \offert{\labelt{$c_1$}{A}\dots\labelt{$c_n$}{B}} & & |\ \coaffinet{A} \\
-%         |\ & \sendt{A}{B}  & & |\ \sendtyt{X}{A} \\
-%         |\ & \recvt{A}{B} & & |\ \recvtyt{X}{A} \\
-%         |\ & \rect{X}{A}  & & |\ \bangt{A} \\ 
-%         |\ & \corect{X}{A} & & |\ \whynott{A} \\
-%         |\ & \lintt &  & |\ \colintt \\
-%         |\ & \lboolt &  & |\ \colboolt \\
-%         |\ & \lstringt &  & |\ \colstringt \\
-%         |\ & \statet{A} & & |\ \usaget{A} \\
-%         |\ & \statelt{A} & & |\ \usagelt{A} \\
-%     \end{aligned}\]
-%     \caption{CLASS type grammar where $c_1$, $c_n$ are choice labels.}
-%     \label{fig:CLASSTypeGrammar}
-%     \Description{CLASS type grammar}
-% \end{figure}
-
 For each session type, there is a corresponding action process which performs the action described by the type. For example, $\closec{x}$ closes a channel $x: \closet$, and the process $\sendc{x}{y}{P}{Q}$ sends a new channel $y: A$ through a channel $x: \sendt{A}{B}$.
 
 A \ac{CLASS} program is composed of a collection of type and process definitions. A type definition associates a name to a session type $A$, and a process definition associates a name to a process $P$, which may be parametrized by type parameters and channel arguments.
@@ -415,48 +369,6 @@ proc main() {
   }
 };;
 \end{lstlisting}
-
-% \begin{lstlisting}[language=CLASS]
-% proc main() {
-%   cut {
-%     send x(y. println(y); ());
-%     println(x); ()
-%     |x: @recv@ lint; lbool|
-%     recv x(z); par { let x 1 || let z true }
-%   }
-% };;
-% \end{lstlisting}
-
-% Channels can branch and select between multiple options. The following example shows a server $x$ that offers a choice between two options: either sending an integer, or simply immediately closing the channel. The client selects the first option, sending the integer $1$ through the channel. The server receives it and prints it.
-
-% \begin{lstlisting}[language=CLASS]
-% proc main() {
-%   cut {
-%     case x of {
-%       |#int: println(x); ()
-%       |#nop: wait x; ()
-%     }
-%     |x: @choice of@ { @|#int@: lint @|#nop@: @close@ }|
-%     #int x; let x 1
-%   }
-% };;
-% \end{lstlisting}
-
-% One of the distinguishing features of \ac{CLASS} is its shared state cells, which can hold mutable shared state while still preserving deadlock-freedom guarantees. The following example creates a shared state cell $x$ holding an initial integer value of $1$. This cell is then shared concurrently between two processes, which both take the value in the cell, print it, put a new value in the cell, and finally release the cell. With a fair scheduler, the output of this program can either be $1$ followed by $2$, or $1$ followed by $3$.
-
-% \begin{lstlisting}[language=CLASS]
-% proc main() {
-%   cut {
-%     cell x(1);
-%     |x: usage colint|
-%     share x {
-%       take x(a); println(a); put x(2); release x
-%       ||
-%       take x(b); println(b); put x(3); release x
-%     }
-%   }
-% };;
-% \end{lstlisting}
 
 \subsection{The Linear Session Abstract Machine (SAM)}
 
@@ -483,8 +395,6 @@ One of the main contributions of this work is the design and implementation of t
 The \ac{IR} is an imperative stateful language, inspired by the execution model of the \ac{SAM}, sequentially executing session-based programs through buffered communication. The concept of sessions is split in two parts: \textit{continuations}, which model flow of control between two end points of a session, and \textit{data sections}, which store data received in sessions. A continuation can be seen as a representation of a session end point, storing the necessary information to communicate with and pass control to the opposite end point.
 
 A continuation is composed of a return address, a writing location, and a reference to another continuation. The return address is a code address, which is jumped to when passing control to the opposite end point. The writing location is a data location where data to be read by the opposite end point should be written to. Finally, the continuation reference is a reference to the continuation which the opposite end point will use to pass control back to this point.
-
-% Data sections and continuations bring the representation of sessions much closer to variables and function calls in languages such as C. For example, for a given session end point $x: \lintt$, a continuation is stored which holds the return address to jump to after producing an integer to $x$. In the other end point of $x$, $y: \colintt$, a data section is stored to hold the integer which will be written to $x$.
 
 \subsubsection{Programs and the IR Abstract Machine}
 
@@ -906,155 +816,6 @@ Concurrent channels have not been addressed in this work, as the focus was on ge
 
 Finally, a standard library for \ac{CLASS} could also be developed, providing native implementations of common data structures such as arrays and maps, as currently these are emulated using recursive session types. This would greatly improve the usability and performance of \ac{CLASS} programs. This could be achieved by, for example, implementing a \ac{FFI} to C libraries.
 
-% \section{Tables}
-
-% The ``\verb|acmart|'' document class includes the ``\verb|booktabs|''
-% package --- \url{https://ctan.org/pkg/booktabs} --- for preparing
-% high-quality tables.
-
-% Table captions are placed {\itshape above} the table.
-
-% Because tables cannot be split across pages, the best placement for
-% them is typically the top of the page nearest their initial cite.  To
-% ensure this proper ``floating'' placement of tables, use the
-% environment \textbf{table} to enclose the table's contents and the
-% table caption.  The contents of the table itself must go in the
-% \textbf{tabular} environment, to be aligned properly in rows and
-% columns, with the desired horizontal and vertical rules.  Again,
-% detailed instructions on \textbf{tabular} material are found in the
-% \textit{\LaTeX\ User's Guide}.
-
-% Immediately following this sentence is the point at which
-% Table~\ref{tab:freq} is included in the input file; compare the
-% placement of the table here with the table in the printed output of
-% this document.
-
-% \begin{table}
-%   \caption{Frequency of Special Characters}
-%   \label{tab:freq}
-%   \begin{tabular}{ccl}
-%     \toprule
-%     Non-English or Math&Frequency&Comments\\
-%     \midrule
-%     \O & 1 in 1,000& For Swedish names\\
-%     $\pi$ & 1 in 5& Common in math\\
-%     \$ & 4 in 5 & Used in business\\
-%     $\Psi^2_1$ & 1 in 40,000& Unexplained usage\\
-%   \bottomrule
-% \end{tabular}
-% \end{table}
-
-% To set a wider table, which takes up the whole width of the page's
-% live area, use the environment \textbf{table*} to enclose the table's
-% contents and the table caption.  As with a single-column table, this
-% wide table will ``float'' to a location deemed more
-% desirable. Immediately following this sentence is the point at which
-% Table~\ref{tab:commands} is included in the input file; again, it is
-% instructive to compare the placement of the table here with the table
-% in the printed output of this document.
-
-% \begin{table*}
-%   \caption{Some Typical Commands}
-%   \label{tab:commands}
-%   \begin{tabular}{ccl}
-%     \toprule
-%     Command &A Number & Comments\\
-%     \midrule
-%     \texttt{{\char'134}author} & 100& Author \\
-%     \texttt{{\char'134}table}& 300 & For tables\\
-%     \texttt{{\char'134}table*}& 400& For wider tables\\
-%     \bottomrule
-%   \end{tabular}
-% \end{table*}
-
-% Always use midrule to separate table header rows from data rows, and
-% use it only for this purpose. This enables assistive technologies to
-% recognise table headers and support their users in navigating tables
-% more easily.
-
-% \section{Math Equations}
-% You may want to display math equations in three distinct styles:
-% inline, numbered or non-numbered display.  Each of the three are
-% discussed in the next sections.
-
-% \subsection{Inline (In-text) Equations}
-% A formula that appears in the running text is called an inline or
-% in-text formula.  It is produced by the \textbf{math} environment,
-% which can be invoked with the usual
-% \texttt{{\char'134}begin\,\ldots{\char'134}end} construction or with
-% the short form \texttt{\$\,\ldots\$}. You can use any of the symbols
-% and structures, from $\alpha$ to $\omega$, available in
-% \LaTeX~\cite{Lamport:LaTeX}; this section will simply show a few
-% examples of in-text equations in context. Notice how this equation:
-% \begin{math}
-%   \lim_{n\rightarrow \infty}x=0
-% \end{math},
-% set here in in-line math style, looks slightly different when
-% set in display style.  (See next section).
-
-% \subsection{Display Equations}
-% A numbered display equation---one set off by vertical space from the
-% text and centered horizontally---is produced by the \textbf{equation}
-% environment. An unnumbered display equation is produced by the
-% \textbf{displaymath} environment.
-
-% Again, in either environment, you can use any of the symbols and
-% structures available in \LaTeX\@; this section will just give a couple
-% of examples of display equations in context.  First, consider the
-% equation, shown as an inline equation above:
-% \begin{equation}
-%   \lim_{n\rightarrow \infty}x=0
-% \end{equation}
-% Notice how it is formatted somewhat differently in
-% the \textbf{displaymath}
-% environment.  Now, we'll enter an unnumbered equation:
-% \begin{displaymath}
-%   \sum_{i=0}^{\infty} x + 1
-% \end{displaymath}
-% and follow it with another numbered equation:
-% \begin{equation}
-%   \sum_{i=0}^{\infty}x_i=\int_{0}^{\pi+2} f
-% \end{equation}
-% just to demonstrate \LaTeX's able handling of numbering.
-
-% \section{Figures}
-
-% The ``\verb|figure|'' environment should be used for figures. One or
-% more images can be placed within a figure. If your figure contains
-% third-party material, you must clearly identify it as such, as shown
-% in the example below.
-% \begin{figure}[h]
-%   \centering
-%   \includegraphics[width=\linewidth]{sample-franklin}
-%   \caption{1907 Franklin Model D roadster. Photograph by Harris \&
-%     Ewing, Inc. [Public domain], via Wikimedia
-%     Commons. (\url{https://goo.gl/VLCRBB}).}
-%   \Description{A woman and a girl in white dresses sit in an open car.}
-% \end{figure}
-
-% Your figures should contain a caption which describes the figure to
-% the reader.
-
-% Figure captions are placed {\itshape below} the figure.
-
-% Every figure should also have a figure description unless it is purely
-% decorative. These descriptions convey what’s in the image to someone
-% who cannot see it. They are also used by search engine crawlers for
-% indexing images, and when images cannot be loaded.
-
-% A figure description must be unformatted plain text less than 2000
-% characters long (including spaces).  {\bfseries Figure descriptions
-%   should not repeat the figure caption – their purpose is to capture
-%   important information that is not already provided in the caption or
-%   the main text of the paper.} For figures that convey important and
-% complex new information, a short text description may not be
-% adequate. More complex alternative descriptions can be placed in an
-% appendix and referenced in a short figure description. For example,
-% provide a data table capturing the information in a bar chart, or a
-% structured list representing a graph.  For additional information
-% regarding how best to write figure descriptions and why doing this is
-% so important, please see
-% \url{https://www.acm.org/publications/taps/describing-figures/}.
 
 %%
 %% The next two lines define the bibliography style to be used, and
