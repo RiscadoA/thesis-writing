@@ -81,10 +81,10 @@
 \newcommand{\getinstructions}[3]{\mathcal{I}_P(#1,\,#2,\,#3)}
 \newcommand{\getendpoints}[2]{\mathcal{E}(#1,\,#2)}
 \newcommand{\getexpression}[2]{\mathcal{I}_E(#1,\,#2)}
-\newcommand{\makeblock}[1]{#1 \leftarrow \text{newLabel}()}
-\newcommand{\makecont}[1]{#1 \leftarrow \text{newContinuation}()}
-\newcommand{\makedata}[2]{#1 \leftarrow \text{newDataSection}(#2)}
-\newcommand{\makedrop}[3]{#1 \leftarrow \text{newDropBit}(#2,\,#3)}
+\newcommand{\makeblock}[1]{#1 \leftarrow \text{new}_{\text{b}}()}
+\newcommand{\makecont}[1]{#1 \leftarrow \text{new}_{\text{c}}()}
+\newcommand{\makedata}[2]{#1 \leftarrow \text{new}_{\text{d}}(#2)}
+\newcommand{\makedrop}[3]{#1 \leftarrow \text{new}_{\text{e}}(#2,\,#3)}
 
 % Type names
 \newcommand{\classt}[1]{\textbf{\textcolor{forestgreen}{#1}}}

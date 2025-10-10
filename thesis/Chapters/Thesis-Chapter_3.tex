@@ -513,7 +513,7 @@ The presented compilation scheme assumes well-typed \ac{CLASS} processes are giv
 
 \subsection{Compiler State}
 
-Compilation of \ac{CLASS} processes into \ac{IR} programs always occurs within the context of a single \ac{IR} process. As \ac{CLASS} processes are compiled into \ac{IR} instructions, new information is added to the \ac{IR} process header, along with the new instructions and blocks. Changes to the header of the \ac{IR} process are performed through the actions shown below.
+Compilation of \ac{CLASS} processes into \ac{IR} programs always occurs within the context of a single \ac{IR} process. As \ac{CLASS} processes are compiled into \ac{IR} instructions, new information is added to the \ac{IR} process header, along with the new instructions and blocks. Changes to the header of the \ac{IR} process are denoted by the actions shown below.
 
 \begin{minipage}{0.45\textwidth}\begin{equation}\makecont{c}\label{eq:makecont}\end{equation}\end{minipage}
 \hfill
@@ -645,7 +645,7 @@ Finally, we generate the instructions for the process body $P$ on the \texttt{en
 
 \subsection{Cut, Parallel and Empty}
 
-We start by defining the compilation of a $\cutc{P}{x:A}{Q}$ process on an environment $(\theta, \Delta)$. It is assumed, without loss of generality, that $A$ is a positive type, and thus, that $P$ will be writing to $x$ before $Q$ executes - if $A$ were negative, $P$ and $Q$ can simply be swapped. Both the continuation $c$ and the data section $d$ are created to implement session $x$. The layout $\allslots{\theta}{A}$ is given to $d$, guaranteeing that enough space is allocated for all data received by both end points of $x$.
+The compilation definitions for the $\cutc{P}{x:A}{Q}$ process on an environment $(\theta, \Delta)$ are shown below. It is assumed, without loss of generality, that $\polarityof{\theta}{A} = +$, and thus, that $P$ will be writing to $x$ before $Q$ executes - if $A$ were negative, $P$ and $Q$ could simply be swapped. Both the continuation $c$ and the data section $d$ are created to implement session $x$. The layout $\allslots{\theta}{A}$ is given to $d$, guaranteeing that enough space is allocated for all data received by both end points of $x$.
 \begin{compilation}{\theta}{\Delta}{\cutc{P}{x: A}{Q}}
 {\getendpoints{\theta}{P} + \getendpoints{\theta}{Q}}
     \commentline{\makecont{c}, \makedata{d}{\allslots{\theta}{A}}, \makeblock{\texttt{rhs}}}
@@ -860,8 +860,7 @@ Type parameters $T$ are obtained from the current type environment $\theta$, wit
 On the other hand, the $\sendtyc{x}{A}{P}$ process is compiled in a more direct manner, as shown below. This is possible because the type variable has a concrete type $A$ at the point of sending, known at compile time. First, a new continuation $c$ is initialized with $\texttt{cont}$ as return address, and writing address pointing to a new data section $d$. Then, the type $A$ is written to $x$, along with a reference to $c$ and a $\tags$ indicating $A$'s polarity. Future communication over $x$ will happen through $c$, so the old continuation of $x$ is finished.
 \begin{compilation}{\theta}{\Delta}{\sendtyc{x}{A}{P}}
 {\getendpoints{\theta}{P}}
-    \commentline{\makecont{c}, \makeblock{\texttt{cont}}}
-    \commentline{\makedata{d}{\alllocalslots{\theta}{B}}, \text{ where }x: B \text{ in }P}
+    \commentline{\makecont{c}, \makeblock{\texttt{cont}}, \makedata{d}{\alllocalslots{\theta}{B}}, \text{ where }x: B \text{ in }P}
     \initcontinuation{c}{\texttt{cont}}{d}
     \writetype{\writelocof{\Delta}{x}}{\slots{\theta}{A}}
     \writecontinuation{\concatst{\writelocof{\Delta}{x}}{\slotoffset{\seqst{\types}}}{\seqst{\conts; \tags}}}{c}
@@ -907,8 +906,7 @@ Finally, the $\usec{x}{P}$ process is compiled as shown below. A tag is written 
 The process $\cellc{x}{y}{P}$ writes a new shared cell to channel $x$, initialized with a new session $y$ which is used in process $P$. Similarly to $\letc{x}{E}$, session $x$ is finished after writing the cell. A continuation $c$ and a data section $d$ are created to implement session $y$. The written cell is initialized with space for a single $\conts$ slot, to which a reference to $c$ is written. Continuation $c$ is initialized with \texttt{cont} as its return address, and $d$ as writing location.
 \begin{compilation}{\theta}{\Delta}{\cellc{x}{y}{P}}
 {\getendpoints{\theta}{P} + 1}
-    \commentline{\makecont{c}, \makeblock{\texttt{cont}}}
-    \commentline{\makedata{d}{\alllocalslots{\theta}{A}} \text{ where } y:A \text{ in }P}
+    \commentline{\makecont{c}, \makeblock{\texttt{cont}}, \makedata{d}{\alllocalslots{\theta}{A}} \text{ where } y:A \text{ in }P}
     \writecell{\writelocof{\Delta}{x}}{\seqst{\conts}}
     \initcontinuation{c}{\texttt{cont}}{d}
     \writecontinuation{c(\writelocof{\Delta}{x})}{c}
@@ -930,8 +928,7 @@ The process $\takec{x}{y}P$ operates on a shared cell received on $x$. It starts
 The process $\putc{x}{y}{P}Q$, similarly to the $\cellp$ process, initializes a new session $y$. In this case, the existing cell is written to, instead of creating a new cell. After writing to the cell, it is unlocked, and execution continues on process $Q$.
 \begin{compilation}{\theta}{\Delta}{\putc{x}{y}{P}{Q}}
 {\getendpoints{\theta}{P} + \getendpoints{\theta}{Q}}
-    \commentline{\makecont{c}, \makeblock{\texttt{lhs}}}
-    \commentline{\makedata{d}{\alllocalslots{\theta}{A}} \text{ where } y:A \text{ in }P}
+    \commentline{\makecont{c}, \makeblock{\texttt{lhs}}, \makedata{d}{\alllocalslots{\theta}{A}} \text{ where } y:A \text{ in }P}
     \initcontinuation{c}{\texttt{lhs}}{d}
     \writecontinuation{c(\readlocof{\Delta}{x})}{c}
     \unlockcell{\readlocof{\Delta}{x}}
