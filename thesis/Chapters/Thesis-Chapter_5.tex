@@ -7,15 +7,11 @@
 % The following line allows to ref this chapter
 \label{chap:evaluation}
 
-\todo{the achieved goals should be mentioned}
-
-This chapter gives an overview of the implementation of the compiler, which is covered on the first section, as well as the testing strategy, on the second section, and the performance evaluation strategy and results, on the third section.
-
-The compiler has been fully implemented in Java, within the existing \ac{CLASS} and \ac{SAM} interpreters code base. The implementation follows the architecture described in \Cref{chap:architecture}, and includes all the optimizations described in \Cref{chap:optimizations}.
-
-The implementation has been extensively tested through a bench of more than 180 incremental unit tests written in the \ac{CLASS} language, covering all language features. Additionally, multiple existing \ac{CLASS} programs used to test the original interpreters have also been incorporated into the test suite.
+The original goal of this project was to design and implement an efficient compilation scheme for at least part of the \ac{CLASS} language. This goal was achieved and surpassed, as the implemented compiler supports the full language, including polymorphism, recursion, exponentials, and shared state. On top of this, multiple optimizations were designed and implemented, resulting in significant performance improvements, and unexpectedly surpassing the performance of equivalent Haskell implementations in some benchmarks.
 
 The performance of the generated code has been evaluated through a benchmark program and the results compared with different compiler configurations, the interpreted execution of the same program using both the \ac{CLASS} and \ac{SAM} interpreters, and an equivalent implementation in Haskell.
+
+The compiler was fully implemented in Java, within the existing \ac{CLASS} and \ac{SAM} interpreters code base. The implementation follows the architecture described in \Cref{chap:architecture}, and includes all the optimizations described in \Cref{chap:optimizations}. The implementation has been extensively tested through a bench of more than 180 incremental unit tests written in the \ac{CLASS} language, covering all language features.
 
 \section{Implementation}
 

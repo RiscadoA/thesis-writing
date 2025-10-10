@@ -7,6 +7,16 @@
 
 %% Saved with string encoding Unicode (UTF-8) 
 
+@article{Landin:1964,
+  author       = {Peter J. Landin},
+  title        = {{The Mechanical Evaluation of Expressions}},
+  journal      = {The Computer Journal, Volume 6, Issue 4, January 1964},
+  volume       = {6},
+  number       = {4},
+  pages        = {308–320},
+  year         = {1964}
+}
+
 @book{Milner:1980,
   title     = {A Calculus of Communicating Systems},
   author    = {Robin Milner},
@@ -297,6 +307,23 @@
   isbn      = {978-3-319-05119-2}
 }
 
+@inproceedings{Mostrous:2014,
+  author    = {Dimitris Mostrous and
+               Vasco Thudichum Vasconcelos},
+  title     = {{Affine Sessions}},
+  booktitle = {Proc. of {COORDINATION} 2014},
+  pages     = {115--130},
+  series    = {LNCS},
+  volume    = {8459},
+  publisher = {Springer},
+  year      = {2014},
+  opturl       = {http://dx.optdoi.org/10.1007/978-3-662-43376-8_8},
+  optdoi       = {10.1007/978-3-662-43376-8_8},
+  timestamp = {Mon, 26 May 2014 08:09:27 +0200},
+  bibopturl    = {http://dblp.uni-trier.de/rec/bib/conf/coordination/MostrousV14},
+  bibsource = {dblp computer science bibliography, http://dblp.org}
+}
+
 @inproceedings{Jespersen:2015,
   author    = {Jespersen, Thomas Bracht Laumann and Munksgaard, Philip and Larsen, Ken Friis},
   title     = {Session types for Rust},
@@ -357,6 +384,21 @@
   keywords   = {Behavioural types}
 }
 
+@inproceedings{C0:2016,
+  author       = {Max Willsey and
+                  Rokhini Prabhu and
+                  Frank Pfenning},
+  editor       = {Iliano Cervesato and
+                  Maribel Fern{\'{a}}ndez},
+  title        = {Design and Implementation of Concurrent {C0}},
+  booktitle    = {Proceedings Fourth International Workshop on Linearity, {LINEARITY}
+                  2016},
+  series       = {{EPTCS}},
+  volume       = {238},
+  pages        = {73--82},
+  year         = {2016}
+}
+
 @article{Bernardy:2017,
   author     = {Bernardy, Jean-Philippe and Boespflug, Mathieu and Newton, Ryan R. and Peyton Jones, Simon and Spiwack, Arnaud},
   title      = {Linear Haskell: practical linearity in a higher-order polymorphic language},
@@ -392,6 +434,40 @@
   keywords  = {temporal logic, processes, model checking, dependent types, behavioural types, actors, Scala, Dotty},
   location  = {London, United Kingdom},
   series    = {Scala '19}
+}
+
+@article{Move:2019,
+  title={{Move: A Language with Programmable Resources}},
+  author={S. Blackshear and E. Cheng and D. L. Dill and V. Gao and B. Maurer and T. Nowacki and A. Pott and S. Qadeer and
+  D. Russi and D. Sezer and T. Zakian and R. Zhou},
+    year={2019}
+}
+
+@inproceedings{Move:2020,
+  author       = {Jingyi Emma Zhong and
+                  Kevin Cheang and
+                  Shaz Qadeer and
+                  Wolfgang Grieskamp and
+                  Sam Blackshear and
+                  Junkil Park and
+                  Yoni Zohar and
+                  Clark W. Barrett and
+                  David L. Dill},
+  editor       = {Shuvendu K. Lahiri and
+                  Chao Wang},
+  title        = {The Move Prover},
+  booktitle    = {Computer Aided Verification - 32nd International Conference, {CAV}
+                  2020, Los Angeles, CA, USA, July 21-24, 2020, Proceedings, Part {I}},
+  series       = {Lecture Notes in Computer Science},
+  volume       = {12224},
+  pages        = {137--150},
+  publisher    = {Springer},
+  year         = {2020},
+  url          = {https://doi.org/10.1007/978-3-030-53288-8\_7},
+  doi          = {10.1007/978-3-030-53288-8\_7},
+  timestamp    = {Mon, 03 Jan 2022 22:13:44 +0100},
+  biburl       = {https://dblp.org/rec/conf/cav/ZhongCQGBPZBD20.bib},
+  bibsource    = {dblp computer science bibliography, https://dblp.org}
 }
 
 @inproceedings{Kokke:2021,
@@ -431,15 +507,41 @@
   keywords   = {Shared State, Session Types, Propositions-as-Types}
 }
 
-@software{Rocha:2021:artifact,
-  author    = {Pedro Rocha and
-               Luís Caires},
-  title     = {Propositions-as-Types and Shared State (Artifact)},
-  month     = jun,
-  year      = 2021,
-  publisher = {Zenodo},
-  doi       = {10.5281/zenodo.5037493},
-  url       = {https://doi.org/10.5281/zenodo.5037493}
+@article{Rocha:2021:artifact, title={Propositions-as-Types and Shared State (Artifact)}, DOI={10.5281/zenodo.5037493}, abstractNote={<pre>This is the companion artifact for the ICFP21 paper *Propositions-as-Types and Shared State* (https://optdoi.org/10.1145/3473584). The artifact consists of a proof-of-concept type-checker and an interpreter for the language described in the paper. The interpreter is a fully (fine grain) concurrent runtime system, using the java threads library. The artifact is distributed as a Debian QEmu image that bundles the source code, all its dependencies, the code examples from the paper and many other additional code examples and tests.</pre>}, publisher={Zenodo}, author={Pedro Rocha and Luís Caires}, year={2021}, month={May}}
+
+@article{Rast:2022,
+  author       = {A. Das and
+                  F. Pfenning},
+  title        = {Rast: {A} Language for Resource-Aware Session Types},
+  journal      = {Log. Methods Comput. Sci.},
+  doi          = {10.46298/LMCS-18(1:9)2022},
+  volume       = {18},
+  number       = {1},
+  year         = {2022}
+}
+
+@inproceedings{Ferrite:2022,
+  author       = {R. Chen and
+                  S. Balzer and
+                  B. Toninho},
+  editor       = {K. Ali and
+                  J. Vitek},
+  title        = {{Ferrite: {A} Judgmental Embedding of Session Types in Rust}},
+  booktitle    = {36th European Conference on Object-Oriented Programming, {ECOOP} 2022},
+  series       = {LIPIcs},
+  doi          = {10.4230/LIPICS.ECOOP.2022.22},
+  volume       = {222},
+  pages        = {22:1--22:28},
+  year         = {2022}
+}
+
+@article{Rocha:2023:artifact,
+  title={Safe Session-Based Concurrency with Shared Linear State (Artifact)},
+  doi={10.5281/zenodo.7506064},
+  publisher={Zenodo},
+  author={Pedro Rocha and Luís Caires},
+  year={2023},
+  month={January},
 }
 
 @phdthesis{Rocha:2022,
@@ -461,6 +563,22 @@
   url           = {https://arxiv.org/abs/2204.13464}
 }
 
+@inproceedings{FreeST:2019,
+  author       = {Bernardo Almeida and
+                  Andreia Mordido and
+                  Vasco T. Vasconcelos},
+  editor       = {Francisco Martins and
+                  Dominic Orchard},
+  title        = {FreeST: Context-free Session Types in a Functional Language},
+  doi          = {10.4204/EPTCS.291.2},
+  booktitle    = {Proceedings Programming Language Approaches to Concurrency- and Communication-cEntric
+                  Software, PLACES@ETAPS 2019, Prague, Czech Republic, 7th April 2019},
+  series       = {{EPTCS}},
+  volume       = {291},
+  pages        = {12--23},
+  year         = {2019}
+  }
+
 @inproceedings{Rocha:2023,
   author    = {Rocha, Pedro and Caires, Lu\'{\i}s},
   title     = {Safe Session-Based Concurrency with Shared Linear State},
@@ -475,6 +593,18 @@
   pages     = {421–450},
   numpages  = {30},
   location  = {Paris, France}
+}
+
+@article{Jacobs:2023,
+  author       = {Jules Jacobs and
+                  Stephanie Balzer},
+  title        = {Higher-Order Leak and Deadlock Free Locks},
+  journal      = {Proc. {ACM} Program. Lang.},
+  doi          = {10.1145/3571229},
+  volume       = {7},
+  number       = {{POPL}},
+  pages        = {1027--1057},
+  year         = {2023}
 }
 
 @inproceedings{Caires:2024,
@@ -494,16 +624,13 @@
   location  = {Luxembourg City, Luxembourg}
 }
 
-@software{Caires:2024:artifact,
-  author    = {Caires, Luís and
-               Toninho, Bernardo},
-  title     = {The Session Abstract Machine (Submitted Artifact)},
-  month     = jan,
-  year      = 2024,
+@article{Caires:2024:artifact,
+  title = {{The Session Abstract Machine (Artifact)}},
+  doi = {10.5281/zenodo.10459455},
   publisher = {Zenodo},
-  doi       = {10.5281/zenodo.10459511},
-  url       = {https://doi.org/10.5281/zenodo.10459511}
-}
+  author = {Luís Caires and Bernardo Toninho},
+  year = {2024}
+  }
 
 @article{GameOfLife:1970,
   title={The fantastic combinations of John Conway's new solitaire game “life” by Martin Gardner},
