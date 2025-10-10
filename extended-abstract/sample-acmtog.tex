@@ -324,27 +324,27 @@ Introduced by \citet{Girard:1987}, linear logic is a logic where propositions ar
 
 \subsubsection{Session Types}
 
-Introduced by \citet{Honda:1993}, and expanded upon by \citet{Honda:1998}, session types are a type discipline for communication-based programming that ensures that the communication between two parties is well-typed. Essentially, session types are a type discipline for process calculi, such as $\pi$-calculus, where operations on channels must follow the protocol defined by the session type. While in typed $\lambda$-calculus types are associated with terms, which denote functions and values, session types are associated with channel names.
+Introduced by \citet{Honda:1993}, and expanded upon by \citet{Honda:1998}, session types are a type discipline for communication-based programming that ensures that the communication between two parties is well-typed. Essentially, session types are a type discipline for process calculi, where operations on channels obey the protocol defined by the session type. While in typed $\lambda$-calculus types are associated with terms, which denote functions and values, session types are associated with channels.
 
 Operations on session types include sending and receiving, selection and branching, and recursion. Session types have been used to model and verify communication protocols, enforcing their correctness \citep{Huttel:2016}. They have been implemented in various programming languages, either as a language feature, such as in Scribble \citep{Yoshida:2014} and Effpi \citep{Scalas:2019}, or as a library, such as in Rust \citep{Jespersen:2015} and Haskell \citep{Pucella:2008}.
 
-More recently, a direct correspondence between session types and linear logic has been established \citep{Caires:2010, Wadler:2012, Caires:2012, Caires:2016, Giunti:2016}, where session types can be interpreted as linear propositions, and vice-versa. The connectives of linear logic are enough to describe the communication patterns of finite sessions.
+More recently, a direct correspondence between session types and linear logic has been established \citep{Caires:2010, Wadler:2012, Caires:2012, Caires:2016, Giunti:2016}, where session types can be interpreted as linear propositions, and vice-versa. Linear logic connectives are enough to describe the communication patterns of finite sessions.
 
 \subsection{The CLASS Language}
 
-\acf{CLASS} is an experimental language for session-based programs \citep{Rocha:2023, Rocha:2022, Rocha:2021}. It expands on the correspondence between session types and linear logic, adding affine types and shared state. In \ac{CLASS}, well-typed programs never deadlock on communication or reference cell acquisition, and never leak any memory. Additionally, programs always terminate, while still allowing for higher-order polymorphic functional code and even recursion.
+\acf{CLASS} is an experimental language for session-based programs \citep{Rocha:2023, Rocha:2022, Rocha:2021}. It expands on the correspondence between session types and linear logic, adding affine types and shared state. Well-typed \ac{CLASS} programs, while still allowing for higher-order polymorphic functional code and even recursion, always terminate, never deadlock on communication or reference cell acquisition, and never leak memory.
 
 As usual in session based programming languages, in \ac{CLASS} processes communicate through sessions. Each session has two end points (also referred to as channels), and each end point is associated with a session type, which describes the communication protocol that the end point must follow. $x: A$ denotes that the channel $x$ obeys type $A$. These types describe the direction, order and content of the messages exchanged. For example
 \[
     x : \recvt{\dualt{\lintt}}{\sendt{\lboolt}{\closet}}
 \]
-describes a channel $x$ through which first an integer is received, then a boolean sent, and finally, be closed, after which no more data can be exchanged. The dual connective $\dualt{A}$ is used to represent the dual of a type $A$, and describes the type of the other end point of the session. The dual of the type before, for example, is
+describes a channel $x$ on which an integer is received, then a boolean sent, and finally, be closed, after which no more data is exchanged. The dual connective $\dualt{A}$ represents the dual of type $A$, describing the type of the other end point of the session. For example, $y: \dualt{A}$
 \[
     y : \sendt{\lintt}{\recvt{\dualt{\lboolt}}{\waitt}}
 \]
-which describes a channel $y$ through which an integer must first be sent, then a boolean received, and finally, the close of the session must be waited for.
+would describe the other end point of $x$. An integer is sent, then a boolean received, and finally, a wait for the closing is performed.
 
-Session types can be seen as dynamic entities which evolve as the communication progresses. For example, after sending an integer, the type of the channel $y$ in the previous example would become
+Session types can be seen as dynamic entities which evolve as the communication progresses. For example, $y$ would then become
 \[
     y : \recvt{\dualt{\lboolt}}{\waitt}
 \]
@@ -407,9 +407,9 @@ which runs $P$ and $Q$ concurrently, without any communication between them. Thi
 %     \Description{CLASS type grammar}
 % \end{figure}
 
-For each session type, there is a corresponding action process which performs the action described by the type. For example, the process $\closec{x}$ closes a channel $x: \closet$, and the process $\sendc{x}{y}{P}{Q}$ sends a new channel $y: A$ through a channel $x: \sendt{A}{B}$.
+For each session type, there is a corresponding action process which performs the action described by the type. For example, $\closec{x}$ closes a channel $x: \closet$, and the process $\sendc{x}{y}{P}{Q}$ sends a new channel $y: A$ through a channel $x: \sendt{A}{B}$.
 
-A \ac{CLASS} program is composed of a collection of type and process definitions. A type definition associates a name $X$ to a session type $A$, and can either be a simple type definition, or a recursive type definition. Optionally, type definitions may also receive type parameters, which are bound in $A$. A process definition associates a name to a process $P$, and may receive type and channel parameters.
+A \ac{CLASS} program is composed of a collection of type and process definitions. A type definition associates a name to a session type $A$, and a process definition associates a name to a process $P$, which may be parametrized by type parameters and channel arguments.
 
 The following example program defines the process \texttt{main}, which writes a session $y: \colintt$ to a session $x$, which then continues with type $\colboolt$. The sent channel $y$ is employed by the closure $\printlnc{y}{\emptyc}$, which prints the integer received through it and terminates. On the right-hand side of the cut, session $y$ is received and bound as $z$. The type system forces an integer and a boolean to be produced on $x$ and $z$, respectively. Since $\letp$ has no continuation, the $\parp$ construct is used to compose the two $\letp$ processes.
 
@@ -646,7 +646,7 @@ In step \textbf{(6)}, \texttt{finish(c0, exit point)} is executed, causing a jum
 
 In step \textbf{(7)}, \texttt{printLine(move(d1, string))} is executed, printing the string \texttt{"Res:\ 17"} to the standard output.
 
-Finally, in \textbf{(8)}, \texttt{popTask(exit point)} is executed, which pops the next task from the task stack and jumps to it. In this example, the task stack was never modified, and thus contains only the program termination task. Since the instruction is marked as an exit instruction, the exit point count of \texttt{p} reaches $0$, and it is destroyed, ensuring no memory is leaked.
+Finally, in \textbf{(8)}, \texttt{popTask(exit point)} is executed, terminating the program. Since the exit point count is $1$, and the instruction is an exit point, the environment is destroyed, avoiding memory leaks.
 
 \begin{center}
 \begin{tikzpicture}
@@ -670,20 +670,23 @@ In order to model branching data types (such as choices from \ac{CLASS}), data l
 \[
 T ::= \nilst \mid \seqst{S_1; \dots; S_n; T} \mid \tagst{T_1 \tagsepst \dots \tagsepst T_n}
 \]
-where $\nilst$ is the empty slot tree, $\seqst{S_1; \dots; S_n; T}$ is a sequence of a slots $S_1; \dots; S_n$ followed by a slot tree $T$, and $\tagst{T_1 \tagsepst \dots \tagsepst T_n}$ is a $\tags$ slot followed by a choice between the slot trees $T_1$ to $T_n$. For example, $\seqst{\ints; \tagst{\seqst{\bools} \tagsepst \seqst{\strings}}}$ describes an integer followed by a tag, which, if $0$, is followed by a boolean, or if $1$, is followed by a string.
+where $\nilst$ is the empty slot tree, $\seqst{S_1; \dots; S_n; T}$ is a sequence of a slots $S_1; \dots; S_n$ followed by a slot tree $T$, and $\tagst{T_1 \tagsepst \dots \tagsepst T_n}$ is a $\tags$ slot followed by a choice between the slot trees $T_1$ to $T_n$. For example, $\seqst{\ints; \tagst{\seqst{\bools} \tagsepst \seqst{\strings}}}$ describes an integer followed by a tag, which, if $0$, is followed by a boolean, or if $1$, by a string.
 
-Data sections are described within process headers by a sum of slot trees describing the possible layouts of data that can be stored on them. For example, $\texttt{data d0:}\ \combst{\seqst{\ints; \bools} + \seqst{\strings}}$ describes a data section $d_0$ which can either store an $\ints$ followed by a $\bools$, or a $\strings$.
+Data sections are described within process headers by a sum of slot trees describing the possible layouts of data that can be stored on them. For example, $\texttt{data d0:}\ \combst{\seqst{\ints} + \seqst{\strings}}$ describes a data section $d_0$ which can either store an $\ints$ or a $\strings$.
 
-\paragraph{Addressing Data} \label{subsection:DataAddressing}
-
-A \textit{data location} is denoted as $\dataol{b}{o}$, where $b$ is a base address and $o$ an offset. A base address can be either a local data section (e.g., $d_0$), a writing location given by a continuation (e.g., $c_0$), or a cell location (e.g., $c(d_0)$). An offset is defined by two slot trees, written as $\offs{P}{F}$, $P$ describing the data being skipped (named \textit{past}), and $F$ describing the data that may come next (named \textit{future}). The future tree is necessary to determine the alignment of the data being accessed. For example, the location $\datal{d_0}{\seqst{\ints}}{\seqst{\ints}}$ refers to the second integer stored in $d_0$, while the location $\datal{c_0}{\seqst{\bools}}{\seqst{\strings}}$ refers to a string stored in the writing location of the continuation $c_0$, after a boolean. When the offset is zero, it is omitted for brevity. For example, $d_0$ as a data location is equivalent to $\datal{d_0}{\nilst}{\nilst}$ or just $d_0.0$ - the future slot trees are unnecessary for empty past slot trees.
+Data is addressed through \textit{data location}, denoted as $\dataol{b}{o}$, where $b$ is a base address and $o$ an offset. A base address may be, for example, a data section (e.g., $d_0$), or  writing   location given by a continuation (e.g., $c_0$). An offset is defined by two slot trees, written as $\offs{P}{F}$, $P$ describing the data being skipped (named \textit{past}), and $F$ describing the data that may come next (named \textit{future}). The future tree is necessary to determine the alignment of the data being accessed. For example, the location $\datal{d_0}{\seqst{\ints}}{\seqst{\ints}}$ refers to the second integer stored in $d_0$, while the location $\datal{c_0}{\seqst{\bools}}{\seqst{\strings}}$ refers to a string stored in the writing location of the continuation $c_0$, after a boolean. When the offset is zero, it is omitted for brevity. For example, $d_0$ as a data location is equivalent to $\datal{d_0}{\nilst}{\nilst}$ or just $d_0.0$ - the future slot trees are unnecessary for empty past slot trees.
 
 \subsection{Translating CLASS to the IR}
 
 Compilation of \ac{CLASS} processes into \ac{IR} programs always occurs within the context of a single \ac{IR} process. As \ac{CLASS} processes are compiled into \ac{IR} instructions, new information is added to the \ac{IR} process header, along with the new instructions and blocks. Changes to the header of the \ac{IR} process are denoted by
-\begin{equation}\makecont{c}\label{eq:makecont}\end{equation}
-\begin{equation}\makedata{d}{T}\label{eq:makedata}\end{equation}
-\begin{equation}\makeblock{l}\label{eq:makeblock}\end{equation}
+\begin{center}
+\setlength{\abovedisplayskip}{-4pt}
+\begin{minipage}{0.3\linewidth}\begin{equation}\makecont{c}\label{eq:makecont}\end{equation}\end{minipage}
+\hfill
+\begin{minipage}{0.3\linewidth}\begin{equation}\makedata{d}{T}\label{eq:makedata}\end{equation}\end{minipage}
+\hfill
+\begin{minipage}{0.3\linewidth}\begin{equation}\makeblock{l}\label{eq:makeblock}\end{equation}\end{minipage}
+\end{center}
 Action \Cref{eq:makecont} adds a new continuation to the process header, identified by $c$. Action \Cref{eq:makedata} creates a new data section with data layout $T$ identified by $d$. Action \Cref{eq:makeblock} generates a unique label $l$ for a new instruction block within the process body.
 
 \subsubsection{Compilation State}
@@ -696,7 +699,7 @@ The function $\polarityof{\theta}{A}$ is further extended to all session types $
 
 A session environment $\Delta$ is a mapping from session end point names to session states. Each session state is a tuple $(c, d, o)$, where $c$ is the continuation identifier associated with the session end point (or $0$ if there's no continuation), $d$ is the identifier of the data section from which data is read (or $0$ if there's no data section), and $o$ is the data offset to apply to the location of the next write or read operation on the session.
 
-Given a session environment $\Delta$, $\Delta[x \mapsto (c, d, o)]$ is defined as the updated mapping where session end point $x$ is mapped to the new session state $(c, d, o)$. Additionally $\continuationof{\Delta}{x}$, $\localdataof{\Delta}{x}$ and $\offsetof{\Delta}{x}$ are defined as the continuation identifier, local data identifier and data offset associated with session $x$ in the session environment $\Delta$, respectively.
+Given a session environment $\Delta$, $\Delta[x \mapsto (c, d, o)]$ is defined as the updated mapping where session end point $x$ is mapped to the new session state $(c, d, o)$. Additionally $\continuationof{\Delta}{x}$, $\localdataof{\Delta}{x}$ and $\offsetof{\Delta}{x}$ are defined as the continuation, data section and data offset associated with session $x$ in the session environment $\Delta$, respectively.
 
 For convenience, $\readlocof{\Delta}{x}$ and $\writelocof{\Delta}{x}$ are denoted as the current data location from which data of session end point $x$ is to be read, and the data location into which data for session $x$ is to be written, respectively. Both take into account the offset, and are defined as \[\readlocof{\Delta}{x} = \dataol{\localdataof{\Delta}{x}}{\offsetof{\Delta}{x}} \hspace{5em} \writelocof{\Delta}{x} = \dataol{\continuationof{\Delta}{x}}{\offsetof{\Delta}{x}}\]
 
@@ -713,22 +716,17 @@ To simplify the translation definitions, $\advancech{\Delta}{x}{p}{\theta}{S}{A}
 \subsubsection{Mapping Session Types to Slot Trees} \label{subsubsection:MappingSessionTypesToSlots}
 
 Since \ac{IR} data types are represented through slot trees, a mapping from session types to slot trees is necessary. This mapping is denoted by $\slots{\theta}{A}$, where $\theta$ is the type environment and $A$ is the session type being mapped. The full definition of the mapping is omitted for brevity. The mapping is defined first for strictly positive session types. For example,
-\[\begin{aligned}&\slots{\theta}{\closet} = \nilst\\
-  &\slots{\theta}{\lintt} = \seqst{\ints}\\
-  &\slots{\theta}{\sendt{A}{B}} = \seqst{\conts; \slots{\theta}{B}}\\
-  &\slots{\theta}{X} = \seqst{\typeidof{\theta}{X}} \text { s.t. } \polarityof{\theta}{X} = +\\
+\[\begin{aligned}&\slots{\theta}{\closet} = \nilst
+  &&\slots{\theta}{\lintt} = \seqst{\ints} \\ &\slots{\theta}{\sendt{A}{B}} = \seqst{\conts; \slots{\theta}{B}} &&\slots{\theta}{X} = \seqst{\typeidof{\theta}{X}}\\
 \end{aligned}\]
 
-To extended this concept to all session types, we must consider that session types may have multiple segments of data exchange, separated by changes in polarity. We can separate a session type into its segments by replacing every continuation of a different polarity with the unit type of that polarity ($\closet$ or $\waitt$) on the current segment and starting a new segment with the continuation. 
+To extend this concept to all session types, we must consider that session types may have multiple segments of data exchange, separated by changes in polarity. We can separate a session type into its segments by replacing every continuation of a different polarity with the unit type of that polarity ($\closet$ or $\waitt$) on the current segment and starting a new segment with the continuation. 
 
-For example, $\sendt{\lintt}{\recvt{\lstringt}{\closet}}$ can be split into three segments: first $\sendt{\lintt}{\closet}$, then $\recvt{\lstringt}{\waitt}$ and finally  $\closet$. Each segment is either strictly positive or strictly negative. Strictly negative segments can be turned into strictly positive segments by computing their dual types. Thus, we can map each segment to a slot tree through the $\slots{\theta}{A}$ function defined above.
+For example, $\sendt{\lintt}{\recvt{\lstringt}{\closet}}$ can be split into three segments: first $\sendt{\lintt}{\closet}$, then $\recvt{\lstringt}{\waitt}$ and finally  $\closet$. Each segment is either strictly positive or strictly negative. Strictly negative segments can be turned into strictly positive segments by computing their dual types. Thus, we can map each segment to a slot tree through the $\slots{\theta}{A}$ function defined above. The set of all slot trees corresponding to the segments of a session type $A$ is denoted by $\allslots{\theta}{A}$, and the set of slot trees corresponding to the negative segments by $\alllocalslots{\theta}{A}$. Sets of slot trees are termed \textit{layouts}, as they describe the full data exchanged over a session.
 
-The slot tree corresponding to the first segment of a session type $A$ is designated as its \textit{active slot tree}  (denoted simply by $\slots{\theta}{A}$), and the slot trees corresponding to the remaining segments as its \textit{remainder slot trees}. Additionally, we denote positive segments as \textit{remote slot trees} and negative segments as \textit{local slot trees}, as positive segments correspond to data which is sent (and thus stored remotely), while negative segments correspond to data which is received (and thus stored locally). The local set of slot trees of a session type $A$ is denoted by $\alllocalslots{\theta}{A}$, and the total set of slot trees by $\allslots{\theta}{A}$. Sets of slot trees are termed \textit{layouts}, as they describe the full set of data that may be exchanged over a session.
+\subsubsection{Instruction Translation and Exit Point Counting}
 
-
-\subsubsection{Instruction Translation}
-
-The \ac{IR} instructions translated from a \ac{CLASS} process $P$ on a given environment $(\theta, \Delta)$ are denoted by $\getinstructions{\theta}{\Delta}{P}$. This function returns a sequence of \ac{IR} instructions, optionally followed by blocks with more instructions, and is defined incrementally in the following sections.
+The translation of \ac{CLASS} processes into \ac{IR} is defined through two main functions. The first, $\getinstructions{\theta}{\Delta}{P}$, translates a \ac{CLASS} process $P$ on an environment $(\theta, \Delta)$ into a sequence of \ac{IR} instructions. The second, $\getendpoints{\theta}{P}$, counts the number of exit points in a process $P$ on a type environment $\theta$. Both functions are defined recursively through pattern matching on processes.
 
 The translated code implements the write-to-read adjustment of the \ac{SAM} through the placement of \texttt{continue} instructions whenever the polarity of a session changes from positive to negative. To simplify the definition of the translation rules, a pseudo-instruction $\texttt{continueIfNegative}(\theta, \Delta, x, A)$ is defined as
 \[\begin{cases}
@@ -741,12 +739,6 @@ The translated code implements the write-to-read adjustment of the \ac{SAM} thro
     \quad\ \ \textcolor{forestgreen}{\texttt{\%\ empty}} & \text{ otherwise}\\
 \end{cases}\]
 which means that if and only if $\polarityof{\theta}{A} = -$, $\texttt{continueIfNegative}$ is replaced by a \texttt{continue} instruction, and the next instructions are placed in a new block. Otherwise, \texttt{continueIfNegative} is simply removed from the instruction sequence.
-
-\subsubsection{Exit Point Counting}
-
-One other important aspect of the compilation is counting the number of exit points of the translated \ac{IR} code for a given \ac{CLASS} process. This is necessary to ensure that the translated code properly deallocates the process environment when and only when there's no more code left to execute within it.
-
-The number of exit points in a process $P$ is denoted by $\getendpoints{\theta}{P}$, and is defined by pattern matching on processes. It will be incrementally defined along with the instruction translation function in the following sections.
 
 \subsubsection{Translating Process Definitions} A \ac{CLASS} program is a set of process definitions, each with a unique name. For each process definition, a set of resulting \ac{IR} processes is generated, one for each possible combination of polarities of the process definition type parameters. This guarantees that the polarity of each type parameter is always known at compile time, which is important as it greatly affects the flow of control of the translated code.
 
@@ -838,11 +830,9 @@ This concept can also be extended to other domains of the language. One such dom
 
 \subsection{Optimizing Single Exit Points and Tail Calls}
 
-In the base version of the compiler, every exit point instruction decrements the exit point counter of the process environment, and if it reaches zero, the environment is cleaned up and the process terminates. For processes which have only one exit point, this is wasteful - there's no need to maintain an exit point counter, as it is guaranteed to reach zero when an exit point instruction is executed.
+In the base version of the compiler, every exit point instruction decrements the exit point counter of the current environment, and if it reaches zero, the environment is destroyed. For processes with a single exit point, this is wasteful --- there is no need to maintain an exit point counter. The C code generation phase takes advantage of this, omitting exit point handling code when the \ac{IR} process has a single exit point, avoiding unnecessary accesses and branches.
 
-To take advantage of this, the C code generation phase omits any exit point handling code when the \ac{IR} process has only one exit point, avoiding unnecessary memory accesses and branches.
-
-Tail calls, i.e., recursive process calls executed when there's a single exit point left, are optimized to reuse the current process environment instead of allocating a new one, avoiding the overhead of memory allocation and deallocation, and greatly improving performance. This requires branching on the exit point count, to decide on whether a tail call is possible. If the optimization above is applied, the branch becomes unnecessary for processes with a single exit point.
+Tail calls, i.e., recursive process calls executed when a single exit point is left, are optimized to reuse the current process environment instead of allocating a new one, avoiding the overhead of memory allocation and deallocation, and greatly improving performance.
 
 \subsection{Simplifying IR Programs}
 
@@ -856,12 +846,7 @@ send_rhs_2:
     ... // send rhs
 \end{lstlisting}
 
-A symbolic execution on each \ac{IR} process is performed, extracting information about the control flow and known state of the process environment at each instruction. This information is then used to remove unnecessary instructions and merging \ac{IR} blocks when possible. The code above is reduced to
-
-\begin{lstlisting}[language=IR, frame=bottom]
-    writeExpression(c1, 1)
-    ... // send rhs
-\end{lstlisting}
+A symbolic execution on each \ac{IR} process is performed, extracting information about the control flow and known state of the process environment at each instruction. This information is then used to remove unnecessary instructions and merging \ac{IR} blocks when possible. The code above is reduced to \texttt{writeExpression(c1, 1)}.
 
 Another useful result from the symbolic execution is getting information on which exit point instructions are guaranteed to not be the last instruction executed by the process. In the following example, the \texttt{finish} instruction will never be the last executed instruction, as there's an outgoing flow from the \texttt{entry} block to \texttt{rhs}, introduced by \texttt{pushTask}. In cases like these, the exit point markings can be cleared from the instructions, saving memory accesses and branches.
 
@@ -879,17 +864,17 @@ rhs:
 
 The described compilation scheme, along with all described optimizations, was fully implemented in Java, within the existing \ac{CLASS} and \ac{SAM} interpreters code base \citep{Rocha:2021:artifact,Caires:2024:artifact}.
 
-A comprehensive suite of more than 180 unit tests written in the \ac{CLASS} language was developed. This suite covers all features of the language, including edge cases relevant to the implemented optimizations. Each test is composed of a \ac{CLASS} source file, and optionally, a number of input and expected output files. This suite was run with \texttt{valgrind} and multiple \texttt{gcc} sanitizers enabled, such as the address and thread sanitizers, to further validate the absence of memory errors data races. The \texttt{-{}-profiling} flag, provided by the implemented compiler, was also used. This flag counts allocations and deallocations, reporting any memory leaks at the end of execution.
+A comprehensive suite of more than 180 unit tests written in the \ac{CLASS} language was developed. This suite covers all features of the language, including edge cases relevant to the implemented optimizations. Each test is composed of a \ac{CLASS} source file, and optionally, a number of input and expected output files. This suite was run with \texttt{valgrind} and multiple \texttt{gcc} sanitizers enabled to further validate the absence of memory errors data races.
 
 Multiple complex \ac{CLASS} programs were compiled, tested and integrated into the test suite in order to further validate the correctness of the generated code when many features are combined. These programs include an implementation of the Game of Life cellular automaton \citep{GameOfLife:1970}, a prime sieve, a linked list implementation, a simulation of the dining philosophers problem, and other programs making extensive use of both shared state, polymorphism, recursion and exponentials.
 
 \subsection{Benchmarks}
 
-After the entirety of \ac{CLASS} was supported by the compiler, and extensive testing was performed to validate the correctness of the generated code, focus was shifted to measuring and improving the performance of the generated code. To this end, benchmarking \ac{CLASS} programs were developed along with equivalent Haskell implementations. Different compiler configurations were benchmarked, including the interpreted execution of the same program using both the \ac{CLASS} and \ac{SAM} interpreters, and the equivalent Haskell implementations, compiled with GHC \texttt{-O2}. All presented results are averaged over 10 runs, and were obtained on a machine with an Intel Core i9-12900K CPU and 32GB of RAM, running NixOS 25.05.
+After the entirety of \ac{CLASS} was supported by the compiler, and extensive testing was performed to validate the correctness of the generated code, focus was shifted to measuring and improving the performance of the generated code. To this end, benchmarking \ac{CLASS} programs were developed along with equivalent Haskell implementations. Many compiler configurations were benchmarked, including the interpreted execution of the same program using both the \ac{CLASS} and \ac{SAM} interpreters, and the equivalent Haskell implementations, compiled with GHC \texttt{-O2}. All presented results are averaged over 10 runs, and were obtained on a machine with an Intel Core i9-12900K CPU and 32GB of RAM, running NixOS 25.05.
 
 \begin{figure}
     \centering
-    \includegraphics[width=\linewidth]{./Images/execution_time_sieve_compiler_vs_alternatives.pdf}
+    \includegraphics[width=0.8\linewidth]{./Images/execution_time_sieve_compiler_vs_alternatives.pdf}
     \caption{Prime sieve parametrized by prime count.}
     \label{fig:SieveBenchmarkCompilerVsAlternatives}
     \Description{Prime sieve parametrized by prime count.}
@@ -897,16 +882,15 @@ After the entirety of \ac{CLASS} was supported by the compiler, and extensive te
 
 \begin{figure}
     \centering
-    \includegraphics[width=\linewidth]{./Images/execution_time_gol_compiler_vs_ghc.pdf}
+    \includegraphics[width=0.8\linewidth]{./Images/execution_time_gol_compiler_vs_ghc.pdf}
     \caption{Game of Life parametrized by generation count.}
     \Description{Game of Life parametrized by generation count.}
     \label{fig:GOLBenchmarkCompilerVsGHC}
 \end{figure}
 
-The first benchmark program computes prime sieve numbers using the Turner's Sieve algorithm, generating a list of prime numbers up to a given count, taken as input. This benchmark was chosen because it is a simple yet computationally intensive program. On \Cref{fig:SieveBenchmarkCompilerVsAlternatives}, the execution time and the maximum \ac{RSS}, representing the peak memory usage, are compared between the original \ac{CLASS} interpreter, the \ac{SAM} interpreter, the unoptimized (baseline) compiler, the fully optimized compiler, and the equivalent Haskell implementation. The original interpreter cannot handle more than 150 primes due to operating system limits on the number of threads. The results show that the fully optimized compiler achieves a speed up of more than 100x compared to the \ac{SAM} interpreter, a speedup of more than 5x compared to the unoptimized compiler, and also that it outperforms the Haskell implementation, while using significantly less memory.
+The first benchmark program computes prime sieve numbers using the Turner's Sieve algorithm, generating a list of prime numbers up to a given count, taken as input. This benchmark was chosen because it is a simple yet computationally intensive program. On \Cref{fig:SieveBenchmarkCompilerVsAlternatives}, the execution time and the maximum \ac{RSS}, representing the peak memory usage, are compared between the original \ac{CLASS} interpreter, the \ac{SAM} interpreter, the unoptimized (baseline) compiler, the fully optimized compiler, and the equivalent Haskell implementation. The original interpreter cannot handle more than 150 primes due to operating system limits on the number of threads. The results show that the fully optimized compiler achieves a speed up of more than 100x compared to the \ac{SAM} interpreter, a speedup of more than 5x compared to the unoptimized compiler, and also that it outperforms GHC.
 
-
-The second benchmark program implements a functional version of the Game of Life cellular automaton \citep{GameOfLife:1970}. All runs were given the same 17x17 initial configuration containing the \textit{Kok's Galaxy}\footnote{\url{https://conwaylife.com/wiki/Kok\%27s_galaxy}, accessed 2025-10-04} pattern, and were parametrized by the number of generations to compute. In this benchmark, shown in \Cref{fig:GOLBenchmarkCompilerVsGHC}, the optimized compiler performs slower than the Haskell implementation, by a factor of approximately 2.5x. The memory usage of the generated program is, however, significantly lower than the Haskell implementation. We suspect that with further optimizations, such as allocating data in registers and reusing sessions and data sections, the Haskell implementation can be matched or even surpassed.
+The second benchmark program implements a functional version of the Game of Life cellular automaton \citep{GameOfLife:1970}. All runs were given the same 17x17 initial configuration containing the \textit{Kok's Galaxy}\footnote{\url{https://conwaylife.com/wiki/Kok\%27s_galaxy}, accessed 2025-10-04} pattern, and were parametrized by the number of generations to compute. In this benchmark, shown in \Cref{fig:GOLBenchmarkCompilerVsGHC}, the optimized compiler performs slower than the Haskell implementation, by a factor of approximately 2.5x. We suspect that with further optimizations, such as allocating data in registers and reusing sessions and data sections, the Haskell implementation can be surpassed.
 
 A third benchmark, covering the shared state features of \ac{CLASS}, was also developed, but is not presented here due to space constraints. On each benchmark, the performance of multiple compiler configurations was also evaluated, covering different combinations of the optimizations presented in \Cref{sec:optimizations}. The results are shown in detail in the full thesis document.
 
