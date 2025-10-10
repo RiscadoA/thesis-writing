@@ -225,11 +225,11 @@
 
 \subsection{Motivation and Contributions}
 
-Type systems are a powerful tool which can be used to ensure the absence of some runtime errors, which would otherwise require extensive testing or program analysis. Essentially, type systems form a set of rules which limit the programs that can be written in a given language. Most traditional compiled imperative languages, such as C and Java, have type systems that avoid some common programming errors, such as passing a string to a function that expects an integer. Although such programs in a weakly or dynamically typed language such as Python or JavaScript would compile and run, they would likely fail at runtime, whereas in a strongly typed language, the compiler would catch the error at compile time. Strongly typed languages can additionally make use of their types to provide more information about the behavior of the code to the compiler, opening up new optimization paths.
+Type systems are a powerful tool which can be used to ensure the absence of some runtime errors, which would otherwise require extensive testing or program analysis. Essentially, type systems form a set of rules which limit the programs that can be written in a given language. Most traditional compiled imperative languages, such as C and Java, have type systems that avoid some common programming errors, such as passing a string to a function that expects an integer. Although programs in a weakly or dynamically typed language such as Python or JavaScript would compile and run, they would likely fail at runtime, whereas in a strongly typed language, the compiler would catch the error at compile time. Strongly typed languages can additionally make use of their types to provide more information about the behavior of the code to the compiler, opening up new optimization paths.
 
 More recently, substructural types have been proposed to statically ensure even stronger properties of the code, namely resource-usage properties related to memory manipulation, and protocol compliance, namely via linear types and session types~\citep{Wadler:1990,Honda:1998,Mostrous:2014}. In fact, linear and affine types are becoming more and more relevant in practice, as witnessed by the adoption of programming languages such as Rust \citep{Matsakis:2014}, for general systems programming, Move \citep{Move:2019, Move:2020}, for smart contracts, Linear Haskell \citep{Bernardy:2017}, and others \citep{Rast:2022, Ferrite:2022, C0:2016, FreeST:2019, Jacobs:2023} for general purpose programming. Session types have been used to enforce correctness in communication protocols, namely in languages based on process calculus, which model concurrent systems \citep{Milner:1980,Milner:1992:1,Milner:1992:2}. By coupling session types with linear logic \citep{Girard:1987,Caires:2010}, it has been possible to additionally guarantee deadlock freedom. 
 
-\acs{CLASS} \citep{Rocha:2021, Rocha:2023, Rocha:2022} is a proof-of-concept general purpose linear programming language based on linear / session types.
+\acs{CLASS} \citep{Rocha:2021, Rocha:2023, Rocha:2022} is a proof-of-concept general purpose linear programming language based on linear/session types.
 \acs{CLASS} supports many realistic concurrent programming idioms, and is the first language to simultaneously guarantee memory safety and the absence of dead-locks.
 %
 However, the \acs{CLASS} interpreter implemented by \citet{Rocha:2021:artifact,Rocha:2023:artifact} served as a proof-of-concept for the language, and was not at all optimized for performance, and thus, wasn't suitable for real-world applications --- such fully concurrent implementations spawn threads for all concurrent processes, based on the ``default'' concurrent interpretation of session-based programs (e.g., ~\citep{FreeST:2019,Jespersen:2015}).
@@ -243,10 +243,7 @@ During this work, a compilation scheme was designed and implemented which transl
 
 \subsection{Compilation Overview}
 
-\ac{CLASS} programs are linearly typed session-based programs. Programs are constructed by composing processes which communicate through channels. Channels are first-class citizens of the language, replacing variables from traditional imperative languages. Communication through channels is regulated by the channel's session type, which describes the communication protocol followed by the channel. The linearity of the type system ensures that all communication is carried out exactly once, preventing leakage of resources, and guaranteeing memory safety.
-
-An example \ac{CLASS} program is shown below. This program defines a process called \texttt{main} which will be executed when the programs is run. Within it, the $\cutp$ process creates a new channel $x$ through which both sides of the cut can communicate. On the right hand side of the cut, $x$ is typed by $\colintt$, and on the left hand side of the cut, by its dual, $\lintt$. Semantically, the left hand side of the cut must produce an integer, which the right hand side must then consume. In this case, the left hand side produces the integer 1, through the $\letp$ process, and the right hand side consumes it by printing it to the standard output, through the $\printp$ process. The $\printp$ process requires a continuation, which in this case is the $\emptyp$ process, which represents end of computation.
-
+\ac{CLASS} programs are linearly typed session-based programs. Programs are constructed by composing processes which communicate through channels. Channels are first-class citizens of the language, replacing variables from traditional imperative languages. Communication through channels is regulated by the channel's session type, which describes the communication protocol followed by the channel. The linearity of the type system ensures that all communication is carried out exactly once, preventing leakage of resources, and guaranteeing memory safety. An example \ac{CLASS} program is shown below.
 
 \begin{lstlisting}[language=CLASS]
 proc main() {
@@ -258,8 +255,9 @@ proc main() {
 };;
 \end{lstlisting}
 
-An \acf{IR} was developed to serve as an intermediate step between \ac{CLASS} and C code, greatly simplifying the compilation process. This \ac{IR} is based on the \ac{SAM} execution model, sequentially executing the processes of the \ac{CLASS} program with buffered communication. The final compilation scheme is divided into three main phases: the translation from \ac{CLASS} to \ac{IR}, optimization of the \ac{IR}, and generation of C code from the optimized \ac{IR}. The \ac{IR} translation of the previous example is shown below.
+This program defines a process \texttt{main} which will be executed when the program is run. Within it, the $\cutp$ process creates a new session $x$ through which both sides of the cut can communicate. On the right hand side of the cut, $x$ is typed by $\colintt$, and on the left hand side of the cut, by its dual, $\lintt$. Semantically, the left hand side of the cut must produce an integer, which the right hand side must then consume. In this case, the left hand side produces the integer 1, through the $\letp$ process, and the right hand side consumes it by printing it to the standard output, through the $\printp$ process. The $\printp$ process requires a continuation, which in this case is the $\emptyp$ process, which represents end of computation.
 
+An \acf{IR} was developed to serve as an intermediate step between \ac{CLASS} and C code, greatly simplifying the compilation process. This \ac{IR} is based on the \ac{SAM} execution model, sequentially executing the processes of the \ac{CLASS} program with buffered communication. The final compilation scheme is divided into three main phases: the translation from \ac{CLASS} to \ac{IR}, optimization of the \ac{IR}, and generation of C code from the optimized \ac{IR}. The \ac{IR} translation of the previous example is shown below.
 \begin{lstlisting}[language=IR]
 main:
   exit points: 2
@@ -273,13 +271,11 @@ cut_0:
   print(move(d0, int))
   popTask(exit point)
 \end{lstlisting}
+Process $\texttt{main}$ is translated into an \ac{IR} process of the same name, composed of an header and a set of instruction blocks. The header specifies that the process has two exit points, a continuation $c_0$, used to implement session $x$, and a data section $d_0$, which will store the integer written to $x$.
 
-Process $\texttt{main}$ is translated into an \ac{IR} process of the same name, composed of an header and a set of instruction blocks. The header specifies that the process has two exit points, a continuation $c_0$, used to implement session $x$, and a data variable $d_0$, which will store the integer written to $x$.
+The \texttt{entry} block of the \ac{IR} process is generated from the $\cutp$ process. It starts by initializing $c_0$, indicating its writing location to be $d_0$, and setting its return address to block \texttt{cut\_0}. The writing side is always executed first, so the next instructions are generated from the $\letp$ process. A write of the integer $1$ to the continuation $c_0$ (and thus to $d_0$) is generated, along with a \texttt{finishContinuation} instruction, which passes control to the return address of $c_0$, \texttt{cut\_0}. The \texttt{cut\_0} block is generated from the right hand side of the cut. $\printp$ is translated to a \texttt{print} instruction, which reads the integer from $d_0$ and prints it. Finally, $\emptyp$ is translated to \texttt{popTask}, which, in this case, ends the program.
 
-The \texttt{entry} block of the \ac{IR} process is generated from the $\cutp$ process. It starts by initializing $c_0$, indicating its writing location to be $d_0$, and setting its return address to block \texttt{cut\_0}. The writing side is always executed first, so the next instructions are generated from the $\letp$ process, writing the integer $1$ to the continuation $c_0$ (and thus to $d_0$), and finishing the continuation, passing control to the block \texttt{cut\_0}, as specified earlier. The \texttt{cut\_0} block is generated from the right hand side of the cut. $\printp$ is translated to a \texttt{print} instruction, which reads the integer from $d_0$ and prints it. Finally, $\emptyp$ is translated to \texttt{popTask}, which, in this case, ends the program.
-
-A set of transformations are applied to the \ac{IR} program to improve its performance, producing the final version of the \ac{IR}, shown below. Using information obtained from a symbolic execution of the \ac{IR} program, the continuation $c_0$ can be optimized away entirely, leaving only the data variable $d_0$. For example, since \texttt{finishSession} must pass control to the \texttt{cut\_0} block, it can be removed and the blocks concatenated. Furthermore, the writing location of $c_0$ is known to be $d_0$. Thus \texttt{writeExpression} can write directly to it.
-
+A set of transformations are applied to the \ac{IR} program to improve its performance, producing the final version of the \ac{IR}, shown below.
 \begin{lstlisting}[language=IR]
 main:
   exit points: 1
@@ -289,24 +285,20 @@ entry:
   print(move(d0, int))
   popTask(exit point)
 \end{lstlisting}
+Using information obtained from a symbolic execution of the \ac{IR} program, the continuation $c_0$ can be optimized away entirely, leaving only the data variable $d_0$. In this case, since \texttt{finishSession} must pass control to the \texttt{cut\_0} block, it could be removed and the blocks concatenated. Furthermore, the writing location of $c_0$ is known to be $d_0$. Thus \texttt{writeExpression} can write directly to it.
 
 Finally, the optimized \ac{IR} program is translated to C code. Due to the continuation-based nature of the \ac{SAM} execution model, processes are not represented as functions, but instead as code blocks within a single function, with control being transferred between them through the use of \texttt{goto} statements. Stack frames are replaced by heap-allocated environments, linked together to form a spaghetti stack. These environments contain all local variables and state used by the process. A set of variables are used as registers to keep the current execution state, such as a pointer \texttt{env} to the active environment. A segment of the generated code is shown below.
-
 \begin{lstlisting}[language=C]
 main_entry:
-  /* writeExpression(d0, 1) */
   *(int*)(env + 0) = 1;
-  /* print(move(d0, int)) */
   printf("%d", *(int*)(env + 0));
-  /* popTask(exit point) */
   managed_free(env);
 \end{lstlisting}
-
 The \texttt{main\_entry} label represents the \texttt{entry} block of the \ac{IR} \texttt{main} process. At the start of the program, an environment \texttt{env} is allocated and control is passed to this label. The \texttt{writeExpression} instruction is compiled into a simple assignment to the location of $d_0$ in the environment, which in this case is at offset $0$. The \texttt{print} instruction is compiled into a call to the C \texttt{printf} function, reading the integer from the same location. Finally, the \texttt{popTask} instruction is compiled into code which frees the current environment, and, in this case, ends the program.
 
 \subsection{Document Structure}
 
-The second section of this document provides the main background information required to understand the rest of the document, introducing the foundations of linear session types, the \ac{CLASS} language and the Linear \ac{SAM}. The third section gives an overview of the compilation scheme, describing the compilation phases. The fourth section highlights the main developed optimizations. The fifth section briefly presents and discusses the obtained results. Finally, the sixth section concludes the document and suggests future work.
+The second section of this document provides the main background information required to understand the rest of the document, introducing the foundations of linear/session types, the \ac{CLASS} language and the Linear \ac{SAM}. The third section gives an overview of the compilation scheme, describing the compilation pipeline. The fourth section highlights the main developed optimizations. The fifth section briefly presents and discusses the obtained results. Finally, the sixth section concludes the document and suggests future work.
 
 \section{Background and Related Work}
 
@@ -314,13 +306,13 @@ The second section of this document provides the main background information req
 
 \subsubsection{Process Calculi}
 
-Multiple paradigms have been developed to model concurrent systems. One of the most well-known is \acf{CCS} \citep{Milner:1980}, which introduced the notion of parallel composition, restriction and communication. In the 90s, \citet{Milner:1992:1,Milner:1992:2} introduced $\pi$-calculus, a process calculus that allows for mobility of processes - channels, through which processes communicate, can themselves be sent and received. It unifies data with communication channels, treating them as first-class citizens. This allows for more complex communication patterns, where the topology of the network can change dynamically. $\pi$-calculus can be used to encode various computation paradigms, such as $\lambda$-calculus and Turing machines, and thus, is a universal model of computation.
+Multiple paradigms have been developed to model concurrent systems. One of the most well-known is \acf{CCS} \citep{Milner:1980}, which introduced the notion of parallel composition, restriction and communication. In the 90s, \citet{Milner:1992:1,Milner:1992:2} introduced $\pi$-calculus, a process calculus that allows for mobility of processes --- channels, through which processes communicate, can themselves be sent and received. It unifies data with communication channels, treating them as first-class citizens. This allows for more complex communication patterns, where the topology of the network can change dynamically. $\pi$-calculus can be used to encode various computation paradigms, such as $\lambda$-calculus and Turing machines, and thus, is a universal model of computation.
 
 % Processes can be seen as a generalization of functions, where the input and output can be sent over a channel - a function call can be seen as sending the input over a channel, and then receiving the output over the same channel. Additionally, coroutine constructs and generator expressions common in modern languages such as Python can also be easily modeled as a process calculus, where calls to \textit{yield} statements can be seen as sending values over a channel. Channels in $\pi$-calculus can also be replicated, which makes it possible to model services that can be accessed by multiple clients, such as web servers.
 
 \subsubsection{Linear Logic}
 
-Introduced by \citet{Girard:1987}, linear logic is a logic where propositions are consumed exactly once, as opposed to classical logic where propositions can be used any number of times. This property makes linear a logic ideal for modeling resources on real-world systems, opening pathways for multiple optimizations, such as in-place updates in functional languages \citep{Hofmann:2000}. Since its inception, linear logic has been seen as a good candidate for modeling the foundations of concurrent stateful systems \citep{Wadler:1990}. In fact, through the works of \citet{Abramsky:1993}, it has been found that classical linear logic can be interpreted computationally, and since then, this connection has been developed further by multiple authors \citep{Turner:1999}. More importantly for this work, the propositions-as-types correspondence of linear logic has proven useful for modeling concurrent systems \cite{Caires:2010}.
+Introduced by \citet{Girard:1987}, linear logic is a logic where propositions are consumed exactly once, as opposed to classical logic where propositions can be used any number of times. This property makes linear logic ideal for modeling resources on real-world systems, opening pathways for multiple optimizations, such as in-place updates in functional languages \citep{Hofmann:2000}. Since its inception, linear logic has been seen as a good candidate for modeling the foundations of concurrent stateful systems \citep{Wadler:1990}. In fact, through the works of \citet{Abramsky:1993}, it has been found that classical linear logic can be interpreted computationally, and since then, this connection has been developed further by multiple authors \citep{Turner:1999}. More importantly for this work, the propositions-as-types correspondence of linear logic has proven useful for modeling concurrent systems \cite{Caires:2010}.
 
 \subsubsection{Session Types}
 
@@ -338,11 +330,11 @@ As usual in session based programming languages, in \ac{CLASS} processes communi
 \[
     x : \recvt{\dualt{\lintt}}{\sendt{\lboolt}{\closet}}
 \]
-describes a channel $x$ on which an integer is received, then a boolean sent, and finally, be closed, after which no more data is exchanged. The dual connective $\dualt{A}$ represents the dual of type $A$, describing the type of the other end point of the session. For example, $y: \dualt{A}$
+describes a channel $x$ which receives an integer, then sends a boolean, and finally, is closed, after which communication stops. The dual connective $\dualt{A}$ represents the dual of type $A$, describing the type of the other end point of the session. For example, $y: \dualt{A}$
 \[
     y : \sendt{\lintt}{\recvt{\dualt{\lboolt}}{\waitt}}
 \]
-would describe the other end point of $x$. An integer is sent, then a boolean received, and finally, a wait for the closing is performed.
+would describe the other end point of $x$. $y$ sends an integer, then receives a boolean, and finally waits to be closed.
 
 Session types can be seen as dynamic entities which evolve as the communication progresses. For example, $y$ would then become
 \[
@@ -411,15 +403,15 @@ For each session type, there is a corresponding action process which performs th
 
 A \ac{CLASS} program is composed of a collection of type and process definitions. A type definition associates a name to a session type $A$, and a process definition associates a name to a process $P$, which may be parametrized by type parameters and channel arguments.
 
-The following example program defines the process \texttt{main}, which writes a session $y: \colintt$ to a session $x$, which then continues with type $\colboolt$. The sent channel $y$ is employed by the closure $\printlnc{y}{\emptyc}$, which prints the integer received through it and terminates. On the right-hand side of the cut, session $y$ is received and bound as $z$. The type system forces an integer and a boolean to be produced on $x$ and $z$, respectively. Since $\letp$ has no continuation, the $\parp$ construct is used to compose the two $\letp$ processes.
+The following example program defines the process \texttt{main}. On one side of the cut, a session $y$ is sent to $x$, implemented by $\letc{y}{1}$. On the receiving side, $y$ is received and bound to $z$. The integer received from $z$ is doubled and sent through $x$, which is then printed by the receiver. The program terminates on $\emptyp$.
 
 \begin{lstlisting}[language=CLASS]
 proc main() {
   cut {
-    send x(y. println(y); ());
+    recv x(z); let x z * 2
+    |x: @send@ lint; colint|
+    send x(y. let y 1);
     println(x); ()
-    |x: @recv@ lint; lbool|
-    recv x(z); par { let x 1 || let z true }
   }
 };;
 \end{lstlisting}
@@ -472,14 +464,15 @@ The \ac{SAM}, introduced by \citet{Caires:2024}, is a virtual machine for execut
 
 The core components of the \ac{SAM} are session references $x, y$, values $V ::= \checkmark\ |\ \labelp{c}\ |\ \text{clos}(x, P)$, queues $q ::= \text{nil}\ |\ V\ |\ V@q$, session records $R ::= x\langle q,P\rangle y$ and the heap $H ::= x \mapsto R$, where $P$ is a process. Values $V$ can either be the close token $\checkmark$, a label $\#c$, or a closure $\text{clos}(x, P)$, where $x$ is a session reference and $P$ is a process. Queues $q$ are sequences of values, and session records $R$ are tuples of session references $x, y$, a queue $q$ and a process $P$. The heap $H$ maps session references to session records.
 
-The Linear \ac{SAM} is a state transition system, where the state is a tuple $(P, H)$, with the heap $H$ and a process $P$. The transition relation is defined by a set of rules. The $\cutp$ rule, shown below, inserts a new session record in the heap, associated to the session reference $x$, for executing the continuation $Q$ of the process $P$, assuming, without loss of generality, that $A$ is a positive type, i.e., that $P$ will push values into the session queue, and $Q$ will later pop them. Essentially, the rule transitions to a state where $P$ will be executed immediately, and where $Q$ is delayed to a later time. If $A$ is a negative type, the same rule is applied but with $P$ and $Q$ swapped.
+The Linear \ac{SAM} is a state transition system, where the state is a tuple $(P, H)$, with the heap $H$ and a process $P$. The transition relation is defined by a set of rules. The $\cutp$ rule, defined as
 \[
     (\cutc{P}{x: A^+}{Q}, H)
     \Mapsto
     (P, H[x: A^+\langle\text{nil},\{y/x\}Q\rangle y:\dual{A^+}])
 \]
+inserts a new session record in the heap, associated to the session reference $x$, for executing the continuation $Q$ of the process $P$, assuming, without loss of generality, that $A$ is a positive type, i.e., that $P$ will push values into the session queue, and $Q$ will later pop them. Essentially, the rule transitions to a state where $P$ will be executed immediately, and where $Q$ is delayed to a later time. If $A$ is a negative type, the same rule is applied but with $P$ and $Q$ swapped.
 
-One particularly important concept of the \ac{SAM}  is the notion of \textit{write-to-read adjustments}, which are denoted as denoted by $(P,H[x:A\langle q,Q\rangle y:B])^{wr}$. This operation swaps $P$ with $Q$, if and only if the continuation type $A$ is a negative type. This operation ensures that the next action will be executed by the positive end point of the session. Write-to-read adjustments are performed whenever a positive action which will be followed by a negative action is executed.
+One concept of the \ac{SAM} particularly important to this work is its \textit{write-to-read adjustment} operation, denoted by \[(P,H[x:A\langle q,Q\rangle y:B])^{wr}\] This operation swaps $P$ with $Q$, if and only if the continuation type $A$ is a negative type. This operation ensures that the next action will be executed by the positive end point of the session. Write-to-read adjustments are performed whenever a positive action which will be followed by a negative action is executed.
 
 \section{Compilation Scheme}
 
