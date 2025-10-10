@@ -257,20 +257,19 @@ An \acf{IR} was developed to serve as an intermediate step between \ac{CLASS} an
 
 \begin{lstlisting}[language=IR]
 main:
-  end points: 2
-  types: none
+  exit points: 2
   continuations: c0
   data d0: <[int]> (c0)
 entry:
   initializeContinuation(c0, cut_0, d0)
   writeExpression(c0, 1)
-  finishContinuation(c0, end point)
+  finishContinuation(c0, exit point)
 cut_0:
   print(move(d0, int))
-  popTask(end point)
+  popTask(exit point)
 \end{lstlisting}
 
-The process $\texttt{main}$ is translated into an \ac{IR} process of the same name, composed of an header, and a set of blocks of instructions. In this case, the header specifies that the process has two end points, no type parameters, one continuation $c_0$, used to implement session $x$, and a data variable $d_0$, which will store the integer written to $x$.
+The process $\texttt{main}$ is translated into an \ac{IR} process of the same name, composed of an header, and a set of blocks of instructions. In this case, the header specifies that the process has two exit points, one continuation $c_0$, used to implement session $x$, and a data variable $d_0$, which will store the integer written to $x$.
 
 The \texttt{entry} block of the \ac{IR} process is generated from the $\cutp$ process. It starts by initializing the continuation $c_0$, indicating its writing location to be $d_0$, and setting its return address to block \texttt{cut\_0}. The writing side is always executed first, so the next instructions are generated from the $\letp$ process, writing the integer $1$ to the continuation $c_0$ (and thus to $d_0$), and finishing the continuation, passing control to the block \texttt{cut\_0}, as specified earlier. The \texttt{cut\_0} block is generated from the right hand side of the cut. The $\printp$ process generates a \texttt{print} instructions, which reads the integer from $d_0$ and prints it to the standard output. Finally, the $\emptyp$ process generates a \texttt{popTask} instruction, which passes control to the next task, if any, or ends the program if there are no more tasks to execute, as is the case here.
 
@@ -278,14 +277,12 @@ A set of transformations are applied to the \ac{IR} program to improve its perfo
 
 \begin{lstlisting}[language=IR]
 main:
-  end points: 1
-  types: none
-  sessions: none
+  exit points: 1
   data d0: <[int]>
 entry:
   writeExpression(d0, 1)
   print(move(d0, int))
-  popTask(end point)
+  popTask(exit point)
 \end{lstlisting}
 
 Finally, the optimized \ac{IR} program is compiled into C code. Due to the continuation-based nature of the \ac{SAM} execution model, processes are not represented as functions, but instead as code blocks within a single function, with control being transferred between them through the use of \texttt{goto} statements. Stack frames are replaced by heap-allocated environments, linked together to form a spaghetti stack. These environments contain all local variables and state used by the process. A set of variables are used as registers to keep the current execution state, such as a pointer \texttt{task} to the next task, and a pointer \texttt{env} to the active environment. A segment of the generated code is shown below.
@@ -296,7 +293,7 @@ main_entry:
   *(int*)(env + 0) = 1;
   /* print(move(d0, int)) */
   printf("%d", *(int*)(env + 0));
-  /* popTask(end point) */
+  /* popTask(exit point) */
   managed_free(env);
 \end{lstlisting}
 
@@ -816,7 +813,7 @@ An environment layout $\envlayout$ is a compile-time data structure which descri
 
 The \ac{IR} has no concept whatsoever of stacks or function calls, and processes cannot be mapped to C functions efficiently due to their use of continuations. Thus, the entire \ac{IR} abstract machine is implemented within a single C function named \texttt{executor}. \ac{IR} blocks are translated to C labels within this function, and \ac{IR} instructions are translated to C statements. Jumps between instructions such as \texttt{callProcess} and \texttt{continue} are implemented through gotos to the corresponding C labels, or to their addresses stored in continuations.
 
-Register variables declared within the \texttt{executor} function are used to store the current state, such as a pointer to the current environment, and also temporary values used during the execution of each instruction.
+Register variables declared within the \texttt{executor} function are used to store the current state, such as a pointer to the current environment, and also temporary values for instruction execution.
 
 Each thread of execution runs the \texttt{executor} function, which takes as argument information about the initial code address to execute on. The main thread of the program sets this code address to the entry block of the \texttt{main} process, allocating a new environment for it, while new threads are spawned into existing environments.
 
@@ -826,11 +823,9 @@ Each thread of execution runs the \texttt{executor} function, which takes as arg
 
 The compiler presented in the previous sections does not take any advantage of the fact that many types in the language can be handled more efficiently than the general case. For example, the type $\sendt{\lintt}{\lintt}$ is stored as a reference to a continuation (essentially a closure) followed by an integer. The closure producing the $\lintt$ will eventually be executed, producing a single integer and immediately terminating. Instead of sending this continuation, the integer could be computed immediately and sent directly, saving memory and time, as the pointer indirection would be removed, along with some unnecessary jumps.
 
-Types are optimized based on whether they're \textit{value}, \textit{droppable} or \textit{cloneable} types. These properties are referred to as \textit{type flags}. A type flag of a given type may either be $\guaranteed$ to hold, $\impossible$ to hold, or be dependent on whether some type parameters have some type flags set, which is denoted as $\dependent{F_1,\,\dots,\,F_n}$, where each $F_i$ is either $\depisvalue{t_j}$, $\depisdroppable{t_j}$ or $\depiscloneable{t_j}$ (value, droppable and cloneable flags, respectively), and $t_j$ is a type variable. These requirements are referred to as \text{type flag requirements}.
+Types are thus optimized based on their properties. In the example above, the optimization is possible because $\lintt$ is a \textit{value type}, i.e., strictly positive. Sends of positive value types can always be optimized this way, as the execution of a session of a positive value type always produces the value   immediately, and then terminates.
 
-A type is said to be a value type if it has a strict polarity, being either strictly positive, or strictly negative. A channel of a negative value type will only be read from, and control will not be passed to it. A channel of a positive value type will only be written to, and control will not return to it. For example, $\lintt$ and $\sendt{A}{\closet}$ are both positive value types. A type $A$ is only a value if and only if its type flag requisites are met, which are denoted as $\isvalue{A}$, where $\typeenv$ is a type environment. The definition of $\isvalue{A}$ is omitted for brevity, but is available in the full thesis.
-
-\todo{pick only one kind of type, and discuss that optimization. maybe exponentials are the most interesting?}
+This concept can also be extended to other domains of the language. One such domain is that of \textit{cloneable types}. If a cloning operation can be defined for a value type, as is the case for, for example, integers and booleans, then an exponential session of that type can be optimized to store the value directly. This effectively turns most exponential closures, which recompute their value every time they're used, into much more efficient value copies. 
 
 \subsection{Optimizing Single Exit Points and Tail Calls}
 
@@ -842,9 +837,8 @@ Tail calls, i.e., recursive process calls executed when there's a single exit po
 
 \subsection{IR Simplification}
 
-The previously mentioned transformations introduce many optimization opportunities in the generated \ac{IR} code itself. For example, below is a result of compiling a send of positive value type, as described in \Cref{subsection:SendValueOptimizations}. A new continuation $c_2$ is introduced only for writing to $c_1$. In this case, it could be replaced entirely by direct writes to $c_1$.
+The previously mentioned transformations introduce many optimization opportunities in the generated \ac{IR} code itself. For example, below is the result of compiling a send of positive value type. A new continuation $c_2$ is introduced only for writing to $c_1$. In this case, it could be replaced entirely by direct writes to $c_1$.
 
-\begin{minipage}{0.9\linewidth}
 \begin{lstlisting}[language=IR, frame=bottom]
     initContinuation(c2, send_rhs_2, c1)
     writeExpression(c2, 1)
@@ -852,32 +846,20 @@ The previously mentioned transformations introduce many optimization opportuniti
 send_rhs_2:
     ... // send rhs
 \end{lstlisting}
-\end{minipage}
 
-To simplify the generated \ac{IR} code, a control flow graph for each \ac{IR} process is built through symbolic execution. For each instruction, the known state of the process environment is updated, storing information such as the known state of each continuation, or the known values of slots in the local data sections. For each visited \ac{IR} block, a node is added to the graph, storing the nodes into which the node may jump to, as well as nodes which become detached from the main control flow, such as blocks referenced by a \texttt{pushTask} instruction. Eventually, all reachable nodes are visited.
-
-The first applied optimization removes jumps to known locations, such as \texttt{continue} instructions of known continuations, or branches with known outcomes. After removing these instructions, the source and target \ac{IR} blocks are merged. The example above becomes:
+A symbolic execution on each \ac{IR} process is performed, extracting information about the control flow and known state of the process environment at each instruction. This information is then used to simplify the generated code, removing unnecessary instructions and merging \ac{IR} blocks when possible. The code above is reduced to
 
 \begin{lstlisting}[language=IR, frame=bottom]
-    initContinuation(c2, -, c1) // no target location
-    writeExpression(c2, 1)
+    writeExpression(c1, 1)
     ... // send rhs
 \end{lstlisting}
 
-Next, remote data locations are replaced by their known locations. For example, the writing location of $c_2$ was just initialized to be $c_1$. Thus, the data location $c_2$ can be replaced by $c_1$. This leaves us with a continuation $c_2$ which is initialized but never used, and thus, can be removed.
-
-\begin{lstlisting}[language=IR, frame=bottom]
-    initContinuation(c2, -, c1) // c2 is unused, can be removed
-    writeExpression(c1, 1) // write directly to c1
-    ... // send rhs
-\end{lstlisting}
-
-Another useful result from the symbolic execution is knowing which exit point instructions are guaranteed to not be the last instruction executed by the process. For example, in the following code, the \texttt{finish} instruction will never be the last executed instruction, as there's an outgoing flow from the \texttt{entry} block to \texttt{rhs} block, introduced by \texttt{pushTask}. In cases like these, the exit point markings can be removed from the instructions, and the exit point counter of the process decremented. This makes most processes have a single exit point, which can be optimized as described in \Cref{section:SingleExitPointOptimizations}.
+Another useful result from the symbolic execution is knowing which exit point instructions are guaranteed to not be the last instruction executed by the process. For example, in the following code, the \texttt{finish} instruction will never be the last executed instruction, as there's an outgoing flow from the \texttt{entry} block to \texttt{rhs} block, introduced by \texttt{pushTask}. In cases like these, the exit point markings can be removed from the instructions, and the exit point counter of the process decremented, saving memory accesses and branches.
 
 \begin{lstlisting}[language=IR, frame=bottom]
 entry:
     pushTask(rhs)
-    finish(c1, exit point) // becomes just finish(c1)
+    finish(c1, exit point) // exit point is removed
 rhs:
     popTask(exit point)
 \end{lstlisting}
