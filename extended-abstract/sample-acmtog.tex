@@ -762,7 +762,7 @@ The compilation definitions for the $\cutc{P}{x:A}{Q}$ process on an environment
 
 The instructions initialize a new continuation $c$ with a new block $\makeblock{\texttt{rhs}}$ as the return address and a new data section $d$ as a writing location. Both $P$ and $Q$ are recursively translated on a new environment where $x$ is bound to $(c, d, 0)$. $P$ is placed on the original block, and $Q$ placed on the new block \texttt{rhs}. The number of exit points of the instructions is the sum of the number of exit points of both $P$ and $Q$. 
 
-The $\closec{x}$ process indicates that communication over a session $x$ is finished. As on the \ac{SAM}, control is passed to the other end point of $x$, never returning back. This jump is performed with the \texttt{finish} instruction, taking as argument the continuation of session $x$, obtained from $\Delta$. As before, this instruction is marked as an exit point.
+The $\closec{x}$ process indicates that a session $x$ is finished. As on \ac{SAM}, control is passed to the other end point of $x$, never returning back. This jump is performed with the \texttt{finish} instruction, taking as argument the continuation of session $x$, obtained from $\Delta$.
 \begin{compilationacm}{\theta}{\Delta}{\closec{x}}{1}
     \finishcont{\continuationof{\Delta}{x}}{\hasexitpoint}
 \end{compilationacm}
@@ -797,167 +797,28 @@ The $\recvc{x}{y}P$ process receives a session end point $y$ over session $x$, w
 
 The last phase of the compilation pipeline is the translation from the \ac{IR} to C. This phase takes as input the \ac{IR} produced by the compilation scheme described in the previous section, and produces a C program which implements the semantics of the \ac{IR}. This C program can then be compiled with \ac{GCC} to produce an executable which runs a computation equivalent to the original \ac{CLASS} program. The translated code depends only on the standard C library and on \texttt{pthread}, if concurrency is enabled. Additionally, it makes extensive use of the \ac{GCC} extension for computed gotos, used to efficiently implement continuations.
 
-This section starts by describing how the slot trees are translated to concrete data structures in C. Then, an overview of the the C representation of \ac{IR} environments is given. Next, the code layout of the translated C program is laid out. Finally, the implementation in C of the main instructions of the \ac{IR} abstract machine is described.
+\subsubsection{Slot Memory Layouts}
 
-\subsubsection{Representing Slot Trees in C}
+In the \ac{IR} abstract machine, the concept of data is abstracted away into slots. When translating \ac{IR} programs to C code, these slots must be translated to concrete, byte-addressed, memory layouts. To this end, a memory layout is defined as a tuple $L = (s, a)$, where $s$ is the size in bytes of the layout, and $a$ is the alignment in bytes the layout must have in memory. Both $s$ and $a$ are not constants, but C expressions which can be evaluated at runtime. This is necessary due to type parameters having layouts known only at runtime.
 
-In the \ac{IR} abstract machine, the concept of data is abstracted away into slots. A slot tree describes the possible sequences of slots which may be stored in a data section. A set of slot trees describes the multiple possible slot trees which may be stored in a data section, only one of them being active at any given time.
+The memory layout of a slot $S$ on a given target architecture $\arch$ is denoted as $\slotlayout{\sigma}{S}$, where $\sigma$ is a map between type parameters and their layouts. A target architecture $\arch$ is a mapping from C types to their memory layouts, such that $\archlayout{type} = (s, a)$ where $s$ and $a$ where, respectively, the size and alignment of \texttt{type} on the target architecture. For example,
+\[\slotlayout{\sigma}{\ints} = \archlayout{\texttt{int}} \quad\quad \slotlayout{\sigma}{\vars{i}} = \sigma(t_i)\]
 
-When translating \ac{IR} programs to C code, these slot trees must be translated to concrete, byte-addressed, memory layouts. To this end, a memory layout is defined as a tuple $L = (s, a)$, where $s$ is the size in bytes of the layout, and $a$ is the alignment in bytes the layout must have in memory. Both $s$ and $a$ are not constants, but C expressions which can be evaluated at runtime. This is necessary due to type parameters having layouts known only at runtime.
-
-In order to satisfy the alignment requirements of the various C types used to implement the \ac{IR} abstract machine, a C macro \texttt{ALIGN(s, a)} is defined, which rounds up the size \texttt{s} to the nearest multiple of the alignment \texttt{a}. This macro is used extensively when computing memory layouts. Additionally, a C macro \texttt{MAX(a, b)} is defined, which computes the maximum of two integers \texttt{a} and \texttt{b}.
-
-Two memory layouts $L_1 = (s_1, a_1), L_2 = (s_2, a_2)$ can be concatenated to form a new layout $L = L_1 + L_2$, where $L = (\texttt{ALIGN}(s_1, s_2) + s_2,\ \texttt{MAX}(a_1, a_2))$, such that $L_1$ is placed first in memory, followed by $L_2$, with padding added to ensure that $L_2$ starts at an address which is a multiple of $a_2$. Additionally, the maximum of two layouts $L = L_1 \vee L_2$ is defined as $L = (\texttt{MAX}(s_1, s_2),\ \texttt{MAX}(a_1, a_2))$.
-
-The memory layout of a slot $S$ on a given target architecture $\arch$ is given by $\slotlayout{\sigma}{S}$, defined as
-\[\begin{aligned}
-    &\begin{aligned}
-        &\slotlayout{\sigma}{\ints} = \archlayout{int} && \slotlayout{\sigma}{\bools} = \archlayout{unsigned char} \\
-        &\slotlayout{\sigma}{\strings} = \archlayout{char*} && \slotlayout{\sigma}{\conts} = \archlayout{struct cont*} \\
-        &\slotlayout{\sigma}{\tags} = \archlayout{unsigned char} && \slotlayout{\sigma}{\types} = \archlayout{struct type} \\
-        &\slotlayout{\sigma}{\exponentials} = \archlayout{struct exponential*} && \slotlayout{\sigma}{\cells{\dots}} = \archlayout{struct cell*} \\
-    \end{aligned}\\
-    &\slotlayout{\sigma}{t_i} = \layoutofvar{\sigma}{t_i}\\
-\end{aligned}\]
-where $\sigma$ is a map between type parameters and their layouts. A target architecture $\arch$ is a mapping from C types to their memory layouts, such that $\archlayout{type} = (s, a)$ where $s$ and $a$ where, respectively, the size and alignment of \texttt{type} on the target architecture. A definition of $\sigma$ will be introduced in the next section.
-
-The definition of $\slotlayout{\sigma}{s}$ is extended below to support both slot trees, and sets of slot trees. The layout of a slot tree is defined as the concatenation of the layouts of each of its slots, and maximum across any branches, while the layout of a set of slot trees is defined as the maximum layout among all its trees.
-\[\begin{aligned}
-    &\slotlayout{\sigma}{\nilst} = (0, 1) \quad & & \slotlayout{\sigma}{\seqst{S; T}} = \slotlayout{\sigma}{S} + \slotlayout{\sigma}{T}\\
-    &\slotlayout{\sigma}{\tagst{T_1 \tagsepst \dots \tagsepst T_n}} = \bigvee_{i=1}^{n} \slotlayout{\sigma}{T_i} \quad & & \slotlayout{\sigma}{\left\{T_1,\,\dots,\,T_n\right\}} = \bigvee_{i=1}^{n} \slotlayout{\sigma}{T_i}
-\end{aligned}\]
+The definition of $\slotlayout{\sigma}{s}$ is extended to support both slot trees, and sets of slot trees. The layout of a slot tree is defined as the concatenation of the layouts of each of its slots, and maximum across any branches, while the layout of a set of slot trees is defined as the maximum layout among all its trees.
 
 \subsubsection{Environment Memory Layout}
 
 \ac{IR} environments store all state related to a process invocation. In the translated C programs, environments are represented as heap allocated byte buffers. The environment layout $\envlayout$ specifies at compile time how environment buffers will be indexed at runtime.
 
-An environment layout $\envlayout$ is a compile-time data structure which describes the byte offsets at which each entry of the environment can be found. This layout is computed from the header of the \ac{IR} process being compiled. The address of the exit point counter (a C integer or atomic integer if concurrency is enabled) is given by $\envlayouteps{\texttt{env}}$ where \texttt{env} is a pointer to the environment. Drop bits are stored at $\envlayoutdrop{\texttt{env}}$, type information for type variable $t_i$ is stored at $\envlayouttype{\texttt{env}}{t_i}$, continuations $c_i$ are stored at $\envlayoutcont{\texttt{env}}{c_i}$, and data sections $d_i$ at $\envlayoutlocal{\texttt{env}}{d_i}$.
-
-The layout of the environment is computed trivially by concatenating the layouts of each of its entries, in the order they appear in the process header. The layout for data sections is the most noteworthy, as it depends on the stored data type. This layout is computed from $\slotlayout{\sigma}{S}$, where $S$ is the set of slot trees of the data section, and $\sigma(t_i) = \texttt{access}(\envlayouttype{\texttt{env}}{t_i})$ is a mapping between type parameters and their layouts, fetched from the environment itself.
-
-Continuations are stored in environments as instances of the C type \texttt{struct cont}, shown below. Continuations store a return address to jump to (\texttt{loc}), a pointer to the environment to switch to before jumping (\texttt{env}), a pointer to the writing location (\texttt{write}), and a pointer to the continuation pertaining to the other end point of the session (\texttt{remote}).
-
-\begin{lstlisting}[language=C, frame=bottom]
-struct cont {
-  void* loc;
-  char* env;
-  char* write;
-  struct cont* remote;
-};
-\end{lstlisting}
-
-Type information is stored in the environment as instances of the C type \texttt{struct type}, shown below. This structure holds the \texttt{size} and \texttt{alignment} of the data described by the type. This structure is also used to store the value of $\types$ slots in the data sections.
-
-\begin{lstlisting}[language=C, frame=bottom]
-struct type {
-    int size;
-    int alignment;
-};
-\end{lstlisting}
-
+An environment layout $\envlayout$ is a compile-time data structure which describes the byte offsets at which each entry of the environment can be found. This layout is computed from the header of the \ac{IR} process being compiled. It is obtained trivially by concatenating the layouts of each of its continuations, data sections and other entries, in the order they appear in the process header. Data section layouts, for example, depends on the type of the data they store. This layout is computed from $\slotlayout{\sigma}{S}$, where $S$ is the set of slot trees of the data section, and $\sigma(t_i) = \texttt{access}(\envlayouttype{\texttt{env}}{t_i})$ is a mapping between type parameters and their layouts, fetched from the environment itself, pointed to by \texttt{env}.
 
 \subsubsection{Execution and Registers}
 
-The \texttt{main} function of the generated C program initializes any required global state, such as the allocator, or profiling tools, and invokes a function named \texttt{executor} with a \texttt{NULL} argument. The \texttt{executor} function is the core of the \ac{IR} abstract machine implementation. Each thread of execution runs its own instance of this function, receiving as argument a pointer to its entry task.
+The \ac{IR} has no concept whatsoever of stacks or function calls, and processes cannot be mapped to C functions efficiently due to their use of continuations. Thus, the entire \ac{IR} abstract machine is implemented within a single C function named \texttt{executor}. \ac{IR} blocks are translated to C labels within this function, and \ac{IR} instructions are translated to C statements. Jumps between instructions such as \texttt{callProcess} and \texttt{continue} are implemented through gotos to the corresponding C labels, or to their addresses stored in continuations.
 
-At the start of the \texttt{executor} function, registers used to implement the \ac{IR} instructions are declared. The first two registers \texttt{task} and \texttt{env} respectively store pointers to the head of the task stack (introduced in the next subsection) and the current environment, which is state kept across \ac{IR} instructions. The rest of the registers are used to store temporary values used within the execution of each instruction. After declaring the registers, the thread state is initialized.
+Register variables declared within the \texttt{executor} function are used to store the current state, such as a pointer to the current environment, and also temporary values used during the execution of each instruction.
 
-
-\begin{lstlisting}[language=C, frame=bottom]
-void executor(struct task* entry) {
-    /* Registers */
-    register struct task* task;
-    register char* env;
-    register void* tmp_ptr1;
-    register void* tmp_ptr2;
-    register int tmp_int;
-    struct cont tmp_cont;
-    /* Initialize thread state (...) */
-\end{lstlisting}
-
-After initializing the thread state, control is passed to the entry task (received as argument), which contains a continuation address and environment. If the entry task is \texttt{NULL}, the main process is called instead, as shown below. To call the main process, a new environment is allocated with the size computed from its header, and a jump is performed to its entry block.
-
-\begin{lstlisting}[language=C, frame=bottom]
-    if (entry == NULL) {
-        /* callProcess(main) */
-        tmp_ptr1 = managed_alloc(144);
-        env = ((char*)(tmp_ptr1));
-        goto main_entry;
-    } else {
-        env = entry->env;
-        tmp_ptr1 = entry->loc;
-        managed_free(entry);
-        goto *tmp_ptr1;
-    }
-\end{lstlisting}
-
-After these instructions, still within the \texttt{executor} function, for each block of each process a unique C label is generated, followed by the C code generated from the \ac{IR} instructions in the block. Finally, a label named \texttt{end} is generated, which represents the end of the thread's execution.
-
-\begin{lstlisting}[language=C, frame=bottom]
-main_entry:
-    /* instructions of main's entry block ... */
-foo_cut_lhs_0:
-    /* instructions of foo's cut_lhs_0 block ... */
-    /* other blocks ... */
-end:
-    return 0;
-}
-\end{lstlisting}
-
-
-\subsubsection{Continuation Manipulation}
-
-The \texttt{initContinuation} instruction is compiled as shown below. The continuation at $\envlayoutcont{\texttt{env}}{c_0}$ (in this example, $\texttt{env} + 8$) is initialized with the given program label, the current environment, the address $\envlayoutlocal{\texttt{env}}{d_0}$ (in this case, $\texttt{env} + 40$) as its writing location data, and a pointer to itself as its remote continuation.
-
-\begin{lstlisting}[language=C, frame=bottom]
-    /* initContinuation(c0, cut_lhs_0, d0) */
-    (*(struct cont*)(env + 8)) = (struct cont){
-        .loc=&&main_cut_lhs_0,
-        .env=env,
-        .write=env + 40,
-        .remote=env + 8
-    };
-\end{lstlisting}
-
-The compilation of the \texttt{finish} instruction is shown below. First, the remote continuation of the finished continuation is unlinked from this continuation by setting its \texttt{remote} field to itself. This is necessary to avoid use after free errors in instructions such as \texttt{forwardContinuations} and \texttt{callProcess}. Then, the target location and environment is stored on the registers and the environment's exit point counter is decremented atomically (when concurrency is disabled, a normal integer is used instead). If the counter reaches zero, the environment cleanup code described in \Cref{subsubsection:CEnvironmentCleanup} is executed. Finally, the environment and code address are switched to the continuation values, and a jump is performed.
-
-\begin{lstlisting}[language=C, frame=bottom]
-    /* finish(c0, exit point) */
-    (struct cont*)(env + 8)->remote->remote = (struct cont*)(env + 8)->remote;
-    tmp_ptr1 = (*(struct cont*)(env + 8)).loc;
-    tmp_ptr2 = (*(struct cont*)(env + 8)).env;
-    if (atomic_fetch_sub((atomic_int*)(env), 1) == 1) {
-        /* environment cleanup code */
-    }
-    env = ((char*)(tmp_ptr2));
-    goto *tmp_ptr1;
-\end{lstlisting}
-
-The \texttt{continue} instruction is compiled similarly to \texttt{finish}, as shown below, except that the exit point counter is not decremented, and that the remote continuation must instead be updated so that it eventually jumps back to the correct label.
-
-\begin{lstlisting}[language=C, frame=bottom]
-    /* continue(c0, continue_12) */
-    tmp_ptr1 = (*(struct cont*)(env + 8)).loc;
-    (*(*(struct cont*)(env + 8)).remote).loc = &&main_continue_12;
-    env = (*(struct cont*)(env + 8)).env;
-    goto *tmp_ptr1;
-\end{lstlisting}
-
-The \texttt{forwardContinuations} instruction first stores the continuation of its second argument in the temporary registers. Then, it sets the remotes of both argument continuations to point to each other, ensuring no references are left to the local continuations. A temporary variable is used to store the first argument continuation, as its value may be overwritten due to the possibility of a continuation being its own remote. Finally, the exit point counter is decremented, and control is passed to the location and environment stored in the temporary registers.
-
-\begin{lstlisting}[language=C, frame=bottom]
-    /* forwardContinuations(c0, c1, exit point) */
-    tmp_ptr1 = (*(struct cont*)(env + 40)).loc;
-    tmp_ptr2 = (*(struct cont*)(env + 40)).env;
-    tmp_cont = *(struct cont*)(env + 8);
-    *(*(struct cont*)(env + 8)).remote = *(struct cont*)(env + 40);
-    *(*(struct cont*)(env + 40)).remote = tmp_cont;
-    if (atomic_fetch_sub(*(atomic_int*)(env), 1) == 1) {
-        /* environment cleanup code */
-    }
-    env = (char*)tmp_ptr2;
-    goto *tmp_ptr1;
-\end{lstlisting}
+Each thread of execution runs the \texttt{executor} function, which takes as argument information about the initial code address to execute on. The main thread of the program sets this code address to the entry block of the \texttt{main} process, allocating a new environment for it, while new threads are spawned into existing environments.
 
 \section{Optimization Techniques} \label{sec:optimizations}
 
@@ -1025,7 +886,7 @@ rhs:
 
 \subsection{Correctness}
 
-The compiler was fully implemented in Java, within the existing \ac{CLASS} and \ac{SAM} interpreters code base \citep{Rocha:2021:artifact,Caires:2024:artifact}. The implementation follows the architecture described in \Cref{sec:architecture}, and includes all the optimizations described in \Cref{sec:optimizations}.
+The described compilation scheme, along with all described optimizations, was fully implemented in Java, within the existing \ac{CLASS} and \ac{SAM} interpreters code base \citep{Rocha:2021:artifact,Caires:2024:artifact}.
 
 A comprehensive suite of more than 180 unit tests written in the \ac{CLASS} language was developed. This suite covers all features of the language, including edge cases relevant to the implemented optimizations. Each test is composed of a \ac{CLASS} source file, and optionally, a number of input and expected output files. This suite was run with \texttt{valgrind} and multiple \texttt{gcc} sanitizers enabled, such as the address and thread sanitizers, to further validate the absence of memory errors data races. The \texttt{-{}-profiling} flag, provided by the implemented compiler, was also used. This flag counts allocations and deallocations, reporting any memory leaks at the end of execution.
 
