@@ -826,7 +826,7 @@ The compiler presented in the previous section does not take any advantage of th
 
 Types are thus optimized based on their properties. In the example above, the optimization is possible because $\lintt$ is a \textit{value type}, i.e., strictly positive. Sends of positive value types can always be optimized this way, as the execution of a session of a positive value type always produces the value   immediately, and then terminates.
 
-This concept can also be extended to other domains of the language. One such domain is that of \textit{cloneable types}. If a cloning operation can be defined for a value type, as is the case for, for example, integers and booleans, then an exponential session of that type can be optimized to store the value directly. This effectively turns most exponential closures, which recompute their value every time they're used, into much more efficient value copies. 
+This concept can also be extended to other domains of the language, such as exponentials. If a cloning operation can be defined for a value type, as is the case for integers and booleans, for example, then an exponential session of that type can be optimized to store the value directly. This effectively turns most exponential closures, which recompute their value every time they're used, into much more efficient value copies. 
 
 \subsection{Optimizing Single Exit Points and Tail Calls}
 
@@ -848,15 +848,7 @@ send_rhs_2:
 
 A symbolic execution on each \ac{IR} process is performed, extracting information about the control flow and known state of the process environment at each instruction. This information is then used to remove unnecessary instructions and merging \ac{IR} blocks when possible. The code above is reduced to \texttt{writeExpression(c1, 1)}.
 
-Another useful result from the symbolic execution is getting information on which exit point instructions are guaranteed to not be the last instruction executed by the process. In the following example, the \texttt{finish} instruction will never be the last executed instruction, as there's an outgoing flow from the \texttt{entry} block to \texttt{rhs}, introduced by \texttt{pushTask}. In cases like these, the exit point markings can be cleared from the instructions, saving memory accesses and branches.
-
-\begin{lstlisting}[language=IR, frame=bottom]
-entry:
-    pushTask(rhs)
-    finish(c1, exit point) // exit point is removed
-rhs:
-    popTask(exit point)
-\end{lstlisting}
+Another useful result from the symbolic execution is getting information on which exit point instructions are guaranteed to not be the last instruction executed by the process. In these cases, the exit point marking can be removed, as the process will never terminate at that point, saving unnecessary checks.
 
 \section{Results}
 
