@@ -17,7 +17,7 @@ The compiler presented in \Cref{chap:architecture} does not take any advantage o
 
 This section describes the implemented optimizations which take advantage of type properties such as these to generate more efficient code. In the first subsection, three type properties are defined, which determine which optimizations can be applied to them. Then, the second subsection describes the necessary compiler adaptations to classify whether a type has these properties. The last three subsections describe the transformations made using these properties.
 
-\subsection{Value, droppable and cloneable types}
+\subsection{Value, Droppable and Cloneable Types}
 
 In the optimizations described in this section, types are optimized based on whether they're \textit{value}, \textit{droppable} or \textit{cloneable} types. These properties are referred to as \textit{type flags}. A type flag of a given type may either be $\guaranteed$ to hold, $\impossible$ to hold, or be dependent on whether some type parameters have some type flags set, which is denoted as $\dependent{F_1,\,\dots,\,F_n}$, where each $F_i$ is either $\depisvalue{t_j}$, $\depisdroppable{t_j}$ or $\depiscloneable{t_j}$ (value, droppable and cloneable flags, respectively), and $t_j$ is a type variable. These requirements are referred to as \text{type flag requirements}. The union of two type flag requirements $R_1$ and $R_2$, denoted as $R_1 \land R_2$, is defined as follows:
 \[
