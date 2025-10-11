@@ -702,19 +702,19 @@ To compile the $\printc{E}P$ and $\printlnc{E}{P}$ processes, a single instructi
 
 \begin{figure}[H]
     \begin{minipage}{0.45\textwidth}
-    \begin{compilationembed}{\theta}{\Delta}{\printc{E}{P}}
+    \begin{compilation}{\theta}{\Delta}{\printc{E}{P}}
     {\getendpoints{\theta}{P}}
         \print{\getexpression{\Delta}{E}}
         \recurse{\theta}{\Delta}{P}
-    \end{compilationembed}
+    \end{compilation}
     \end{minipage}
     \hfill
     \begin{minipage}{0.45\textwidth}
-    \begin{compilationembed}{\theta}{\Delta}{\printlnc{E}{P}}
+    \begin{compilation}{\theta}{\Delta}{\printlnc{E}{P}}
     {\getendpoints{\theta}{P}}
         \printline{\getexpression{\Delta}{E}}
         \recurse{\theta}{\Delta}{P}
-    \end{compilationembed}
+    \end{compilation}
     \end{minipage}
 \end{figure}
 

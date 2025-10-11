@@ -337,7 +337,7 @@
 }
 
 % Compilation environment
-\newenvironment{compilationembed}[4]
+\newenvironment{compilation}[4]
 {
     \begingroup
     % IR
@@ -406,27 +406,6 @@
     $$
     \endgroup
 }
-\newenvironment{compilation}[4]
-{
-    \begingroup
-    \setlength{\jot}{-3pt}
-    \begin{compilationembed}{#1}{#2}{#3}{#4}
-}
-{
-    \end{compilationembed}
-    \endgroup
-}
-\newenvironment{compilationacm}[4]
-{
-    \begingroup
-    \setlength{\jot}{0pt}
-    \begin{compilationembed}{#1}{#2}{#3}{#4}
-}
-{
-    \end{compilationembed}
-    \endgroup
-}
-
 
 % For \Mapsto
 \usepackage{stmaryrd}

@@ -15,87 +15,71 @@ Introduced by Girard \cite{Girard:1987} in the 80s, linear logic is a logic wher
 
 Connectives of classic linear logic are divided into three groups: multiplicative, additive and exponential. Multiplicative connectives are $\otimes$ (tensor), $\parr$ (par), $1$ and $\bot$. Additive connectives are $\with$ (with), $\oplus$ (plus), $\top$ and $0$. Exponential connectives are $\oc$ (of course) and $\wn$ (why not).
 
-Here a definition of linear logic as a sequent calculus \cite{Abramsky:1993} is presented, where a sequent is a list of propositions separated by a comma, and a turnstile $\vdash$ separates the antecedent from the succedent. In linear logic, each connective has a dual connective (or involution), represented by $\dual{A}$, which is defined in \Cref{fig:LinearLogicDual}. As such, there's no need for propositions to be placed before the turnstile, as they can be replaced by their involution on the succedent.
+Here a definition of linear logic as a sequent calculus \cite{Abramsky:1993} is presented, where a sequent is a list of propositions separated by a comma, and a turnstile $\vdash$ separates the antecedent from the succedent. In linear logic, each connective has a dual connective (or involution), represented by $\dual{A}$ and defined as \[\begin{aligned}
+& \dual{A \otimes B} \equiv \dual{A} \parr \dual{B}
+\quad
+&& \dual{A \with B} \equiv \dual{A} \oplus \dual{B}
+\quad
+&& \dual{1} \equiv \bot
+\quad
+&& \dual{\oc A} \equiv \wn \dual{A}
+\\
+& \dual{A \parr B} \equiv \dual{A} \otimes \dual{B}
+\quad
+&& \dual{A \oplus B} \equiv \dual{A} \with \dual{B}
+\quad
+&& \dual{\bot} \equiv 1
+\quad
+&& \dual{\wn A} \equiv \oc \dual{A}
+\end{aligned}\]
 
-\begin{figure}[H]
-    \begin{minipage}{0.225\textwidth}
-        \begin{align*}
-            \dual{A \otimes B} & \equiv \dual{A} \parr \dual{B}   \\
-            \dual{A \parr B}   & \equiv \dual{A} \otimes \dual{B}
-        \end{align*}
-    \end{minipage}
-    \hfill
-    \begin{minipage}{0.225\textwidth}
-        \begin{align*}
-            \dual{A \with B}  & \equiv \dual{A} \oplus \dual{B} \\
-            \dual{A \oplus B} & \equiv \dual{A} \with \dual{B}
-        \end{align*}
-    \end{minipage}
-    \hfill
-    \begin{minipage}{0.225\textwidth}
-        \begin{align*}
-            \dual{1}    & \equiv \bot \\
-            \dual{\bot} & \equiv 1
-        \end{align*}
-    \end{minipage}
-    \hfill
-    \begin{minipage}{0.225\textwidth}
-        \begin{align*}
-            \dual{\oc A} & \equiv \wn \dual{A} \\
-            \dual{\wn A} & \equiv \oc \dual{A}
-        \end{align*}
-    \end{minipage}
+As such, there's no need for propositions to be placed before the turnstile, as they can be replaced by their involution on the succedent.
 
-    \caption{Dual Connectives in Classical Linear Logic}
-    \label{fig:LinearLogicDual}
-\end{figure}
+    
 
-Proofs of sequents can be constructed through inference rules. In linear logic, weakening and contraction rules are not present, as they would allow for the duplication and discarding of resources. The only structural rule that is defined is the exchange rule, as the order of propositions isn't important in linear logic. The initial and cut rules are also defined, in \Cref{fig:LinearLogicInitialCutRules}. The cut rule allows for the composition of two proofs, and the initial rule allows for the introduction of a proposition and its dual without any premises.
 
-\begin{figure}[H]
-    \begin{minipage}{0.45\textwidth}
-        \begin{prooftree}
-            \AxiomC{}
-            \UnaryInfC{$\vdash A, \dual{A}$}
-        \end{prooftree}
-    \end{minipage}
-    \hfill
-    \begin{minipage}{0.45\textwidth}
-        \begin{prooftree}
-            \AxiomC{$\vdash \Gamma, A$}
-            \AxiomC{$\vdash \Delta, \dual{A}$}
-            \BinaryInfC{$\vdash \Gamma, \Delta$}
-        \end{prooftree}
-    \end{minipage}
-    \caption{Linear Logic Initial and Cut Rules}
-    \label{fig:LinearLogicInitialCutRules}
-\end{figure}
+Proofs of sequents can be constructed through inference rules. In linear logic, weakening and contraction rules are not present, as they would allow for the duplication and discarding of resources. The only structural rule that is defined is the exchange rule, as the order of propositions isn't important in linear logic. The initial and cut rules are also defined:
+\begin{center}    
+\begin{minipage}{0.3\textwidth}
+    \begin{prooftree}
+        \AxiomC{}
+        \UnaryInfC{$\vdash A, \dual{A}$}
+    \end{prooftree}
+\end{minipage}
+\quad
+\begin{minipage}{0.3\textwidth}
+    \begin{prooftree}
+        \AxiomC{$\vdash \Gamma, A$}
+        \AxiomC{$\vdash \Delta, \dual{A}$}
+        \BinaryInfC{$\vdash \Gamma, \Delta$}
+    \end{prooftree}
+\end{minipage}
+\end{center}
+The cut rule allows for the composition of two proofs, and the initial rule allows for the introduction of a proposition and its dual without any premises.
 
-Multiplicative conjunction $\otimes$ is the tensor product of two propositions and it is equivalent to the logical conjunction in classical logic. Multiplicative disjunction $\parr$ is the par product of two propositions and it is equivalent to the logical disjunction in classical logic. The unit of $\otimes$ is $1$ and the unit of $\parr$ is $\bot$. The reduction rules for $\otimes$ and $\parr$ are presented in \Cref{fig:LinearLogicMultiplicativeRules}.
 
-\begin{figure}[H]
-    \begin{minipage}{0.45\textwidth}
+
+Multiplicative conjunction $\otimes$ is the tensor product of two propositions and it is equivalent to the logical conjunction in classical logic. Multiplicative disjunction $\parr$ is the par product of two propositions and it is equivalent to the logical disjunction in classical logic. The unit of $\otimes$ is $1$ and the unit of $\parr$ is $\bot$. The reduction rules for $\otimes$ and $\parr$ are defined below:
+\begin{center}
+    \begin{minipage}{0.3\textwidth}
         \begin{prooftree}
             \AxiomC{$\vdash \Gamma, A$}
             \AxiomC{$\vdash \Delta, B$}
             \BinaryInfC{$\vdash \Gamma, \Delta, A \otimes B$}
         \end{prooftree}
     \end{minipage}
-    \hfill
-    \begin{minipage}{0.45\textwidth}
+    \quad
+    \begin{minipage}{0.3\textwidth}
         \begin{prooftree}
             \AxiomC{$\vdash \Gamma, A, B$}
             \UnaryInfC{$\vdash \Gamma, A \parr B$}
         \end{prooftree}
     \end{minipage}
-    \caption{Linear Logic Multiplicative Rules}
-    \label{fig:LinearLogicMultiplicativeRules}
-\end{figure}
+\end{center}
 
-Additive conjunction $\with$ and additive disjunction $\oplus$ are, respectively, the with product of two propositions, and the plus product of two propositions. Their reduction rules can be seen in \Cref{fig:LinearLogicAdditiveRules}. The unit of $\with$ is $\top$ and the unit of $\oplus$ is $0$. Once again, $\with$ and $\oplus$ are equivalent to the logical conjunction and disjunction in classical logic, respectively. They differ from $\otimes$ and $\parr$ in that the context in the multiplicative connectives is split in two, while in the additive connectives the context in the premises is the same as the context in the conclusion.
-
-\begin{figure}[H]
-    \begin{minipage}{0.3\textwidth}
+Additive conjunction $\with$ and additive disjunction $\oplus$ are, respectively, the with product of two propositions, and the plus product of two propositions. Their reduction rules can be seen below.
+\begin{center}
+     \begin{minipage}{0.3\textwidth}
         \begin{prooftree}
             \AxiomC{$\vdash \Gamma, A$}
             \AxiomC{$\vdash \Gamma, B$}
@@ -116,55 +100,48 @@ Additive conjunction $\with$ and additive disjunction $\oplus$ are, respectively
             \UnaryInfC{$\vdash \Gamma, A \oplus B$}
         \end{prooftree}
     \end{minipage}
-    \caption{Linear Logic Additive Rules}
-    \label{fig:LinearLogicAdditiveRules}
-\end{figure}
+\end{center}
+The unit of $\with$ is $\top$ and the unit of $\oplus$ is $0$. Once again, $\with$ and $\oplus$ are equivalent to the logical conjunction and disjunction in classical logic, respectively. They differ from $\otimes$ and $\parr$ in that the context in the multiplicative connectives is split in two, while in the additive connectives the context in the premises is the same as the context in the conclusion.
 
-Finally, the exponential connectives allow weakening and contracting of propositions in contexts in a controlled manner, through the rules in \Cref{fig:LinearLogicExponentialRules}.
+Finally, the exponential connectives allow weakening and contracting of propositions in contexts in a controlled manner, through the rules shown below.
+\begin{center}    
+\begin{minipage}{0.225\textwidth}
+    \begin{prooftree}
+        \AxiomC{$\vdash \Gamma$}
+        \UnaryInfC{$\vdash \Gamma, \wn A$}
+    \end{prooftree}
+\end{minipage}
+\hfill
+\begin{minipage}{0.225\textwidth}
+    \begin{prooftree}
+        \AxiomC{$\vdash \Gamma, \wn A, \wn A$}
+        \UnaryInfC{$\vdash \Gamma, \wn A$}
+    \end{prooftree}
+\end{minipage}
+\hfill
+\begin{minipage}{0.225\textwidth}
+    \begin{prooftree}
+        \AxiomC{$\vdash \Gamma, A$}
+        \UnaryInfC{$\vdash \Gamma, \wn A$}
+    \end{prooftree}
+\end{minipage}
+\hfill
+\begin{minipage}{0.225\textwidth}
+    \begin{prooftree}
+        \AxiomC{$\vdash \wn \Gamma, A$}
+        \UnaryInfC{$\vdash \wn \Gamma, \oc A$}
+    \end{prooftree}
+\end{minipage}
+\end{center}
 
-\begin{figure}[H]
-    \begin{minipage}{0.225\textwidth}
-        \begin{prooftree}
-            \AxiomC{$\vdash \Gamma$}
-            \UnaryInfC{$\vdash \Gamma, \wn A$}
-        \end{prooftree}
-    \end{minipage}
-    \hfill
-    \begin{minipage}{0.225\textwidth}
-        \begin{prooftree}
-            \AxiomC{$\vdash \Gamma, \wn A, \wn A$}
-            \UnaryInfC{$\vdash \Gamma, \wn A$}
-        \end{prooftree}
-    \end{minipage}
-    \hfill
-    \begin{minipage}{0.225\textwidth}
-        \begin{prooftree}
-            \AxiomC{$\vdash \Gamma, A$}
-            \UnaryInfC{$\vdash \Gamma, \wn A$}
-        \end{prooftree}
-    \end{minipage}
-    \hfill
-    \begin{minipage}{0.225\textwidth}
-        \begin{prooftree}
-            \AxiomC{$\vdash \wn \Gamma, A$}
-            \UnaryInfC{$\vdash \wn \Gamma, \oc A$}
-        \end{prooftree}
-    \end{minipage}
-    \caption{Linear Logic Exponential Rules}
-    \label{fig:LinearLogicExponentialRules}
-\end{figure}
-
-Since its inception, linear logic has been seen as a good candidate for modeling the foundations of concurrent stateful systems \cite{Wadler:1990}. In fact, through the works of Abramsky \cite{Abramsky:1993}, it has been found that classical linear logic can be interpreted computationally, and since then, this connection has been developed further by multiple authors \cite{Turner:1999}. To exemplify, the cut rule can be interpreted as the composition of two processes, the initial rule as the creation of processes, and the additive and multiplicative rules as communication between processes. Classical linear logic can extended with a mix rule (\Cref{fig:LinearLogicMixRule}), which enables modeling parallel composition of processes.
-
-\begin{figure}[H]
+Since its inception, linear logic has been seen as a good candidate for modeling the foundations of concurrent stateful systems \cite{Wadler:1990}. In fact, through the works of Abramsky \cite{Abramsky:1993}, it has been found that classical linear logic can be interpreted computationally, and since then, this connection has been developed further by multiple authors \cite{Turner:1999}. To exemplify, the cut rule can be interpreted as the composition of two processes, the initial rule as the creation of processes, and the additive and multiplicative rules as communication between processes. Classical linear logic can extended with a mix rule (shown below), which enables modeling parallel composition of processes.
+\begin{center}
     \begin{prooftree}
         \AxiomC{$\vdash \Gamma$}
         \AxiomC{$\vdash \Delta$}
         \BinaryInfC{$\vdash \Gamma, \Delta$}
     \end{prooftree}
-    \caption{Linear Logic Mix Rule}
-    \label{fig:LinearLogicMixRule}
-\end{figure}
+\end{center}
 
 There are many variations of linear logic. One particularly relevant to this project is dual intuitionistic linear logic (DILL) \cite{Barber:1996}, which separates the linear and intuitionistic parts of the contexts, such that a general sequent is of the form $\Gamma; \Delta \vdash A$, where $\Gamma$ is the intuitionistic part, $\Delta$ is the linear part, and $A$ is the succedent. In the intuitionistic part, propositions can be used any number of times, while in the linear part of the context, propositions are consumed exactly once. This distinction allows for a more faithful modeling of servers in concurrent systems.
 
@@ -176,18 +153,11 @@ In the 90s, Milner et al \cite{Milner:1992:1,Milner:1992:2} introduced $\pi$-cal
 
 Processes can be seen as a generalization of functions, where the input and output can be sent over a channel - a function call can be seen as sending the input over a channel, and then receiving the output over the same channel. Additionally, coroutine constructs and generator expressions common in modern languages such as Python can also be easily modeled as a process calculus, where calls to \textit{yield} statements can be seen as sending values over a channel. Channels in $\pi$-calculus can also be replicated, which makes it possible to model services that can be accessed by multiple clients, such as web servers.
 
-in \Cref{fig:PiCalculusExample}, a simple $\pi$-calculus example is presented, where a channel $x$ is created, and two processes are composed in parallel. The first process sends a message over $x$ and then terminates. The second process receives a message $y$ over $x$, prints it, and then terminates.
-
-\begin{figure}[H]
-    \centering
-    \begin{align*}
+Below, a simple $\pi$-calculus example is presented. A channel $x$ is created, and two processes are composed in parallel. The first process sends a message over $x$ and then terminates. The second process receives a message $y$ over $x$, prints it, and then terminates.
+\[\begin{aligned}
         (\nu x)\,(\, & \overline{x}\langle\texttt{"Hello World!"}\rangle.0 \\
         |\           & x(y).\texttt{print}(y).0\,)
-    \end{align*}
-    \caption{Simple $\pi$-calculus example}
-    \label{fig:PiCalculusExample}
-\end{figure}
-
+\end{aligned}\]
 
 \section{Session Types}
 
@@ -207,34 +177,24 @@ The multiplicative connectives of linear logic can be used to represent the send
 
 This subsection presents the pure fragment of \ac{CLASS}, dubbed $\mu$CLL. As the name suggests, $\mu$CLL is related, via a propositions-as-types correspondence \cite{Caires:2016}, to classical linear logic, extended with mix and inductive/coinductive types.
 
-As usual in session-typed based programming languages, in $\mu$CLL processes communicate through sessions $x, y, z, \ldots$. Each session has two end points (also referred to as channels), and each end point is associated with a session type, which describes the communication protocol that the end point must follow. $x: A$ denotes that the channel $x$ obeys type $A$. These types describe the direction, order and content of the messages exchanged. For example
-$$
-    x : \dual{\text{Nat}} \otimes \text{Bool} \otimes \mathbf{1}
-$$
-describes a session $x$ that must first receive a natural number, then send a boolean, and finally close, after which no more messages can be exchanged. The dual connective $\dual{A}$ is used to represent the dual of a type $A$, and is used to describe the type of the other end point of the session. The dual of the type before, for example, is
-$$
-    x : \text{Nat} \parr \dual{\text{Bool}} \parr \bot
-$$
+As usual in session-typed based programming languages, in $\mu$CLL processes communicate through sessions $x, y, z, \ldots$. Each session has two end points (also referred to as channels), and each end point is associated with a session type, which describes the communication protocol that the end point must follow. $x: A$ denotes that the channel $x$ obeys type $A$. These types describe the direction, order and content of the messages exchanged. For example,\\
+\centerline{\vspace{2pt}$x : \dual{\text{Nat}} \otimes \text{Bool} \otimes \mathbf{1}$}
+describes a session $x$ that must first receive a natural number, then send a boolean, and finally close, after which no more messages can be exchanged. The dual connective $\dual{A}$ is used to represent the dual of a type $A$, and is used to describe the type of the other end point of the session. The dual of the type before, for example, is\\
+\centerline{\vspace{2pt}$x : \text{Nat} \parr \dual{\text{Bool}} \parr \bot$}
 which describes a session $x$ that must first send a natural number, then receive a boolean, and finally wait for the other end point to close.
 
-Additionally, session types can be seen as dynamic entities which evolve as the communication progresses. For example, after sending a natural number, the session type of the end point $x$ in the previous example would become
-$$
+Session types can be seen as dynamic entities which evolve as the communication progresses. After sending a natural number, the session type of the end point $x$ in the previous example would become\\
+\centerline{\vspace{2pt}$
     x : \dual{\text{Bool}} \parr \bot
-$$
-The most fundamental process composition operation in $\mu$CLL is the $\cutp$ operator
-$$
-    \cutc{P}{x: A}{Q}
-$$
+$}
+The most fundamental process composition operation in $\mu$CLL is the $\cutp$ operator\\
+\centerline{\vspace{2pt}$\cutc{P}{x: A}{Q}$}
 which composes two processes $P$ and $Q$ that run concurrently and communicate through a session $x$, where the end point $x$ in $Q$ obeys type $A$, and the end point $x$ in $P$ obeys type $\dual{A}$. This composition corresponds to the cut rule of linear logic, i.e., no session other than $x$ appears simultaneously in both $P$ and $Q$. It thus restricts interactions between $P$ and $Q$ to the session $x$, which is essential to achieve desirable metatheoretical properties such as deadlock freedom.
 
-One other way of composing processes is through the $\parp$ construct, which allows for parallel composition of processes. The process
-$$
-    \parc{P}{Q}
-$$
-runs $P$ and $Q$ concurrently, without any communication between them. This composition corresponds to the mix rule of linear logic, i.e., no session appears simultaneously in both $P$ and $Q$. Additionally, there's the $\fwdp$ construct, which allows forwarding messages between sessions, acting as a bridge between two sessions. For example
-$$
-    \fwdc{x}{y}
-$$
+One other way of composing processes is through the $\parp$ construct, which allows for parallel composition of processes. The process\\
+\centerline{$\parc{P}{Q}$}
+runs $P$ and $Q$ concurrently, without any communication between them. This composition corresponds to the mix rule of linear logic, i.e., no session appears simultaneously in both $P$ and $Q$. Additionally, there's the $\fwdp$ construct, which allows forwarding messages between sessions, acting as a bridge between two sessions. For example\\
+\centerline{$\fwdc{x}{y}$}
 redirects messages sent to $x$ to $y$, and vice-versa, where $x$ and $y$ are session end points with dual types.
 
 Table \ref{tab:muCLLActions} presents the actions that can be performed on session types in $\mu$CLL.
@@ -293,6 +253,7 @@ where $\Delta$ represents the linear part of the context and $\Gamma$ the unrest
 
 Below, some of the typing rules for $\mu$CLL are presented. The inaction process, $\emptyp$, for example, types with an empty linear context, and any unrestricted context. The parallel composition of two processes $P$ and $Q$, $\parc{P}{Q}$, types with the union of the disjoint linear contexts of $P$ and $Q$, and any unrestricted context. The cut composition of two processes $P$ and $Q$, $\cutc{P}{x: A}{Q}$, types with the disjoint union of the linear contexts of $P$ and $Q$ with the session $x$ having type $A$ on the linear context of $P$ and the dual of $A$ on the linear context of $Q$, and any unrestricted context. The full set of typing rules for $\mu$CLL can be found in \cite{Rocha:2022}.
 
+\begin{center}
 \begin{minipage}{0.45\textwidth}
     \begin{prooftree}
         \AxiomC{}
@@ -315,6 +276,7 @@ Below, some of the typing rules for $\mu$CLL are presented. The inaction process
     \RightLabel{($\text{Cut}$)}
     \BinaryInfC{$\cutc{P}{x: A}{Q} \vdash \Delta_1, \Delta_2; \Gamma$}
 \end{prooftree}
+\end{center}
 
 \subsection{Syntax of CLASS}
 
@@ -368,19 +330,19 @@ The syntax of \ac{CLASS} used on this thesis differs slightly from $\mu$CLL. Add
 
 The $\lintt$, $\colintt$, $\lboolt$, $\colboolt$, $\lstringt$, $\colstringt$, $\classt{affine}$, $\classt{coaffine}$, $\classt{state}$, $\classt{usage}$, $\classt{statel}$ and $\classt{usagel}$ types are not present in $\mu$CLL and are used for basic values, defining affine sessions and reference cells.
 
-A \ac{CLASS} program is composed of a collection of type and process definitions, with the following BNF grammar:
+A \ac{CLASS} program is a collection of type and process definitions, described by the BNF grammar
 \[\begin{aligned}
     \text{Program} ::=\  & \text{ProcDef}\ \text{Program} &  & |\ \text{ProcDef} \\
     |\                   & \text{TypeDef}\ \text{Program} &  & |\ \text{TypeDef}
 \end{aligned}\]
 
-A type definition associates a name $X$ to a session type $A$, and can either be a simple type definition, or a recursive type definition. Optionally, type definitions may also receive type variables as parameters, which are bound in $A$. The BNF grammar for type definitions is as follows:
+A type definition associates a name $X$ to a session type $A$, and can either be a simple type definition, or a recursive type definition. Optionally, type definitions may also receive type variables as parameters, which are bound in $A$. Type definitions follow the BNF grammar
 \[\begin{aligned}
     \text{TypeDef} ::=\  & \typedefc{X}{A}                     &  & |\ \rectypedefc{X}{A}                     \\
     |\                   & \typedefgc{X}{X_1,\,\dots,\,X_n}{A} &  & |\ \rectypedefgc{X}{X_1,\,\dots,\,X_n}{A} \\
 \end{aligned}\]
 
-A process definition associates a name $\texttt{proc\_id}$ to a process $P$, which receives a list of channels $x_1,\,\ldots,\,x_n$ to be bound in $P$, with types $A_1, \ldots, A_n$, respectively. As with type definitions, process definitions may also receive type parameters. The BNF grammar for process definitions is as follows:
+A process definition associates a name $\texttt{proc\_id}$ to a process $P$, which receives a list of channels $x_1,\,\ldots,\,x_n$ to be bound in $P$, with types $A_1, \ldots, A_n$, respectively. As with type definitions, process definitions may also receive type parameters. Process definitions follow the BNF grammar
 \[\begin{aligned}
     \text{ProcDef} ::=\  & \procdefc{proc\_id}{x_1: A_1,\ \dots,\ x_n: A_n}{P}                        \\
     |\                   & \procdefgc{proc\_id}{X_1,\ \dots,\ X_n}{x_1: A_1,\ \dots,\ x_n: A_n}{P}    \\
@@ -424,7 +386,7 @@ With the introduction of basic types, along with the print, if and let processes
 
 The affine constructs, $\affinec{x}P$, $\usec{x}P$ and $\discardc{x}$, are used to define affine sessions. The process $\affinec{x}P$ is typed such that only co-affine or exponential names can be used in $P$, and $x$ is an affine session. The process $\usec{x}P$ marks the co-affine session $x$ as used in $P$, and the process $\discardc{x}$ discards the affine session $x$.
 
-Finally, the constructs $\cellp$, $\putp$, $\takep$, $\releasep$ and $\sharep$ build on top of the affine constructs to model shared mutable state through reference cells. The process $\cellc{x}{y}P$ creates a new cell $x$ containing the affine session $y$, used in $P$. The process $\takec{x}{y}P$ locks the cell $x$, binding its content to $y$, and runs $P$. The process $\putc{x}{y}{P}Q$ places a new affine session $y$, used in $P$, in the locked cell $x$, unlocks it, and runs $Q$. The process $\releasec{x}$ drops the cell $x$, and, finally, the process $\sharec{x}{P}{Q}$ runs $P$ and $Q$ concurrently, both sharing access to the cell $x$.
+Finally, the constructs $\cellp$, $\putp$, $\takep$, $\releasep$ and $\sharep$ build on top of the affine constructs to model shared mutable state through reference cells. The process $\cellc{x}{y}P$ creates a new cell on $x$ containing the affine session $y$, used in $P$. The process $\takec{x}{y}P$ locks the cell $x$, binding its content to $y$, and runs $P$. The process $\putc{x}{y}{P}Q$ places a new affine session $y$, used in $P$, in the locked cell $x$, unlocks it, and runs $Q$. The process $\releasec{x}$ drops the cell $x$, and, finally, the process $\sharec{x}{P}{Q}$ runs $P$ and $Q$ concurrently, both sharing access to the cell $x$.
 
 \subsection{Example Programs}
 
@@ -576,7 +538,7 @@ The concatenation is done by matching on the first list $x$. If it is $\labelp{n
     \label{fig:CLASSPolymorphismExample}
 \end{figure}
 
-An example of an affine session is shown in \Cref{fig:CLASSAffineExample}. The $\affinep$ process on the left-hand-side of the $\cutp$ produces an affine string on $x$. Since $x$ is affine, it can either be used once, or discarded. In this case, it is discarded through the $\discardp$ process.
+An example of an affine session is shown in \Cref{fig:CLASSAffineExample}. The $\affinep$ process on the left-hand-side of the $\cutp$ produces an affine string on $x$. Since $x$ is affine, it can either be used once or discarded. In this case, it is discarded through the $\discardp$ process.
 
 The last example, shown in \Cref{fig:CLASSStateExample}, demonstrates the use of shared mutable state. A cell $x$ is created, holding an integer initialized to $1$. The cell $x$ is then shared between two threads, on the right-hand-side of the $\cutp$. Each thread takes the integer from the cell, prints it, puts a new integer in the cell, and then releases the cell. When the $\takep$ process is executed, the cell is locked, preventing the other thread from accessing it until the $\putp$ process is executed, which unlocks the cell. In this case, the output of the program is non-deterministic, and can be either \texttt{1 2} or \texttt{1 3}, depending on which thread executes first.
 
@@ -622,57 +584,62 @@ The core components of the \ac{SAM} are session references $x, y$, values $V ::=
 
 \subsection{Reduction Rules}
 
-The Linear \ac{SAM} is a state transition system, where the state is a tuple $(P, H)$, with the heap $H$ and a process $P$. The transition relation is defined by a set of rules, some of which are presented in this section.
+The Linear \ac{SAM} is a state transition system, where the state is a tuple $(P, H)$, with the heap $H$ and a process $P$. The transition relation is defined by a set of rules, some of which are now presented.
 
-The $\cutp$ rule, shown below, inserts a new session record in the heap, associated to the session reference $x$, for executing the continuation $Q$ of the process $P$, assuming, without loss of generality, that $A$ is a positive type, i.e., that $P$ will push values into the session queue, and $Q$ will later pop them. Essentially, the rule transitions to a state where $P$ will be executed immediately, and where $Q$ is delayed to a later time. If $A$ is a negative type, the same rule is applied but with $P$ and $Q$ swapped.
-\[
+The $\cutp$ rule, defined below, inserts a new session record in the heap, associated to the session reference $x$, for executing the continuation $Q$ of the process $P$, assuming, without loss of generality, that $A$ is a positive type, i.e., that $P$ will push values into the session queue, and $Q$ will later pop them.\\
+\centerline{$
     (\cutc{P}{x: A^+}{Q}, H)
     \Mapsto
     (P, H[x: A^+\langle\text{nil},\{y/x\}Q\rangle y:\dual{A^+}])
-\]
+$}
+Essentially, the rule transitions to a state where $P$ will be executed immediately, and where $Q$ is delayed to a later time. If $A$ is a negative type, the same rule is applied but with $P$ and $Q$ swapped.
 
-The $\closep$ rule, shown below, pushes the close token $\checkmark$ into the session queue, and then transitions to the continuation $P$ previously stored in the session record. $P$ will eventually pop the close token from the queue and free the session record. Note that the queue $q$ might not be empty - other positive actions might have preceded the close action and pushed values into the queue. The close token is appended to the end of the queue, and thus will be the last value to be popped.
-\[
+The $\closep$ rule, defined below, pushes the close token $\checkmark$ into the session queue, and then transitions to the continuation $P$ previously stored in the session record.\\
+\centerline{$
         (\closec{x}, H[x:\closet\langle q, P\rangle y:B])
         \Mapsto
         (P,H[x:\emptyset\langle q@\checkmark, \emptyp\rangle y:B])
-\]
+$}
+$P$ will eventually pop the close token from the queue and free the session record. Note that the queue $q$ might not be empty - other positive actions might have preceded the close action and pushed values into the queue. The close token is appended to the end of the queue, and thus will be the last value to be popped.
 
-The $\waitp$ rule, shown below, pops the close token $\checkmark$ from the session queue, frees the session record, and transitions to the continuation of the $\waitp$ action.
-\[
-        (\waitc{y}P, H[x:\emptyset\langle\checkmark, \emptyp\rangle y:\waitt])
-        \Mapsto
-        (P,H)
-\]
+The $\waitp$ rule, shown below, pops the close token $\checkmark$ from the session queue, frees the session record, and transitions to the continuation of the $\waitp$ action.\\   
+\centerline{$
+    (\waitc{y}P, H[x:\emptyset\langle\checkmark, \emptyp\rangle y:\waitt])
+    \Mapsto
+    (P,H)
+$}
 
-The choice rule, shown below, given an action $\choosec{c}{x}P$, pushes the label $\labelp{c}$ into the session queue and changes the process to $P$. Note that in this rule, a write-to-read adjustment is performed, denoted by $(P,H[x:A\langle q,Q\rangle y:B])^{wr}$. This operation swaps $P$ with $Q$, if and only if the continuation type $A$ is a negative type. This operation ensures that the next action will be executed by the positive end point of the session. In this specific rule, the write-to-read adjustment is performed because the choice action is a positive action, which means values are being pushed for the other end point to pop later on. If the continuation process $P$ on this end point will next perform a read action on $x$, i.e., $A$ is negative, then, for that action to be executed, the other end point must first perform the corresponding write action.
-\[
+The choice rule, shown below, given an action $\choosec{c}{x}P$, pushes the label $\labelp{c}$ into the session queue and changes the process to $P$.\vspace{2pt}\\
+\vspace{2pt}\centerline{$
     (\choosec{c}{x}P, H[x:\choicet{\labelt{c}{A},\ \dots}\langle q, Q\rangle y:B])
     \Mapsto
     (P,H[x:A\langle q@\labelp{c}, Q\rangle y:B])^{wr}
-\]
+$}
+Note that in this rule, a write-to-read adjustment is performed, denoted by $(P,H[x:A\langle q,Q\rangle y:B])^{wr}$. This operation swaps $P$ with $Q$, if and only if the continuation type $A$ is a negative type. This operation ensures that the next action will be executed by the positive end point of the session. In this specific rule, the write-to-read adjustment is performed because the choice action is a positive action, which means values are being pushed for the other end point to pop later on. If the continuation process $P$ on this end point will next perform a read action on $x$, i.e., $A$ is negative, then, for that action to be executed, the other end point must first perform the corresponding write action.
 
-The offer rule, shown below, performs the dual operation of the choice rule - it pops a label from the session queue, and transitions to the continuation of the $\casep$ action corresponding to the label. The rule performs a read-to-write adjustment, denoted by $[x:A\langle q, Q\rangle y:B]^{rw}$. This adjustment swaps the two end points of the session record, $x:A$ and $y:B$, if and only if $q$ is empty. Since processes are well-typed, then, if $q$ is empty, $P$ should have no more reads to perform. This adjustment then allows $P$ to start writing to the session.
-\[
+The offer rule, shown below, performs the dual operation of the choice rule - it pops a label from the session queue, and transitions to the continuation of the $\casep$ action corresponding to the label.\vspace{2pt}\\
+\vspace{2pt}\centerline{$ 
         (\casec{x}{\labelc{c}{P_c},\dots}, H[x:A\langle \labelp{c}@q, Q\rangle y:\offert{\labelt{c}{B_c},\dots}])
         \Mapsto
         (P_c,H[x:A\langle q, Q\rangle y:B_c]^{rw})
-\]
+$}
+The rule performs a read-to-write adjustment, denoted by $[x:A\langle q, Q\rangle y:B]^{rw}$. This adjustment swaps the two end points of the session record, $x:A$ and $y:B$, if and only if $q$ is empty. Since processes are well-typed, then, if $q$ is empty, $P$ should have no more reads to perform. This adjustment then allows $P$ to start writing to the session.
 
-Finally, the $\fwdp$ rule is shown below, where it is assumed that, without loss of generality, $B^+$ is a positive type. The rule merges two session records, $(z:A\langle q_1, Q\rangle x:\dual{B^+})$ and $(y:B^+\langle q_2, Q\rangle w:C)$, into a single session record with continuation $P$ and queue $q_2@q_1$. If $B^+$ is a negative type, $x$ and $y$ can be swapped, producing the equivalent process $\fwdc{y}{x}$. Since $x$ is the read end point of the session and $y$ is the write end point, then $Q$ must have written through $z$ the contents of $q_1$. and the current process will have written through $y$ the contents of $q_2$. Thus, $P$ is waiting to read the contents of $q_2@q_1$.
-\[
-        (\fwdc{x}{y}, H[z:A\langle q_1, Q\rangle x:\dual{B^+}][y:B^+\langle q_2, P\rangle w:C])
-        \Mapsto
-        (P,H[z:A\langle q_2@q_1, Q\rangle w:C])
-\]
+Finally, the $\fwdp$ rule is shown below, assuming, without loss of generality, that $B^+$ is a positive type.\vspace{2pt}\\
+\vspace{2pt}\centerline{$
+    (\fwdc{x}{y}, H[z:A\langle q_1, Q\rangle x:\dual{B^+}][y:B^+\langle q_2, P\rangle w:C])
+    \Mapsto
+    (P,H[z:A\langle q_2@q_1, Q\rangle w:C])
+$}
+The rule merges two session records, $(z:A\langle q_1, Q\rangle x:\dual{B^+})$ and $(y:B^+\langle q_2, Q\rangle w:C)$, into a single session record with continuation $P$ and queue $q_2@q_1$. If $B^+$ is a negative type, $x$ and $y$ can be swapped, producing the equivalent process $\fwdc{y}{x}$. Since $x$ is the read end point of the session and $y$ is the write end point, then $Q$ must have written through $z$ the contents of $q_1$. and the current process will have written through $y$ the contents of $q_2$. Thus, $P$ is waiting to read the contents of $q_2@q_1$.
+
 
 \subsection{Example Execution}
 
-In this section two simple examples of process execution are presented. These examples iteratively apply the reduction rules shown in the previous section. The type annotations are omitted for brevity. Consider the process $P$ shown below:
-\[
+In this section two simple examples of process execution are presented. These examples iteratively apply the reduction rules shown in the previous section. The type annotations are omitted for brevity. Consider the process $P$ shown below:\vspace{2pt}\\
+\vspace{2pt}\centerline{$
     P \equiv \cutc{\waitc{x}{\emptyc}}{x}{\closec{x}}
-\]
-
+$}
 The execution of $P$ is shown below. The initial state of the \ac{SAM} is $(P, \emptyset)$. First, the $\cutp$ rule is applied, which allocates a new session record in the heap, and transitions to $\closep$, as it corresponds to the positive type $\closet$. Then, the $\closep$ rule is applied, which pushes the close token $\checkmark$ into the queue, and transitions to the session record continuation $\waitp$. Finally, the $\waitp$ rule is applied, which pops the close token $\checkmark$ from the queue, and transitions to the continuation $\emptyc$, reaching the final state $(\emptyc, \emptyset)$.
 \[\begin{aligned}
         (P, \emptyset)
