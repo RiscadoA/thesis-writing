@@ -1,0 +1,188 @@
+% #############################################################################
+% This is Appendix B
+% !TEX root = ../main.tex
+% #############################################################################
+\chapter{IR Specification}
+\label{chapter:appendixIR}
+
+This appendix specifies the syntax and the full instruction set of the \acf{IR} developed during this work. \Cref{tab:IRinstructionset} lists all instructions of the \ac{IR}, along with a brief description of each instruction. The full BNF syntax of \ac{IR} programs is provided in the \Cref{lst:IRsyntax}, containing the concrete syntax of all arguments used in the instructions.
+
+In the instruction set specification, for convenience, the remote continuation referenced by a continuation \texttt{c} is denoted as \texttt{c.r}.
+
+\setlength{\tabcolsep}{0pt}
+\begin{table}
+\centering
+\caption{IR instruction set}
+\label{tab:IRinstructionset}
+\begin{tabular}{p{0.385\linewidth} p{0.61\linewidth}}
+\hline
+\textbf{Instruction} & \textbf{Description} \\
+\hline
+% \endfirsthead
+
+\texttt{initContinuation(c, lab, loc)} &
+Initializes continuation \texttt{c}, with return address \texttt{lab}, writing location \texttt{loc} and remote continuation \texttt{c}. \\
+
+\texttt{bindContinuation(src, c, loc)} &
+Binds the continuation stored at \texttt{src} to continuation \texttt{c}, setting the writing location of \texttt{c.r} to \texttt{loc}. \\
+
+\texttt{continue(c, lab)} &
+Transfers control to the return address of continuation \texttt{c}. Sets the return address of the remote continuation of \texttt{c} to \texttt{lab}. \\
+
+\texttt{finish(c)} &
+Transfers control to the return address of continuation \texttt{c}. Sets the remote continuation of the remote continuation of \texttt{c} to itself. \\
+
+\texttt{forward(c1, c2)} &
+Copies \texttt{c1} to \texttt{c2.r} and \texttt{c2} to \texttt{c1.r}, linking  \texttt{c1.r} and \texttt{c2.r}. Transfers control to the return address of \texttt{c2}. \\
+
+\texttt{pushTask(lab)} &
+Pushes a new task with code address \texttt{lab} onto the task queue. \\
+
+\texttt{popTask()} &
+Pops a task from the task queue and transfers control to its code address. \\
+
+\texttt{jump(lab)} &
+Unconditional jump to label \texttt{lab}. \\
+
+\texttt{branchTag(loc, case, ...)} &
+Branches on the tag stored at \texttt{loc}. Takes as arguments a list of cases for each tag \texttt{i}. \\
+
+\texttt{branchExpr(expr, if, else)} &
+Branches on the result of a boolean expression. Takes as arguments a \texttt{if} and an \texttt{else} case. \\
+
+\texttt{branchFlags(reqs, if, else)} &
+Similar to \texttt{branchExpr}, but branches on the whether the flag requirements \texttt{reqs} are satisfied. \\
+
+\texttt{callProcess(pid, pargs)} &
+Calls process \texttt{pid} with type parameters, continuation arguments and data arguments specified in \texttt{pargs}. \\
+
+\texttt{callExponential(loc, c, d)} &
+Calls the exponential closure stored at \texttt{loc}, initializing a new continuation \texttt{c} as its argument, with writing location \texttt{d}. \\
+
+\texttt{writeExponential(loc, pid, eargs)} &
+Writes to \texttt{loc} a new exponential closure from process \texttt{pid}, with type parameters and data arguments specified in \texttt{eargs}. \\
+
+\texttt{writeExpression(loc, expr)} &
+Evaluates \texttt{expr} and writes the result to \texttt{loc}. \\
+
+\texttt{writeScan(loc, sl)} &
+Reads a slot \texttt{sl} from the standard input and writes it to \texttt{loc}. \\
+
+\texttt{writeTag(loc, i)} &
+Writes a tag \texttt{i} to location \texttt{loc}. \\
+
+\texttt{writeContinuation(loc, c)} &
+Writes a continuation reference \texttt{c} to location \texttt{loc}. \\
+
+\texttt{writeCell(loc, st)} &
+Writes a new cell with capacity for slot tree \texttt{st} to location \texttt{loc}. \\
+
+\texttt{writeType(loc, st, tflg)} &
+Writes a type parameter to \texttt{loc} described by a slot tree \texttt{st} and with flag requisites \texttt{tflg}.\\
+
+\texttt{moveSlots(dst, src, st)} &
+Moves the slot tree \texttt{st} from location \texttt{src} into \texttt{dst}.\\
+
+\texttt{cloneSlots(dst, src, st)} &
+Clones the slot tree \texttt{st} from location \texttt{src} into \texttt{dst}.\\
+
+\texttt{dropSlots(loc, st)} &
+Drops the slot tree \texttt{st} at location \texttt{loc}.\\
+
+\texttt{lockCell(loc)} &
+Locks the cell at \texttt{loc}. \\
+
+\texttt{unlockCell(loc)} &
+Unlocks the cell at \texttt{loc}. \\
+
+\texttt{acquireCell(loc)} &
+Increases the reference count of the cell at \texttt{loc}. \\
+
+\texttt{releaseCell(loc)} &
+Decreases the reference count of the cell at \texttt{loc}. If the reference count reaches zero, the cell is deallocated. \\
+
+\texttt{launchThread(lab)} &
+Launches a new thread, starting execution at label \texttt{lab}. \\
+
+\texttt{sleep(int)} &
+Sleeps for a number of milliseconds specified by the integer argument. \\
+
+\texttt{print(expr)} &
+Evaluates \texttt{expr} and prints the result to the standard output. \\
+
+\texttt{printLine(expr)} &
+Same as \texttt{print}, but adds a newline character after printing. \\
+
+\texttt{panic(str)} &
+Prints the string \texttt{str} to the standard error and aborts execution. \\
+
+\hline
+\end{tabular}
+\end{table}
+
+\begin{figure}
+\begin{lstlisting}[language=BNF,mathescape=true,frame=single,basicstyle=\ttfamily\footnotesize,caption={BNF Syntax of the Intermediate Representation},captionpos=t,label={lst:IRsyntax}]
+nl   ::= "\n"
+pid  ::= [a-zA-Z_][a-zA-Z0-9_]*
+lab  ::= [a-zA-Z_][a-zA-Z0-9_]*
+int  ::= [0-9]+
+str  ::= /* double-quoted string */
+bool ::= "true" | "false"
+
+/* type, continuation, data and drop bit identifiers */
+t, t1, t2 ::= "t" int
+c, c1, c2 ::= "c" int
+d, d1, d2 ::= "d" int
+e         ::= "e" int
+
+/* slots, slot trees, slot tree combinations, offsets */
+sl   ::= "int" | "bool" | "string" | "tag"  | "cont"
+       | "exponential"  | "cell"   | "type" | t
+st   ::= "[]" | "[" sl (";" sl)* (";" st)? "]"
+       | "tag[" st ("|" st)* "]"
+       | "flags" "<" reqs ">" "[" st "|" st "]"
+sc   ::= "<" st ("+" st)* ">"
+ofs  ::= st "$\sim$" st
+
+/* locations */
+locb          ::= c | d | "c" "(" loc ")"
+loc, src, dst ::= locb ("." ofs)?
+
+/* type flag requirements */
+reqs ::= "no" | "yes" | "if" "(" flag ("," flag)* ")"
+flag ::= t "." ("value" | "droppable" | "cloneable")
+
+/* program structure */
+prog  ::= proc+
+proc  ::= pid ":" nl entry* block+
+entry ::= "exit points:" int nl
+        | "types:" (t+ | "none") nl
+        | "continuations:" (c+ | "none") nl
+        | "data" d ":" sc ("(" c ")")? nl
+        | "drop" e ":" st "at" loc "(always)"? nl
+block ::= lab ":" nl (instr nl)+
+instr ::= /* defined in instructions table */
+expr  ::= expr "+" expr | expr "-" expr | expr "*" expr
+        | expr "/" expr | expr "%" expr 
+        | expr "=" expr | expr ">" expr | expr "<" expr
+        | expr "and" expr | expr "or" expr | "not" expr
+        | "(" expr ")" | int | str | bool
+        | ("move" | "clone") "(" loc "," sl ")"
+
+/* type, continuation and data arguments */
+tflg ::= ("(" flag "=" reqs ")")*
+targ ::= t "<-" loc | t "<-" st tflg
+carg ::= c1 "<-" (loc | c2) ("+" ofs)?
+darg ::= d "<-[" st "]" loc | d "=[" st "]" loc 
+
+/* process and exponential arguments */
+parg  ::= targ | carg | darg
+pargs ::= (parg ("," parg)*)?
+earg  ::= targ | darg
+eargs ::= (earg ("," earg)*)?
+
+/* branch cases */
+case, if, else ::= lab ":" int
+
+\end{lstlisting}
+\end{figure}

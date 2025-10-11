@@ -292,19 +292,19 @@ In the next subsections, various aspects of the \ac{IR} which were not covered i
 
 \subsection{Forwarding Continuations}
 
-To model the forwarding of sessions in \ac{CLASS}, it is necessary to be able to link two continuations together, detaching them from the active environment. This is done through the \texttt{forwardContinuations} instruction. This instruction takes two continuations as arguments, links their remote end points together, and passes control to the continuation of the second argument. An example snippet using this instruction is shown below:
+To model the forwarding of sessions in \ac{CLASS}, it is necessary to be able to link two continuations together, detaching them from the active environment. This is done through the \texttt{forward} instruction. This instruction takes two continuations as arguments, links their remote end points together, and passes control to the continuation of the second argument. An example snippet using this instruction is shown below:
 \begin{lstlisting}[language=IR,frame=bottom]
 entry:
     initContinuation(c0, lhs, d0) // 1
     initContinuation(c1, rhs, d1) // 2
-    forwardContinuations(c0, c1)  // 3
+    forward(c0, c1)  // 3
 lhs:
     ...                           // 5
 rhs:
     finish(c1)                    // 4
 \end{lstlisting}
 
-In this example two continuations $c_0$ and $c_1$ are initialized as before. The \texttt{forwardContinuations(c0, c1)} instruction is then executed, which makes $c_0$ the remote continuation of $c_1$ and vice-versa. Control then passes to $c_1$, and thus, to the block \texttt{rhs}. The instruction \texttt{finish(c1)} is finally executed, which as before, passes control to $c_1$, and thus to the block \texttt{lhs}, as $c_1$'s code location was set to $c_0$'s when forwarded.
+In this example two continuations $c_0$ and $c_1$ are initialized as before. The \texttt{forward(c0, c1)} instruction is then executed, which makes $c_0$ the remote continuation of $c_1$ and vice-versa. Control then passes to $c_1$, and thus, to the block \texttt{rhs}. The instruction \texttt{finish(c1)} is finally executed, which as before, passes control to $c_1$, and thus to the block \texttt{lhs}, as $c_1$'s code location was set to $c_0$'s when forwarded.
 
 \subsection{Data Representation} \label{subsection:IRSlots}
 
@@ -356,7 +356,7 @@ entry:
 
 Expressions are tree-like structure which compute basic values ($\ints$, $\bools$ or $\strings$) without side effects. \ac{IR} expressions are defined exactly as the expressions of \ac{CLASS}, with the difference that session names are replaced by \texttt{move(d, S)} and \texttt{clone(d, S)} expressions. Move and clone expressions read a slot $S$ from a data location $d$, with the difference that move consumes the data (cannot be read again) while clone leaves the data intact. For example, an integer clone is equivalent to a move, as integers are trivially copyable, but a string clone must allocate a new string and copy the contents.
 
-While expressions do not occur as instructions, they are used as arguments to some instructions, such as \texttt{writeExpression}, \texttt{branchExpression} and \texttt{print}. An example of an expression is \texttt{(move(d0, int) + 3) + clone(d1, string)}. This expression reads an integer from $d_0$, adds $3$ to it, then reads a cloned string from $d_1$ and finally concatenates the two. 
+While expressions do not occur as instructions, they are used as arguments to some instructions, such as \texttt{writeExpression}, \texttt{branchExpr} and \texttt{print}. An example of an expression is \texttt{(move(d0, int) + 3) + clone(d1, string)}. This expression reads an integer from $d_0$, adds $3$ to it, then reads a cloned string from $d_1$ and finally concatenates the two. 
 
 \subsection{Input and Output}
 
@@ -372,7 +372,7 @@ entry:
 
 \subsection{Tags and Branching} \label{subsection:Branching}
 
-Branching is done through the \texttt{branchTag} and \texttt{branchExpression} instructions. The first instruction branches on a tag stored a data location, similarly to a switch statement in C, and the second instruction branches on the result of a boolean expression, similarly to an if statement in C. Each possible branch is defined by a code location (block label) and an integer indicating how many exit points are behind that branch. This number is used to adjust the exit point count of the environment when branching.
+Branching is done through the \texttt{branchTag} and \texttt{branchExpr} instructions. The first instruction branches on a tag stored a data location, similarly to a switch statement in C, and the second instruction branches on the result of a boolean expression, similarly to an if statement in C. Each possible branch is defined by a code location (block label) and an integer indicating how many exit points are behind that branch. This number is used to adjust the exit point count of the environment when branching.
 
 Tags are written to data locations through the \texttt{writeTag} instruction, which takes as arguments a data location and a constant tag value. Below is an example of writing a tag and then branching on it.
 
@@ -772,11 +772,11 @@ The $\recvc{x}{y}P$ process receives a session end point $y$ over session $x$, w
 
 \subsection{Forwarding}
 
-Given a process $\fwdc{x}{y}$, it can be assumed without loss of generality that $x$ is of negative type and $y$ of positive type - if this is not the case, $x$ and $y$ can be swapped. Forwarding $x$ to $y$, as on the \ac{SAM}, requires moving any unread data which has already been received on $x$ to $y$. This data is described by $\slots{\theta}{A}$, where $y: A$. For example, if $A = \lintt$, then $\seqst{\ints}$ must be moved from $\readlocof{\Delta}{x}$ to the $\writelocof{\Delta}{y}$. Additionally, the continuations referenced by $x$ and $y$ are linked to each other through the \texttt{forwardContinuations} instruction, ensuring that future communication happens directly between the other end points of $x$ and $y$. The \texttt{forwardContinuations} instruction passes control directly to the other end point of $y$, which will not return, and thus, is marked as an exit point.
+Given a process $\fwdc{x}{y}$, it can be assumed without loss of generality that $x$ is of negative type and $y$ of positive type - if this is not the case, $x$ and $y$ can be swapped. Forwarding $x$ to $y$, as on the \ac{SAM}, requires moving any unread data which has already been received on $x$ to $y$. This data is described by $\slots{\theta}{A}$, where $y: A$. For example, if $A = \lintt$, then $\seqst{\ints}$ must be moved from $\readlocof{\Delta}{x}$ to the $\writelocof{\Delta}{y}$. Additionally, the continuations referenced by $x$ and $y$ are linked to each other through the \texttt{forward} instruction, ensuring that future communication happens directly between the other end points of $x$ and $y$. The \texttt{forward} instruction passes control directly to the other end point of $y$, which will not return, and thus, is marked as an exit point.
 \begin{compilation}{\theta}{\Delta}{\fwdc{x}{y}}
 {1}
     \moveslots{\writelocof{\Delta}{y}}{\readlocof{\Delta}{x}}{\slots{\theta}{A}}
-    \forwardcontinuations{\continuationof{\Delta}{x}}{\continuationof{\Delta}{y}}{\hasexitpoint}
+    \forward{\continuationof{\Delta}{x}}{\continuationof{\Delta}{y}}{\hasexitpoint}
 \end{compilation}
 
 \subsection{Process Calls}
@@ -1132,7 +1132,7 @@ The \texttt{initContinuation} instruction is compiled as shown below. The contin
     };
 \end{lstlisting}
 
-The compilation of the \texttt{finish} instruction is shown below. First, the remote continuation of the finished continuation is unlinked from this continuation by setting its \texttt{remote} field to itself. This is necessary to avoid use after free errors in instructions such as \texttt{forwardContinuations} and \texttt{callProcess}. Then, the target location and environment is stored on the registers and the environment's exit point counter is decremented atomically (when concurrency is disabled, a normal integer is used instead). If the counter reaches zero, the environment cleanup code described in \Cref{subsubsection:CEnvironmentCleanup} is executed. Finally, the environment and code address are switched to the continuation values, and a jump is performed.
+The compilation of the \texttt{finish} instruction is shown below. First, the remote continuation of the finished continuation is unlinked from this continuation by setting its \texttt{remote} field to itself. This is necessary to avoid use after free errors in instructions such as \texttt{forward} and \texttt{callProcess}. Then, the target location and environment is stored on the registers and the environment's exit point counter is decremented atomically (when concurrency is disabled, a normal integer is used instead). If the counter reaches zero, the environment cleanup code described in \Cref{subsubsection:CEnvironmentCleanup} is executed. Finally, the environment and code address are switched to the continuation values, and a jump is performed.
 
 \begin{lstlisting}[language=C, frame=bottom]
     /* finish(c0, exit point) */
@@ -1156,10 +1156,10 @@ The \texttt{continue} instruction is compiled similarly to \texttt{finish}, as s
     goto *tmp_ptr1;
 \end{lstlisting}
 
-The \texttt{forwardContinuations} instruction first stores the continuation of its second argument in the temporary registers. Then, it sets the remotes of both argument continuations to point to each other, ensuring no references are left to the local continuations. A temporary variable is used to store the first argument continuation, as its value may be overwritten due to the possibility of a continuation being its own remote. Finally, the exit point counter is decremented, and control is passed to the location and environment stored in the temporary registers.
+The \texttt{forward} instruction first stores the continuation of its second argument in the temporary registers. Then, it sets the remotes of both argument continuations to point to each other, ensuring no references are left to the local continuations. A temporary variable is used to store the first argument continuation, as its value may be overwritten due to the possibility of a continuation being its own remote. Finally, the exit point counter is decremented, and control is passed to the location and environment stored in the temporary registers.
 
 \begin{lstlisting}[language=C, frame=bottom]
-    /* forwardContinuations(c0, c1, exit point) */
+    /* forward(c0, c1, exit point) */
     tmp_ptr1 = (*(struct cont*)(env + 40)).loc;
     tmp_ptr2 = (*(struct cont*)(env + 40)).env;
     tmp_cont = *(struct cont*)(env + 8);

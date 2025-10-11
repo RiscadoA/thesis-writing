@@ -82,7 +82,7 @@ Finally, a type is said to be cloneable if a clone operation is defined for it. 
 
 \subsection{Adding Type Flags to the Compiler}
 
-To generate code which depends on type flags, it is necessary to add a new branching instruction \texttt{branchFlags}, with the exact same syntax as \texttt{branchExpression}, but instead of branching on a boolean expression, it branches on whether some flag requirements are met. For example, the instruction \texttt{branchFlags(if(t0.value), value:1, not\_value:1)} jumps to block \texttt{value} if the type parameter $t_0$ has the value flag set, or to block \texttt{not\_value} otherwise. Most flag requisites are either $\guaranteed$ or $\impossible$, and thus can be determined at compile time, avoiding the branch.
+To generate code which depends on type flags, it is necessary to add a new branching instruction \texttt{branchFlags}, with the exact same syntax as \texttt{branchExpr}, but instead of branching on a boolean expression, it branches on whether some flag requirements are met. \texttt{branchFlags(if(t0.value), value:1, not\_value:1)}, for example, jumps to block \texttt{value} if the type parameter $t_0$ has the value flag set, or to block \texttt{not\_value} otherwise. Most flag requisites are either $\guaranteed$ or $\impossible$, and thus can be determined at compile time, avoiding the branch.
 
 To enable different memory representations for session types based on these flags, slot trees also need to be extended with a new definition $\flagsst{R}{T_1}{T_2}$. This tree is similar to $\tagst{\dots}$, but instead of branching on a written tag, it branches on whether some flag requirements $R$ are met - if $R$ is met, $T_1$ is chosen, otherwise, $T_2$ is chosen.
 

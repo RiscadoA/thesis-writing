@@ -49,6 +49,19 @@
     sensitive=true,
 }
 
+% Color BNF with strings
+\lstdefinelanguage{BNF}{
+    morekeywords={nl, pid, lab, int, loc, t, t1, t2, c, c1, c2, d, d1, d2, e, prog, proc, entry, block, instr, sl, st, sc, ofs, locb, reqs, flag, expr, tflg, targ, carg, darg, parg, pargs, earg, eargs, case, if, else, str, bool, src, dst},
+    sensitive=true,
+    morestring=[b]",
+    morestring=[b]',
+    morecomment=[l]{//},
+    morecomment=[s]{/*}{*/},
+    moredelim=[is][keywordstyle2]{@}{@},
+    alsoletter={:},
+    morekeywords=[2]{::=,|,*,+,?},
+}
+
 % Slot names
 \newcommand{\irs}[1]{\text{\textcolor{lightblue}{#1}}}
 \newcommand{\ints}{\irs{int}}
@@ -344,7 +357,7 @@
     \mktwoargir{\finishcont}{finish}
     \mkoneargir{\continue}{continue}
     \mkthreeargir{\bindcontinuation}{bindContinuation}
-    \mkthreeargir{\forwardcontinuations}{forwardContinuations}
+    \mkthreeargir{\forward}{forward}
     \mktwoargir{\branchtag}{branchTag}
     \mktwoargir{\branchflags}{branchFlags}
     \mktwoargir{\writetype}{writeType}
