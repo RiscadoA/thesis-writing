@@ -121,7 +121,7 @@ Prints the string \texttt{str} to the standard error and aborts execution. \\
 \end{table}
 
 \begin{figure}
-\begin{lstlisting}[language=BNF,mathescape=true,frame=single,basicstyle=\ttfamily\footnotesize,caption={BNF Syntax of the Intermediate Representation},captionpos=t,label={lst:IRsyntax}]
+\begin{lstlisting}[language=BNF,mathescape=true,frame=single,basicstyle=\ttfamily\footnotesize,caption={BNF Grammar of the Intermediate Representation},captionpos=t,label={lst:IRsyntax}]
 nl   ::= "\n"
 pid  ::= [a-zA-Z_][a-zA-Z0-9_]*
 lab  ::= [a-zA-Z_][a-zA-Z0-9_]*
@@ -152,23 +152,6 @@ loc, src, dst ::= locb ("." ofs)?
 reqs ::= "no" | "yes" | "if" "(" flag ("," flag)* ")"
 flag ::= t "." ("value" | "droppable" | "cloneable")
 
-/* program structure */
-prog  ::= proc+
-proc  ::= pid ":" nl entry* block+
-entry ::= "exit points:" int nl
-        | "types:" (t+ | "none") nl
-        | "continuations:" (c+ | "none") nl
-        | "data" d ":" sc ("(" c ")")? nl
-        | "drop" e ":" st "at" loc "(always)"? nl
-block ::= lab ":" nl (instr nl)+
-instr ::= /* defined in instructions table */
-expr  ::= expr "+" expr | expr "-" expr | expr "*" expr
-        | expr "/" expr | expr "%" expr 
-        | expr "=" expr | expr ">" expr | expr "<" expr
-        | expr "and" expr | expr "or" expr | "not" expr
-        | "(" expr ")" | int | str | bool
-        | ("move" | "clone") "(" loc "," sl ")"
-
 /* type, continuation and data arguments */
 tflg ::= ("(" flag "=" reqs ")")*
 targ ::= t "<-" loc | t "<-" st tflg
@@ -184,5 +167,21 @@ eargs ::= (earg ("," earg)*)?
 /* branch cases */
 case, if, else ::= lab ":" int
 
+/* program structure */
+prog  ::= proc+
+proc  ::= pid ":" nl entry* block+
+entry ::= "exit points:" int nl
+        | "types:" (t+ | "none") nl
+        | "continuations:" (c+ | "none") nl
+        | "data" d ":" sc ("(" c ")")? nl
+        | "drop" e ":" st "at" loc "(always)"? nl
+block ::= lab ":" nl (instr nl)+
+expr  ::= expr "+" expr | expr "-" expr | expr "*" expr
+        | expr "/" expr | expr "%" expr 
+        | expr "=" expr | expr ">" expr | expr "<" expr
+        | expr "and" expr | expr "or" expr | "not" expr
+        | "(" expr ")" | int | str | bool
+        | ("move" | "clone") "(" loc "," sl ")"
+instr ::= /* consult instruction set table */
 \end{lstlisting}
 \end{figure}
