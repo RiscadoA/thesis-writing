@@ -7,9 +7,9 @@
 % The following line allows to ref this chapter
 \label{chap:architecture}
 
-This chapter presents the base compilation scheme developed on this thesis. This scheme generates native code which executes in a sequential and deterministic manner, closely resembling the execution of the \ac{SAM}, implementing continuation-based coroutining. Associated to each process is a block of data called an environment, similar to a stack frame of traditional imperative languages. This environment stores the continuations of each session, as well as any data received through them. Whenever a process finishes writing data to a session, a jump is made to its other end point, which will read the data and continue execution.
+This chapter presents the base compilation scheme developed on this thesis. This scheme generates C code which executes in a sequential and deterministic manner, closely resembling the execution of the \ac{SAM}, implementing continuation-based coroutining. Associated to each process is a block of data called an environment, similar to a stack frame of traditional imperative languages. This environment stores the continuations of each session, as well as any data received through them. As on the \ac{SAM}, when processes finish writing to a session, control passes to the session's other end point, which will read the data and continue execution.
 
-At a high-level, the compilation scheme is divided into four phases. First, the source \ac{CLASS} program is parsed and type-checked. This phase is not discussed in this report, as its implementation has been reused from the previous work \cite{Rocha:2023, Caires:2024} on the \ac{SAM} and \ac{CLASS} interpreters. Then, the program is compiled to an \acf{IR} which abstracts some details of the target language. Next, the \ac{IR} is analyzed and optimized by a series of passes. Finally, the optimized \ac{IR} is translated to C code, which is then compiled to native code using the \acf{GCC}.
+At a high-level, the compilation scheme is divided into four phases. First, the source \ac{CLASS} program is parsed and type-checked. This phase is not discussed in this report, as its implementation has been reused from the previous work \cite{Rocha:2023, Caires:2024} on the \ac{CLASS} and \ac{SAM} interpreters. Then, the program is compiled to an \acf{IR} which abstracts some details of the target language. Next, the \ac{IR} is analyzed and optimized by a series of passes. Finally, the optimized \ac{IR} is translated to C code, which is then compiled to native code using the \acf{GCC}.
 
 In the first section of this chapter, the \ac{IR}'s constructs and its abstract machine are defined. In the second section, the compilation of \ac{CLASS} to the \ac{IR} is described. Finally, in the third section,
 an overview is given on how the \ac{IR} is translated to C code.
@@ -34,7 +34,7 @@ The execution of an \ac{IR} program is described by an abstract machine with sta
 
 To introduce the \ac{IR} and its abstractions, the execution of an example program will be covered step by step on the next section.
 
-\begin{figure}[H]
+\begin{figure}
     \hrule
     \begin{minipage}[t]{0.5\textwidth}
     \begin{lstlisting}[language=CLASS]
@@ -288,35 +288,19 @@ In \textbf{Step 11}, \texttt{finish(c0, exit point)} is executed, passing contro
 
 Finally, in \textbf{Step 13}, \texttt{popTask(exit point)} is executed, which pops the next task from the task stack and jumps to it. In this example, the task stack was never modified, and thus contains only the program termination task. Since the instruction is marked as an exit instruction, the exit point count of \texttt{p} reaches $0$, and it is destroyed, ensuring no memory is leaked.
 
-In the next subsections, various aspects of the \ac{IR} which were not covered in the example execution are described.
-
-\subsection{Forwarding Continuations}
-
-To model the forwarding of sessions in \ac{CLASS}, it is necessary to be able to link two continuations together, detaching them from the active environment. This is done through the \texttt{forward} instruction. This instruction takes two continuations as arguments, links their remote end points together, and passes control to the continuation of the second argument. An example snippet using this instruction is shown below:
-\begin{lstlisting}[language=IR,frame=bottom]
-entry:
-    initContinuation(c0, lhs, d0) // 1
-    initContinuation(c1, rhs, d1) // 2
-    forward(c0, c1)  // 3
-lhs:
-    ...                           // 5
-rhs:
-    finish(c1)                    // 4
-\end{lstlisting}
-
-In this example two continuations $c_0$ and $c_1$ are initialized as before. The \texttt{forward(c0, c1)} instruction is then executed, which makes $c_0$ the remote continuation of $c_1$ and vice-versa. Control then passes to $c_1$, and thus, to the block \texttt{rhs}. The instruction \texttt{finish(c1)} is finally executed, which as before, passes control to $c_1$, and thus to the block \texttt{lhs}, as $c_1$'s code location was set to $c_0$'s when forwarded.
+In the next subsections, various aspects of the \ac{IR} which were not covered in the example execution are covered, along with some smaller examples.
 
 \subsection{Data Representation} \label{subsection:IRSlots}
 
-\ac{IR} programs are completely platform agnostic, and thus, data types and addresses are described through their composition of \textit{slots}, instead of concrete byte sizes and offsets. A slot $S$ is a unit of data in the \ac{IR}, and is defined as
-\[
-S ::= \ints \mid \bools \mid \strings \mid \tags \mid \conts \mid \cells{T} \mid \exponentials \mid \types \mid \vars{i}\]
+\ac{IR} programs are completely platform agnostic, and thus, data types and addresses are described through their composition of \textit{slots}, instead of concrete byte sizes and offsets. A slot $S$ is a unit of data in the \ac{IR}, and is defined as\vspace{2pt}\\
+\vspace{2pt}\centerline{$
+S ::= \ints \mid \bools \mid \strings \mid \tags \mid \conts \mid \cells{T} \mid \exponentials \mid \types \mid \vars{i}$}
 where $\ints$, $\bools$ and $\strings$ represent the basic data types, $\tags$ represents a \ac{CLASS} choice, $\conts$ a continuation reference, $\cells{T}$ a reference to a shared state cell with contents described by the slot tree $T$ (introduced below), $\exponentials$ an exponential reference, $\types$ a stored type parameter, and $\vars{i}$ a type parameter declared in the current process header. 
 
-In order to model branching data types (such as choices from \ac{CLASS}), data layouts are described through trees of slots, instead of plain sequences. A slot tree $T$ is defined recursively as
-\[
+In order to model branching data types (such as choices from \ac{CLASS}), data layouts are described through trees of slots, instead of plain sequences. A slot tree $T$ is defined recursively as \vspace{2pt}\\
+\vspace{2pt}\centerline{$
 T ::= \nilst \mid \seqst{S_1; \dots; S_n; T} \mid \tagst{T_1 \tagsepst \dots \tagsepst T_n}
-\]
+$}
 where $\nilst$ is the empty slot tree, $\seqst{S_1; \dots; S_n; T}$ is a sequence of a slots $S_1; \dots; S_n$ followed by a slot tree $T$, and $\tagst{T_1 \tagsepst \dots \tagsepst T_n}$ is a $\tags$ slot followed by a choice between the slot trees $T_1$ to $T_n$. For example, $\seqst{\ints; \tagst{\seqst{\bools} \tagsepst \seqst{\strings}}}$ describes an integer followed by a tag, which, if $0$, is followed by a boolean, or if $1$, is followed by a string.
 
 Data sections are described within process headers by a sum of slot trees describing the possible layouts of data that can be stored on them. For example, $\texttt{data d0:}\ \combst{\seqst{\ints; \bools} + \seqst{\strings}}$ describes a data section $d_0$ which can either store an $\ints$ followed by a $\bools$, or a $\strings$.
@@ -369,6 +353,23 @@ entry:
     writeScan(d0.[int]~[int], int)
     printLine(move(d0, int) + move(d0.[int]~[int], int))
 \end{lstlisting}
+
+
+\subsection{Forwarding Continuations}
+
+To model the forwarding of sessions in \ac{CLASS}, it is necessary to be able to link two continuations together, detaching them from the active environment. This is done through the \texttt{forward} instruction. This instruction takes two continuations as arguments, links their remote end points together, and passes control to the continuation of the second argument. Below is an example of forwarding two continuations:
+\begin{lstlisting}[language=IR,frame=bottom]
+entry:
+    initContinuation(c0, lhs, d0) // 1
+    initContinuation(c1, rhs, d1) // 2
+    forward(c0, c1)  // 3
+lhs:
+    ...                           // 5
+rhs:
+    finish(c1)                    // 4
+\end{lstlisting}
+
+In this example two continuations $c_0$ and $c_1$ are initialized as before. The \texttt{forward(c0, c1)} instruction is then executed, which makes $c_0$ the remote continuation of $c_1$ and vice-versa. Control then passes to $c_1$, and thus, to the block \texttt{rhs}. The instruction \texttt{finish(c1)} is finally executed, which as before, passes control to $c_1$, and thus to the block \texttt{lhs}, as $c_1$'s code location was set to $c_0$'s when forwarded.
 
 \subsection{Tags and Branching} \label{subsection:Branching}
 
@@ -971,12 +972,10 @@ Two memory layouts $L_1 = (s_1, a_1), L_2 = (s_2, a_2)$ can be concatenated to f
 
 The memory layout of a slot $S$ on a given target architecture $\arch$ is denoted by $\slotlayout{\sigma}{S}$, defined as
 \[\begin{aligned}
-    &\begin{aligned}
-        &\slotlayout{\sigma}{\ints} = \archlayout{int} && \slotlayout{\sigma}{\bools} = \archlayout{unsigned char} \\
-        &\slotlayout{\sigma}{\strings} = \archlayout{char*} && \slotlayout{\sigma}{\conts} = \archlayout{struct cont*} \\
-        &\slotlayout{\sigma}{\tags} = \archlayout{unsigned char} && \slotlayout{\sigma}{\types} = \archlayout{struct type} \\
-        &\slotlayout{\sigma}{\exponentials} = \archlayout{struct exponential*} && \slotlayout{\sigma}{\cells{\dots}} = \archlayout{struct cell*} \\
-    \end{aligned}\\
+    &\slotlayout{\sigma}{\ints} = \archlayout{int} && \slotlayout{\sigma}{\bools} = \archlayout{unsigned char} \\
+    &\slotlayout{\sigma}{\strings} = \archlayout{char*} && \slotlayout{\sigma}{\conts} = \archlayout{struct cont*} \\
+    &\slotlayout{\sigma}{\tags} = \archlayout{unsigned char} && \slotlayout{\sigma}{\types} = \archlayout{struct type} \\
+    &\slotlayout{\sigma}{\exponentials} = \archlayout{struct exponential*} && \slotlayout{\sigma}{\cells{\dots}} = \archlayout{struct cell*} \\
     &\slotlayout{\sigma}{t_i} = \layoutofvar{\sigma}{t_i}\\
 \end{aligned}\]
 where $\sigma$ is a map between type parameters and their layouts. A target architecture $\arch$ is a mapping from C types to their memory layouts, such that $\archlayout{type} = (s, a)$ where $s$ and $a$ where, respectively, the size and alignment of \texttt{type} on the target architecture. A definition of $\sigma$ will be introduced in the next section.
