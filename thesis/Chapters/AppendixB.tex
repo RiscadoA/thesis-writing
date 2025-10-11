@@ -27,10 +27,10 @@ Initializes continuation \texttt{c}, with return address \texttt{lab}, writing l
 Binds the continuation stored at \texttt{src} to continuation \texttt{c}, setting the writing location of \texttt{c.r} to \texttt{loc}. \\
 
 \texttt{continue(c, lab)} &
-Transfers control to the return address of continuation \texttt{c}. Sets the return address of the remote continuation of \texttt{c} to \texttt{lab}. \\
+Transfers control to the return address of continuation \texttt{c}. Sets the return address of \texttt{c.r} to \texttt{lab}. \\
 
 \texttt{finish(c)} &
-Transfers control to the return address of continuation \texttt{c}. Sets the remote continuation of the remote continuation of \texttt{c} to itself. \\
+Transfers control to the return address of continuation \texttt{c}. Sets \texttt{c.r.r} to \texttt{c.r}, unlinking \texttt{c.r} from \texttt{c}. \\
 
 \texttt{forward(c1, c2)} &
 Copies \texttt{c1} to \texttt{c2.r} and \texttt{c2} to \texttt{c1.r}, linking  \texttt{c1.r} and \texttt{c2.r}. Transfers control to the return address of \texttt{c2}. \\
@@ -39,7 +39,7 @@ Copies \texttt{c1} to \texttt{c2.r} and \texttt{c2} to \texttt{c1.r}, linking  \
 Pushes a new task with code address \texttt{lab} onto the task queue. \\
 
 \texttt{popTask()} &
-Pops a task from the task queue and transfers control to its code address. \\
+Pops a task from the task queue and transfers control to it. \\
 
 \texttt{jump(lab)} &
 Unconditional jump to label \texttt{lab}. \\
@@ -54,7 +54,7 @@ Branches on the result of a boolean expression. Takes as arguments a \texttt{if}
 Similar to \texttt{branchExpr}, but branches on the whether the flag requirements \texttt{reqs} are satisfied. \\
 
 \texttt{callProcess(pid, pargs)} &
-Calls process \texttt{pid} with type parameters, continuation arguments and data arguments specified in \texttt{pargs}. \\
+Calls process \texttt{pid} with type parameters, continuation arguments and data arguments, specified in \texttt{pargs}. \\
 
 \texttt{callExponential(loc, c, d)} &
 Calls the exponential closure stored at \texttt{loc}, initializing a new continuation \texttt{c} as its argument, with writing location \texttt{d}. \\
@@ -136,13 +136,13 @@ d, d1, d2 ::= "d" int
 e         ::= "e" int
 
 /* slots, slot trees, slot tree combinations, offsets */
-sl   ::= "int" | "bool" | "string" | "tag"  | "cont"
-       | "exponential"  | "cell"   | "type" | t
-st   ::= "[]" | "[" sl (";" sl)* (";" st)? "]"
-       | "tag[" st ("|" st)* "]"
-       | "flags" "<" reqs ">" "[" st "|" st "]"
-sc   ::= "<" st ("+" st)* ">"
-ofs  ::= st "$\sim$" st
+sl  ::= "int" | "bool" | "string" | "tag"  | "cont"
+      | "exponential"  | "cell"   | "type" | t
+st  ::= "[]" | "[" sl (";" sl)* (";" st)? "]"
+      | "tag[" st ("|" st)* "]"
+      | "flags" "<" reqs ">" "[" st "|" st "]"
+sc  ::= "<" st ("+" st)* ">"
+ofs ::= st "$\sim$" st
 
 /* locations */
 locb          ::= c | d | "c" "(" loc ")"
