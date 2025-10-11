@@ -44,7 +44,7 @@ In the optimizations described in this section, types are optimized based on whe
     \label{fig:IsValueDefinition}
 \end{figure}
 
-A type is said to be a value type if it has a strict polarity, being either strictly positive, or strictly negative. A channel of a negative value type will only be read from, and control will not be passed to it. A channel of a positive value type will only be written to, and control will not return to it. For example, $\lintt$ and $\sendt{A}{\closet}$ are both positive value types. A type $A$ is only a value if and only if its type flag requisites are met, which are denoted as $\isvalue{A}$, where $\typeenv$ is the type environment introduced in \Cref{subsubsection:TypeEnvironments}. The definition of $\isvalue{A}$ for positive types is shown in \Cref{fig:IsValueDefinition}. For negative types, $\isvalue{A} = \isvalue{\dualt A}$.
+A type is said to be a value type if it has a strict polarity, being either strictly positive, or strictly negative. A channel of a negative value type will only be read from, and control will not be yielded to it. A channel of a positive value type will only be written to, and control will not return from it. For example, $\lintt$ and $\sendt{A}{\closet}$ are both positive value types. A type $A$ is only a value if and only if its type flag requisites are met, which are denoted as $\isvalue{A}$, defined for positive types in \Cref{fig:IsValueDefinition}, where $\typeenv$ is the type environment introduced in \Cref{subsubsection:TypeEnvironments}. For negative types, $\isvalue{A} = \isvalue{\dualt A}$.
 
 \begin{figure}[t]
     \centering
@@ -57,11 +57,12 @@ A type is said to be a value type if it has a strict polarity, being either stri
         &\isdroppable{\choicet{\labelt a A\ (\dots)\ \labelt z Z}} = \bigwedge\,(\isdroppable{A},\,\dots,\,\isdroppable{Z}) && \isdroppable{X} = \dependent{\depisdroppable{\typeidof{\typeenv}{X}}} \\
         &\isdroppable{A} = \impossible \text{ if } \polarityof{\typeenv}{A} = - \\
     \end{aligned}\]
+    \vspace{-1em}
     \caption{Definition of $\isdroppable{A}$ for positive types}
     \label{fig:IsDroppableDefinition}
 \end{figure}
 
-Additionally, a type is said to be a droppable type if a drop function is defined for it, effectively making it affine. A type $A$ is droppable if and only if its type flag requisites, denoted as $\isdroppable{A}$ and defined for positive types in \Cref{fig:IsDroppableDefinition}, are met. For negative types, $\isdroppable{A} = \isdroppable{\dualt A}$. For example, $\lintt$ can be dropped trivially, no special action required, and a channel of type $\sendt{A}{B}$ can only be dropped if both $A$ and $B$ can be dropped.
+A type is said to be droppable if a drop function is defined for it, effectively making it affine. A type $A$ is droppable if and only if its type flag requisites are met, denoted as $\isdroppable{A}$ and defined for positive types in \Cref{fig:IsDroppableDefinition}. For negative types, $\isdroppable{A} = \isdroppable{\dualt A}$. For example, $\lintt$ can be dropped trivially, no actions required, and a channel of type $\sendt{A}{B}$ can only be dropped if both $A$ and $B$ can be dropped.
 
 \begin{figure}
     \centering
@@ -74,6 +75,7 @@ Additionally, a type is said to be a droppable type if a drop function is define
         &\iscloneable{\choicet{\labelt a A\ (\dots)\ \labelt z Z}} = \bigwedge\,(\iscloneable{A},\,\dots,\,\iscloneable{Z}) && \iscloneable{X} = \dependent{\depiscloneable{\typeidof{\typeenv}{X}}} \\
         &\iscloneable{A} = \impossible \text{ if } \polarityof{\typeenv}{A} = - \\
     \end{aligned}\]
+    \vspace{-1em}
     \caption{Definition of $\iscloneable{A}$ for positive types}
     \label{fig:IsCloneableDefinition}
 \end{figure}
@@ -92,10 +94,10 @@ To branch on the flags of a type parameter, the flags must be stored in environm
 
 The first implemented optimization takes advantage of the fact that a session of a positive value type $A$ being sent (e.g., $\sendt{A}{B}$) is a session which will have control returned to it exactly once, when it is received. The total number of operations can be reduced by immediately writing the data of the value instead of a continuation which would write that data. For example, instead of $\sendt{\lintt}{\sendt{\lintt}{\lintt}}$ being represented as $\seqst{\conts;\conts;\ints}$, it can be represented as $\seqst{\ints;\ints;\ints}$.
 
-First, the mapping from sessions types $A$ to their respective slot trees introduced in \Cref{subsection:MappingSessionTypesToSlots} is updated such that, for the $\sendt{A}{B}$ type, if the left-hand-side $A$ type is a positive value type, the slots of the $A$ are computed, and concatenated with the slots of the right-hand-side $B$. Otherwise, as before, a $\conts$ slot is simply added before the slots of $B$. Formally:
-$$
+First, the mapping from sessions types $A$ to their respective slot trees introduced in \Cref{subsection:MappingSessionTypesToSlots} is updated such that, for the $\sendt{A}{B}$ type, if the left-hand-side $A$ type is a positive value type, the slots of the $A$ are computed, and concatenated with the slots of the right-hand-side $B$. Otherwise, as before, a $\conts$ slot is simply added before the slots of $B$. Formally:\vspace{2pt}\\
+\vspace{2pt}\centerline{$
     \slots{\theta}{\sendt{A}{B}} = \concatst{\flagsst{\isvalue{A}}{\slots{\theta}{A}}{\seqst{\conts}}}{\slots{\theta}{B}}
-$$
+$}
 
 Then, the compilation of both $\sendp$ and $\recvp$ processes must be modified to reflect this new structure. A \texttt{branchFlags} instruction is generated which branches on whether the type of the argument session being sent or received is a positive or negative value, respectively. If it is not a value, the implementation is the same as before.
 
@@ -109,10 +111,10 @@ The second implemented optimization greatly simplifies the representation of exp
 
 This optimization changes the semantics of exponentials, as the computation is done immediately and only once, instead of once per exponential call. This transformation may end up worsening performance in cases where the exponential is never called. However, in practice, when exponentials are used, they are often called multiple times, and the performance gain in these cases is significant.
 
-Once again, the mapping from session types to slot trees is modified. If the inner type $A$ of a $\bangt{A}$ type is a cloneable and droppable type, the slots of $A$ are computed and used directly. Otherwise, a single $\exponentials$ slot is used, as before. Formally:
-\[
+Once again, the mapping from session types to slot trees is modified. If the inner type $A$ of a $\bangt{A}$ type is a cloneable and droppable type, the slots of $A$ are computed and used directly. Otherwise, a single $\exponentials$ slot is used, as before. Formally:\vspace{2pt}\\
+\vspace{2pt}\centerline{$
     \slots{\theta}{\bangt{A}} = \flagsst{\iscloneable{A} \land \isdroppable{A}}{\slots{\theta}{A}}{\seqst{\exponentials}}
-\]
+$}
 
 This change turns, for example, the representation of $\bangt{\bangt{\lintt}}$ into just $\ints$, instead of an $\exponentials$ which would produce another $\exponentials$ which would finally produce an $\ints$.
 
@@ -124,7 +126,7 @@ Finally, the $\callc{x}{y}$ process is modified to simply generate a \texttt{clo
 
 \subsection{Eagerly Computing Affine Sessions} \label{subsection:AffineValueOptimizations}
 
-On the base compiler, $\affinet{A}$ types are implemented as sessions which follows the affine protocol, i.e., $\offert{\labelt{use}{A}\ \labelt{discard}{\closet}}$, as described in \Cref{subsection:IRDroppingData}. Although this implementation saves time by lazily executing the affine code only if the session is used, it has the overhead of storing a continuation instead of the actual value, requiring multiple jumps and a tag to determine whether the session is used or discarded, even if the inner type $A$ is a droppable type, e.g., $\affinet{\lintt}$ or $\affinet{\bangt{\lintt}}$. In these cases, the semantic could be changed so that the value is computed immediately, and dropped if the session is discarded.
+On the base compiler, $\affinet{A}$ types are implemented as sessions which follows the affine protocol, i.e., $\offert{\labelt{use}{A}\ \labelt{discard}{\closet}}$. Although this implementation saves time by lazily executing the affine code only if the session is used, it has the overhead of storing a continuation instead of the actual value, requiring multiple jumps and a tag to determine whether the session is used or discarded, even if the inner type $A$ is a droppable type, e.g., $\affinet{\lintt}$ or $\affinet{\bangt{\lintt}}$. In these cases, the semantic could be changed so that the value is computed immediately, and dropped if the session is discarded.
 
 This of course, does not always improve performance. While exponentials are very likely to be used multiple times, affine channels are often used to prevent computing a value which is never used. With this transformation, time may be wasted performing an unnecessary expensive computation.
 
@@ -142,7 +144,7 @@ The compilation of the $\affinec{x}{P}$ process is modified to generate a \textt
 
 The $\usec{x}{P}$ process, where $x: \coaffinet{A}$ is modified to also branch on whether $A$ is a negative droppable type. If it is not, the implementation is the same as before. Otherwise, the instructions does nothing. The same goes for the $\discardc{x}$ process, but if $A$ is a negative droppable type, a \texttt{dropSlots} instruction is generated to drop the value immediately.
 
-Finally, the $\cellc{x}{y}{P}$ and $\putc{x}{y}{P}{Q}$ processes are modified to branch on whether the inner type $A$ (where $y: A$) is a positive droppable type. If it is not, the implementation is the same as before. Otherwise, the process $P$ is executed immediately, with session $y$ initialized such that it writes directly to the cell's storage. The $\takec{x}{y}{P}$ process is also modified, such that if $A$ (where $y: A$) is a negative droppable type, the value is simply moved from cell $x$ to a new data section for $y$, instead of receiving a continuation.
+Finally, the $\cellc{x}{y}{P}$ and $\putc{x}{y}{P}{Q}$ processes are modified to branch on whether the inner type $A$ (where $y: A$) is a positive droppable type. If not, the implementation is unchanged. Otherwise, the process $P$ is executed immediately, with session $y$ initialized such that it writes directly to the cell's storage. The $\takec{x}{y}{P}$ process is also modified, such that if $A$ (where $y: A$) is a negative droppable type, the value is simply moved from cell $x$ to a new data section for $y$, instead of receiving a continuation.
 
 \section{Optimizing Single Exit Point Processes and Tail Calls} \label{section:SingleExitPointOptimizations}
 

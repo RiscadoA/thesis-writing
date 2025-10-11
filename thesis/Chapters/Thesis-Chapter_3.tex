@@ -1091,31 +1091,31 @@ struct task {
 The \texttt{task} register is initialized at the start of the \texttt{executor} function with a dummy task which jumps to the \texttt{end} label, ending the thread's execution. This dummy task is necessary to ensure that the task stack is never empty, simplifying the implementation of the \texttt{popTask} instruction.
 
 \begin{lstlisting}[language=C, frame=bottom]
-    task = managed_alloc(sizeof(struct task));
-    task->loc = &&end;
+task = managed_alloc(sizeof(struct task));
+task->loc = &&end;
 \end{lstlisting}
 
 The two \ac{IR} instructions for manipulating tasks, \texttt{pushTask} and \texttt{popTask}, manipulate the linked list of tasks pointed to by the \texttt{task} register. The first instruction, \texttt{pushTask}, allocates a new task, sets its continuation to the C label of the chosen block, and inserts it at the head of the linked list. The generated C code for this instruction is shown below.
 
 \begin{lstlisting}[language=C, frame=bottom]
-    /* pushTask(cont) */
-    tmp_ptr1 = task;
-    task = managed_alloc(sizeof(struct task));
-    task->next = ((struct task*)(tmp_ptr1));
-    task->loc = &&proc_cont; /* proc_cont is the C label of block 'cont' */
-    task->env = env;
+/* pushTask(cont) */
+tmp_ptr1 = task;
+task = managed_alloc(sizeof(struct task));
+task->next = ((struct task*)(tmp_ptr1));
+task->loc = &&proc_cont; /* proc_cont is the C label of block 'cont' */
+task->env = env;
 \end{lstlisting}
 
 The \texttt{popTask} instruction, whose generation is shown below, removes the first task from the linked list, changes the current environment and jumps to its continuation.
 
 \begin{lstlisting}[language=C, frame=bottom]
-    /* popTask() */
-    tmp_ptr1 = task;
-    tmp_ptr2 = task->loc;
-    env = task->env;
-    task = task->next;
-    managed_free(tmp_ptr1);
-    goto *tmp_ptr2;
+/* popTask() */
+tmp_ptr1 = task;
+tmp_ptr2 = task->loc;
+env = task->env;
+task = task->next;
+managed_free(tmp_ptr1);
+goto *tmp_ptr2;
 \end{lstlisting}
 
 \subsection{Continuation Manipulation}
@@ -1123,53 +1123,53 @@ The \texttt{popTask} instruction, whose generation is shown below, removes the f
 The \texttt{initContinuation} instruction is compiled as shown below. The continuation at $\envlayoutcont{\texttt{env}}{c_0}$ (in this example, $\texttt{env} + 8$) is initialized with the given program label, the current environment, the address $\envlayoutlocal{\texttt{env}}{d_0}$ (in this case, $\texttt{env} + 40$) as its writing location data, and a pointer to itself as its remote continuation.
 
 \begin{lstlisting}[language=C, frame=bottom]
-    /* initContinuation(c0, cut_lhs_0, d0) */
-    (*(struct cont*)(env + 8)) = (struct cont){
-        .loc=&&main_cut_lhs_0,
-        .env=env,
-        .write=env + 40,
-        .remote=env + 8
-    };
+/* initContinuation(c0, cut_lhs_0, d0) */
+(*(struct cont*)(env + 8)) = (struct cont){
+    .loc=&&main_cut_lhs_0,
+    .env=env,
+    .write=env + 40,
+    .remote=env + 8
+};
 \end{lstlisting}
 
 The compilation of the \texttt{finish} instruction is shown below. First, the remote continuation of the finished continuation is unlinked from this continuation by setting its \texttt{remote} field to itself. This is necessary to avoid use after free errors in instructions such as \texttt{forward} and \texttt{callProcess}. Then, the target location and environment is stored on the registers and the environment's exit point counter is decremented atomically (when concurrency is disabled, a normal integer is used instead). If the counter reaches zero, the environment cleanup code described in \Cref{subsubsection:CEnvironmentCleanup} is executed. Finally, the environment and code address are switched to the continuation values, and a jump is performed.
 
 \begin{lstlisting}[language=C, frame=bottom]
-    /* finish(c0, exit point) */
-    (struct cont*)(env + 8)->remote->remote = (struct cont*)(env + 8)->remote;
-    tmp_ptr1 = (*(struct cont*)(env + 8)).loc;
-    tmp_ptr2 = (*(struct cont*)(env + 8)).env;
-    if (atomic_fetch_sub((atomic_int*)(env), 1) == 1) {
-        /* environment cleanup code */
-    }
-    env = ((char*)(tmp_ptr2));
-    goto *tmp_ptr1;
+/* finish(c0, exit point) */
+(struct cont*)(env + 8)->remote->remote = (struct cont*)(env + 8)->remote;
+tmp_ptr1 = (*(struct cont*)(env + 8)).loc;
+tmp_ptr2 = (*(struct cont*)(env + 8)).env;
+if (atomic_fetch_sub((atomic_int*)(env), 1) == 1) {
+    /* environment cleanup code */
+}
+env = ((char*)(tmp_ptr2));
+goto *tmp_ptr1;
 \end{lstlisting}
 
 The \texttt{continue} instruction is compiled similarly to \texttt{finish}, as shown below, except that the exit point counter is not decremented, and that the remote continuation must instead be updated so that it eventually jumps back to the correct label.
 
 \begin{lstlisting}[language=C, frame=bottom]
-    /* continue(c0, continue_12) */
-    tmp_ptr1 = (*(struct cont*)(env + 8)).loc;
-    (*(*(struct cont*)(env + 8)).remote).loc = &&main_continue_12;
-    env = (*(struct cont*)(env + 8)).env;
-    goto *tmp_ptr1;
+/* continue(c0, continue_12) */
+tmp_ptr1 = (*(struct cont*)(env + 8)).loc;
+(*(*(struct cont*)(env + 8)).remote).loc = &&main_continue_12;
+env = (*(struct cont*)(env + 8)).env;
+goto *tmp_ptr1;
 \end{lstlisting}
 
 The \texttt{forward} instruction first stores the continuation of its second argument in the temporary registers. Then, it sets the remotes of both argument continuations to point to each other, ensuring no references are left to the local continuations. A temporary variable is used to store the first argument continuation, as its value may be overwritten due to the possibility of a continuation being its own remote. Finally, the exit point counter is decremented, and control is passed to the location and environment stored in the temporary registers.
 
 \begin{lstlisting}[language=C, frame=bottom]
-    /* forward(c0, c1, exit point) */
-    tmp_ptr1 = (*(struct cont*)(env + 40)).loc;
-    tmp_ptr2 = (*(struct cont*)(env + 40)).env;
-    tmp_cont = *(struct cont*)(env + 8);
-    *(*(struct cont*)(env + 8)).remote = *(struct cont*)(env + 40);
-    *(*(struct cont*)(env + 40)).remote = tmp_cont;
-    if (atomic_fetch_sub(*(atomic_int*)(env), 1) == 1) {
-        /* environment cleanup code */
-    }
-    env = (char*)tmp_ptr2;
-    goto *tmp_ptr1;
+/* forward(c0, c1, exit point) */
+tmp_ptr1 = (*(struct cont*)(env + 40)).loc;
+tmp_ptr2 = (*(struct cont*)(env + 40)).env;
+tmp_cont = *(struct cont*)(env + 8);
+*(*(struct cont*)(env + 8)).remote = *(struct cont*)(env + 40);
+*(*(struct cont*)(env + 40)).remote = tmp_cont;
+if (atomic_fetch_sub(*(atomic_int*)(env), 1) == 1) {
+    /* environment cleanup code */
+}
+env = (char*)tmp_ptr2;
+goto *tmp_ptr1;
 \end{lstlisting}
 
 \subsection{Exponentials}
@@ -1190,16 +1190,16 @@ struct exponential {
 The \texttt{writeExponential} instruction is compiled as shown below. First, a new exponential structure is allocated with enough space to store the environment template, and its fields are initialized. The reference count is initialized to $1$, the offsets and size are computed from the environment layout of the exponential process, and the manager is set to a new unique C label. The environment template is initialized based on the exponential process header. The argument continuation is initialized to point to the entry block of the exponential process, and any argument types or data are written.
 
 \begin{lstlisting}[language=C, frame=bottom]
-    /* writeExponential(d0, main_exp0) */
-    *(struct exponential**)(env + 64) = managed_alloc(60);
-    (*(struct exponential**)(env + 64))->ref_count = 1;
-    (*(struct exponential**)(env + 64))->entry_cont_offset = 0;
-    (*(struct exponential**)(env + 64))->entry_data_offset = 32;
-    (*(struct exponential**)(env + 64))->env_size = 36;
-    (*(struct exponential**)(env + 64))->manager = &&main_exp0_exp_manager;
-    tmp_ptr1 = (*(struct exponential**)(env + 64))->env;
-    (*(struct cont*)(((char*)(tmp_ptr1)) + 0)).loc = &&main_exp0_entry;
-    // (...) write argument types and data to environment tmp_ptr1 ...
+/* writeExponential(d0, main_exp0) */
+*(struct exponential**)(env + 64) = managed_alloc(60);
+(*(struct exponential**)(env + 64))->ref_count = 1;
+(*(struct exponential**)(env + 64))->entry_cont_offset = 0;
+(*(struct exponential**)(env + 64))->entry_data_offset = 32;
+(*(struct exponential**)(env + 64))->env_size = 36;
+(*(struct exponential**)(env + 64))->manager = &&main_exp0_exp_manager;
+tmp_ptr1 = (*(struct exponential**)(env + 64))->env;
+(*(struct cont*)(((char*)(tmp_ptr1)) + 0)).loc = &&main_exp0_entry;
+// (...) write argument types and data to environment tmp_ptr1 ...
 \end{lstlisting}
 
 The exponential manager is a block of code which when jumped to, branches on the value of \texttt{tmp\_int}, which is set to $0$ for cloning the exponential, and to $1$ for dropping it. If cloning, the current environment is assumed to be the newly allocated environment for the exponential call, while \texttt{tmp\_ptr1} is assumed to be the environment template stored in the exponential. If dropping, the current environment is assumed to be the environment template stored in the exponential. The cloning branch clones the argument data from the environment template into the new environment, while the dropping branch drops the argument data in the environment template. Finally, in both cases, control is passed to the argument continuation stored in the exponential environment.
@@ -1250,18 +1250,18 @@ The \texttt{moveSlots}, \texttt{cloneSlots} and \texttt{dropSlots} instructions 
 For example, to move, clone or drop a slot tree $T = \tagst{\seqst{\strings}\tagsepst\seqst{\exponentials}}$, different code must be generated depending on whether the tag indicates that the first or second branch is active. Cloning a $\strings$ slot implies allocating a new string and copying the original string, while cloning an $\exponentials$ slot implies incrementing the reference count of the exponential value. Below is the generated C code for the \texttt{cloneSlots} instruction, operating on the slot tree $T$ described above, assuming $d_1$ is at $\texttt{env} + 32$, both $\datal{d_1}{\tags}{\strings}$ and $\datal{d_1}{\tags}{\exponentials}$ are at $\texttt{env} + 40$, $d_0$ at $\texttt{env} + 48$ and both $\datal{d_0}{\tags}{\strings}$ and $\datal{d_0}{\tags}{\exponentials}$ are at $\texttt{env} + 56$.
 
 \begin{lstlisting}[language=C, frame=bottom]
-    /* cloneSlots(d1, d0, tag[string | exponential]) */
-    *(unsigned char*)(env + 32) = *(unsigned char*)(env + 48);
-    switch (*(unsigned char*)(env + 48)) {
-        case 0: /* string */
-            *(char**)(env + 40) = *(char**)(env + 56);
-            *(char**)(env + 40) = string_clone(*(char**)(env + 40));
-            break;
-        case 1: /* exponential */
-            *(struct exponential**)(env + 40) = *(struct exponential**)(env + 56);
-            /* ... increment reference count */
-            break;
-    }
+/* cloneSlots(d1, d0, tag[string | exponential]) */
+*(unsigned char*)(env + 32) = *(unsigned char*)(env + 48);
+switch (*(unsigned char*)(env + 48)) {
+    case 0: /* string */
+        *(char**)(env + 40) = *(char**)(env + 56);
+        *(char**)(env + 40) = string_clone(*(char**)(env + 40));
+        break;
+    case 1: /* exponential */
+        *(struct exponential**)(env + 40) = *(struct exponential**)(env + 56);
+        /* ... increment reference count */
+        break;
+}
 \end{lstlisting}
 
 Moves of slots $s$ are always generated as simple memory copies of size given by $\slotlayout{\sigma}{s}$. Clones and drops, on the other hand, are generated by pattern matching on the slot $s$, generating the appropriate code for each case. Cloning and dropping basic types such as $\ints$, $\bools$ and $\tags$ slots is a no-op, while cloning and dropping other slots may involve memory (de)allocation and reference count manipulation, as shown in the example above.
@@ -1273,20 +1273,20 @@ To clone or drop type parameter slots $t_i$, type information for each type para
 Process calls are performed through the \texttt{callProcess} instruction. This instruction receives the identifier of the process to be called, a list of type parameters, a list of continuation arguments and a list of data arguments. The generated C code for this instruction is shown below.
 
 \begin{lstlisting}[language=C, frame=bottom]
-    /* callProcess(foo, exit point, c0 <- c0) */
-    tmp_ptr1 = managed_alloc(40);
-    (*(atomic_int*)(((char*)(tmp_ptr1)))) = 1; // setup exit points
-    /* (...) pass type, continuation and data arguments */
-    if (atomic_fetch_sub(&(*(atomic_int*)(env)), 1) == 1) {
-        /* environment cleanup code */
-    }
-    env = ((char*)(tmp_ptr1));
-    goto foo_entry;
+/* callProcess(foo, exit point, c0 <- c0) */
+tmp_ptr1 = managed_alloc(40);
+(*(atomic_int*)(((char*)(tmp_ptr1)))) = 1; // setup exit points
+/* (...) pass type, continuation and data arguments */
+if (atomic_fetch_sub(&(*(atomic_int*)(env)), 1) == 1) {
+    /* environment cleanup code */
+}
+env = ((char*)(tmp_ptr1));
+goto foo_entry;
 \end{lstlisting}
 
 Type parameters are passed by writing their information to the appropriate offsets in the new environment. Continuation arguments are passed by initializing the continuations in the new environment, and connecting them to the local continuations passed as arguments. This implies updating the remote of the argument continuations to point to the continuations in the new environment. Finally, data arguments are passed by simply moving or cloning the data from the current environment to the new environment, in the same way as the \texttt{moveSlots} and \texttt{cloneSlots} instructions.
 
-Before jumping to the entry block of the called process, the exit point counter of the current environment is decremented, and if it reaches zero, the current environment is cleaned up and freed, as described in \Cref{subsubsection:CEnvironmentCleanup}. Control is then passed to the entry block of the called process, with the new environment set as the current environment.
+Before jumping to the entry block of the called process, the exit point counter of the current environment is decremented, and if it reaches zero, the current environment is cleaned up and freed, as described in \Cref{subsubsection:CEnvironmentCleanup}. Control is only then passed to the entry block of the called process.
 
 \subsection{Cell Operations}
 
@@ -1307,22 +1307,22 @@ The \texttt{writeCell} instruction is simply compiled as the allocation of a new
 The cell locking/unlocking operations cannot be implemented with a simple mutex lock/unlock pair, as it is possible for a locked cell to be passed to another thread, which must then be able to unlock it. This violates the requirement that \texttt{pthread} mutexes can only be unlocked by the thread which locked them. To workaround this, the \texttt{is\_free} flag indicates if the cell is locked or not, and the mutex and condition variable are used solely to synchronize access to this flag. The \texttt{lockCell} instruction thus compiled as shown below. First, the cell's mutex is locked. Then, while the cell is not free, the thread waits on the cell's condition variable, atomically releasing the mutex while waiting, and re-acquiring it when woken up. When the cell is free, it is marked as not free, and the mutex is unlocked.
 
 \begin{lstlisting}[language=C, frame=bottom]
-    /* lockCell(d0) */
-    pthread_mutex_lock(&((*(struct cell**)(env + 16))->mutex));
-    while (!(*(struct cell**)(env + 16))->is_free) {
-        pthread_cond_wait(&(*(struct cell**)(env + 16)->cond_var),
-                          &(*(struct cell**)(env + 16))->mutex);
-    }
-    (*(struct cell**)(env + 16))->is_free = 0;
-    pthread_mutex_unlock(&((*(struct cell**)(env + 16))->mutex));
+/* lockCell(d0) */
+pthread_mutex_lock(&((*(struct cell**)(env + 16))->mutex));
+while (!(*(struct cell**)(env + 16))->is_free) {
+    pthread_cond_wait(&(*(struct cell**)(env + 16)->cond_var),
+                      &(*(struct cell**)(env + 16))->mutex);
+}
+(*(struct cell**)(env + 16))->is_free = 0;
+pthread_mutex_unlock(&((*(struct cell**)(env + 16))->mutex));
 \end{lstlisting}
 
 The \texttt{unlockCell}, shown below, locks the cell's mutex, marks the cell as free, signals one thread waiting on the cell's condition variable (if any), and finally unlocks the mutex.
 
 \begin{lstlisting}[language=C, frame=bottom]
-    /* unlockCell(d0) */
-    pthread_mutex_lock(&(*(struct cell**)(env + 16))->mutex);
-    (*(struct cell**)(env + 0))->is_free = 1;
-    pthread_cond_signal(&(*(struct cell**)(env + 16))->cond_var);
-    pthread_mutex_unlock(&(*(struct cell**)(env + 16))->mutex);
+/* unlockCell(d0) */
+pthread_mutex_lock(&(*(struct cell**)(env + 16))->mutex);
+(*(struct cell**)(env + 0))->is_free = 1;
+pthread_cond_signal(&(*(struct cell**)(env + 16))->cond_var);
+pthread_mutex_unlock(&(*(struct cell**)(env + 16))->mutex);
 \end{lstlisting}
