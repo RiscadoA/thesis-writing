@@ -701,4 +701,8 @@ These rules are enforced at compile time, and the Rust compiler is able to catch
 
 Nonetheless, non-linear, i.e., affine session types have been implemented in Rust in the form of libraries by several authors, such as by Jespersen et al. \cite{Jespersen:2015} and Lagaillardie et al. \cite{Lagaillardie:2022}.
 
-% \todo{Mention Move}
+\subsection{Move}
+
+Move \cite{Move:2019,Move:2020} is a resource-oriented programming language first introduced for the Libra (now Diem) blockchain project. Its type system draws inspiration from linear logic by introducing the concept of \textit{resources} --- values that cannot be duplicated or discarded implicitly. This design prevents digital assets from being accidentally copied or lost. These guarantees are enforced through Move's type system and its bytecode verifier, which ensure at compile time that all resources are either moved, borrowed, or explicitly destroyed in accordance with well-defined global invariants.
+
+In contrast to \ac{CLASS}, which employs linear and session types to ensure communication safety and correct process interactions, Move's type system is tailored to the domain of asset management and ownership. Nevertheless, the language demonstrates the practical value of linear types in enforcing real-world safety properties at compile time, and it suggests that similar principles could be successfully applied to other domains.
