@@ -105,7 +105,7 @@ Decreases the reference count of the cell at \texttt{loc}. If the reference coun
 Launches a new thread, starting execution at label \texttt{lab}. \\
 
 \texttt{sleep(int)} &
-Sleeps for a number of milliseconds specified by the integer argument. \\
+Sleeps for a number of milliseconds. \\
 
 \texttt{print(expr)} &
 Evaluates \texttt{expr} and prints the result to the standard output. \\
@@ -136,8 +136,8 @@ d, d1, d2 ::= "d" int
 e         ::= "e" int
 
 /* slots, slot trees, slot tree combinations, offsets */
-sl  ::= "int" | "bool" | "string" | "tag"  | "cont"
-      | "exponential"  | "cell"   | "type" | t
+sl  ::= "exponential"     | "int" | "bool" | "string" | t
+      | "cell" "[" st "]" | "tag" | "cont" | "type"   
 st  ::= "[]" | "[" sl (";" sl)* (";" st)? "]"
       | "tag[" st ("|" st)* "]"
       | "flags" "<" reqs ">" "[" st "|" st "]"
