@@ -26,7 +26,7 @@ The C code generation phase is implemented through the \texttt{CGenerator} visit
 
 \section{Testing the Compiler}
 
-The project repository includes a comprehensive suite of more than 180 unit tests written in the \ac{CLASS} language, which cover all features of the language, including edge cases relevant to the implemented optimizations. Each test is composed of a \ac{CLASS} source file, and optionally, a number of input and expected output files. Tests are categorized into folders based on the language feature they cover, such as exponentials, polymorphism, or process calls.
+The project repository includes a comprehensive suite of more than 180 unit tests written in the \ac{CLASS} language, which cover all features of the language, including edge cases relevant to the implemented optimizations. Each test consists of a \ac{CLASS} source file, and optionally, a number of input and expected output files. Tests are categorized into folders based on the language feature they cover, such as exponentials, polymorphism, or process calls.
 
 Multiple complex \ac{CLASS} programs were compiled, tested and integrated into the test suite in order to further validate the correctness of the generated code when many features are combined. These programs include a functional implementation of the Game of Life cellular automaton \cite{GameOfLife:1970}, a prime sieve, a linked list implementation, a simulation of the dining philosophers problem, and other programs making extensive use of both shared state, polymorphism, recursion and exponentials.
 

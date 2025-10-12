@@ -7,15 +7,15 @@
 % The following line allows to ref this chapter
 \label{chap:back}
 
-In this chapter, the theoretical foundations of linear logic, process calculi and session types are introduced, and then the programming language \ac{CLASS} \cite{Rocha:2021} and the abstract machine \ac{SAM} \cite{Caires:2024}, on which this work was built on top of, are presented. Finally, some work following the same line of research or with the same goal but in different contexts is discussed.
+In this chapter, the theoretical foundations of linear logic, process calculi and session types are introduced, and then the programming language \ac{CLASS} \cite{Rocha:2021} and the abstract machine \ac{SAM} \cite{Caires:2024}, on which this work builds upon, are presented. Finally, some work following the same line of research or with the same goal but in different contexts is discussed.
 
 \section{Linear Logic}
 
-Introduced by Girard \cite{Girard:1987} in the 80s, linear logic is a logic where propositions are consumed exactly once, as opposed to classical logic where propositions can be used any number of times. This property makes linear logic ideal for modeling resources on real-world systems, opening pathways for multiple optimizations, such as in-place updates in functional languages \cite{Hofmann:2000}. More importantly for this work, the propositions-as-types correspondence of linear logic has proven useful for modeling concurrent systems \cite{Caires:2010}.
+Introduced by Girard \cite{Girard:1987} in the 1980s, linear logic is a logic where propositions are consumed exactly once, as opposed to classical logic where propositions may be used any number of times. This property makes linear logic ideal for modeling resources on real-world systems, enabling various optimizations, such as in-place updates in functional languages \cite{Hofmann:2000}. More importantly for this work, the propositions-as-types correspondence of linear logic has proven useful for modeling concurrent systems \cite{Caires:2010}.
 
-Connectives of classic linear logic are divided into three groups: multiplicative, additive and exponential. Multiplicative connectives are $\otimes$ (tensor), $\parr$ (par), $1$ and $\bot$. Additive connectives are $\with$ (with), $\oplus$ (plus), $\top$ and $0$. Exponential connectives are $\oc$ (of course) and $\wn$ (why not).
+Connectives of classic linear logic are divided into three groups: multiplicative, additive, and exponential. Multiplicative connectives are $\otimes$ (tensor), $\parr$ (par), $1$ and $\bot$. Additive connectives are $\with$ (with), $\oplus$ (plus), $\top$ and $0$. Exponential connectives are $\oc$ (of course) and $\wn$ (why not).
 
-Here a definition of linear logic as a sequent calculus \cite{Abramsky:1993} is presented, where a sequent is a list of propositions separated by a comma, and a turnstile $\vdash$ separates the antecedent from the succedent. In linear logic, each connective has a dual connective (or involution), represented by $\dual{A}$ and defined as \[\begin{aligned}
+Here, a definition of linear logic as a sequent calculus \cite{Abramsky:1993} is presented, where a sequent consists of a list of propositions separated by commas, with a turnstile $\vdash$ separating the antecedent from the succedent. In linear logic, each connective has a dual connective, represented by $\dual{A}$ and defined as \[\begin{aligned}
 & \dual{A \otimes B} \equiv \dual{A} \parr \dual{B}
 \quad
 && \dual{A \with B} \equiv \dual{A} \oplus \dual{B}
@@ -33,12 +33,9 @@ Here a definition of linear logic as a sequent calculus \cite{Abramsky:1993} is 
 && \dual{\wn A} \equiv \oc \dual{A}
 \end{aligned}\]
 
-As such, there's no need for propositions to be placed before the turnstile, as they can be replaced by their involution on the succedent.
+As such, there is no need for propositions to be placed before the turnstile, as they can be replaced by their dual on the succedent.
 
-    
-
-
-Proofs of sequents can be constructed through inference rules. In linear logic, weakening and contraction rules are not present, as they would allow for the duplication and discarding of resources. The only structural rule that is defined is the exchange rule, as the order of propositions isn't important in linear logic. The initial and cut rules are also defined:
+Proofs of sequents can be constructed through inference rules. In linear logic, weakening and contraction rules are not present, as they would allow for the duplication and discarding of resources. The only structural rule that is defined is the exchange rule, as the order of propositions is not important in linear logic. The initial and cut rules are also defined:
 \begin{center}    
 \begin{minipage}{0.3\textwidth}
     \begin{prooftree}
@@ -57,9 +54,7 @@ Proofs of sequents can be constructed through inference rules. In linear logic, 
 \end{center}
 The cut rule allows for the composition of two proofs, and the initial rule allows for the introduction of a proposition and its dual without any premises.
 
-
-
-Multiplicative conjunction $\otimes$ is the tensor product of two propositions and it is equivalent to the logical conjunction in classical logic. Multiplicative disjunction $\parr$ is the par product of two propositions and it is equivalent to the logical disjunction in classical logic. The unit of $\otimes$ is $1$ and the unit of $\parr$ is $\bot$. The reduction rules for $\otimes$ and $\parr$ are defined below:
+The multiplicative conjunction $\otimes$ represents the tensor product of two propositions, and is equivalent to logical conjunction in classical logic. Multiplicative disjunction $\parr$ is the par product of two propositions and is equivalent to logical disjunction in classical logic. The unit of $\otimes$ is $1$ and the unit of $\parr$ is $\bot$. The reduction rules for $\otimes$ and $\parr$ are defined below:
 \begin{center}
     \begin{minipage}{0.3\textwidth}
         \begin{prooftree}
@@ -147,7 +142,7 @@ There are many variations of linear logic. One particularly relevant to this pro
 
 \section{Process Calculus}
 
-Process calculi are formal languages for modeling concurrent systems, where processes interact by sending and receiving messages. One of the most well-known process calculus is \acf{CCS} \cite{Milner:1980}, which introduced the notion of parallel composition, restriction and communication.
+Process calculi are formal languages for modeling concurrent systems, where processes interact by sending and receiving messages. One of the most well-known process calculi is \acf{CCS} \cite{Milner:1980}, which introduced the notion of parallel composition, restriction and communication.
 
 In the 90s, Milner et al \cite{Milner:1992:1,Milner:1992:2} introduced $\pi$-calculus, a process calculus that allows for mobility of processes --- channels, through which processes communicate, can themselves be sent and received. It unifies data with communication channels, treating them as first-class citizens. This allows for more complex communication patterns, where the topology of the network can change dynamically. $\pi$-calculus can be used to encode various computation paradigms, such as $\lambda$-calculus and Turing machines, and thus, is a universal model of computation.
 
@@ -167,7 +162,7 @@ Operations on session types include sending and receiving, branching and selecti
 
 More recently, a direct correspondence between session types and linear logic has been established \cite{Caires:2010, Wadler:2012, Caires:2012, Caires:2016, Giunti:2016}, where session types can be interpreted as linear propositions, and vice-versa. The connectives of linear logic are enough to describe the communication patterns of finite sessions.
 
-The multiplicative connectives of linear logic can be used to represent the sending and receiving of channels. For example, a session type $A \otimes B$ describes a channel that first sends a channel name of type $A$, and then behaves as a channel of type $B$. The dual of $A \otimes B$ is $\dual{A} \parr \dual{B}$, which describes a channel that first receives a channel name of type $\dual{A}$, and then behaves as a channel of type $\dual{B}$, matching the behavior that the other end point of the channel must follow. The additive connectives can be interpreted as offering and choice. A session type $A \with B$ describes a channel that offers a choice between the channel following type $A$ or type $B$. The dual of $A \with B$ is $\dual{A} \oplus \dual{B}$, which describes a channel that chooses between the channel following type $\dual{A}$ or type $\dual{B}$. Finally, the exponential connective $\oc A$ of linear logic can be interpreted as a session type whose channels may be shared and which serve channels of type $A$.
+The multiplicative connectives of linear logic can be used to represent the sending and receiving of channels. For example, a session type $A \otimes B$ describes a channel that first sends a channel name of type $A$, and then behaves as a channel of type $B$. The dual of $A \otimes B$ is $\dual{A} \parr \dual{B}$, which describes a channel that first receives a channel name of type $\dual{A}$, and then behaves as a channel of type $\dual{B}$, matching the behavior that the other endpoint of the channel must follow. The additive connectives can be interpreted as offering and choice. A session type $A \with B$ describes a channel that offers a choice between the channel following type $A$ or type $B$. The dual of $A \with B$ is $\dual{A} \oplus \dual{B}$, which describes a channel that chooses between the channel following type $\dual{A}$ or type $\dual{B}$. Finally, the exponential connective $\oc A$ of linear logic can be interpreted as a session type whose channels may be shared and which serve channels of type $A$.
 
 \section{CLASS}
 
@@ -177,25 +172,25 @@ The multiplicative connectives of linear logic can be used to represent the send
 
 This subsection presents the pure fragment of \ac{CLASS}, dubbed $\mu$CLL. As the name suggests, $\mu$CLL is related, via a propositions-as-types correspondence \cite{Caires:2016}, to classical linear logic, extended with mix and inductive/coinductive types.
 
-As usual in session-typed based programming languages, in $\mu$CLL processes communicate through sessions $x, y, z, \ldots$. Each session has two end points (also referred to as channels), and each end point is associated with a session type, which describes the communication protocol that the end point must follow. $x: A$ denotes that the channel $x$ obeys type $A$. These types describe the direction, order and content of the messages exchanged. For example,\\
+As usual in session-typed based programming languages, in $\mu$CLL processes communicate through sessions $x, y, z, \ldots$. Each session has two endpoints (also referred to as channels), and each endpoint is associated with a session type, which describes the communication protocol that the endpoint must follow. $x: A$ denotes that the channel $x$ obeys type $A$. These types describe the direction, order and content of the messages exchanged. For example,\\
 \centerline{\vspace{2pt}$x : \dual{\text{Nat}} \otimes \text{Bool} \otimes \mathbf{1}$}
-describes a session $x$ that must first receive a natural number, then send a boolean, and finally close, after which no more messages can be exchanged. The dual connective $\dual{A}$ is used to represent the dual of a type $A$, and is used to describe the type of the other end point of the session. The dual of the type before, for example, is\\
+describes a session $x$ that must first receive a natural number, then send a boolean, and finally close, after which no more messages can be exchanged. The dual connective $\dual{A}$ is used to represent the dual of a type $A$, and is used to describe the type of the other endpoint of the session. The dual of the type before, for example, is\\
 \centerline{\vspace{2pt}$x : \text{Nat} \parr \dual{\text{Bool}} \parr \bot$}
-which describes a session $x$ that must first send a natural number, then receive a boolean, and finally wait for the other end point to close.
+which describes a session $x$ that must first send a natural number, then receive a boolean, and finally wait for the other endpoint to close.
 
-Session types can be seen as dynamic entities which evolve as the communication progresses. After sending a natural number, the session type of the end point $x$ in the previous example would become\\
+Session types can be seen as dynamic entities which evolve as the communication progresses. After sending a natural number, the session type of the endpoint $x$ in the previous example would become\\
 \centerline{\vspace{2pt}$
     x : \dual{\text{Bool}} \parr \bot
 $}
 The most fundamental process composition operation in $\mu$CLL is the $\cutp$ operator\\
 \centerline{\vspace{2pt}$\cutc{P}{x: A}{Q}$}
-which composes two processes $P$ and $Q$ that run concurrently and communicate through a session $x$, where the end point $x$ in $Q$ obeys type $A$, and the end point $x$ in $P$ obeys type $\dual{A}$. This composition corresponds to the cut rule of linear logic, i.e., no session other than $x$ appears simultaneously in both $P$ and $Q$. It thus restricts interactions between $P$ and $Q$ to the session $x$, which is essential to achieve desirable metatheoretical properties such as deadlock freedom.
+which composes two processes $P$ and $Q$ that run concurrently and communicate through a session $x$, where the endpoint $x$ in $Q$ obeys type $A$, and the endpoint $x$ in $P$ obeys type $\dual{A}$. This composition corresponds to the cut rule of linear logic, i.e., no session other than $x$ appears simultaneously in both $P$ and $Q$. It thus restricts interactions between $P$ and $Q$ to the session $x$, which is essential to achieve desirable metatheoretical properties such as deadlock freedom.
 
 One other way of composing processes is through the $\parp$ construct, which allows for parallel composition of processes. The process\\
 \centerline{$\parc{P}{Q}$}
-runs $P$ and $Q$ concurrently, without any communication between them. This composition corresponds to the mix rule of linear logic, i.e., no session appears simultaneously in both $P$ and $Q$. Additionally, there's the $\fwdp$ construct, which allows forwarding messages between sessions, acting as a bridge between two sessions. For example\\
+runs $P$ and $Q$ concurrently, without any communication between them. This composition corresponds to the mix rule of linear logic, i.e., no session appears simultaneously in both $P$ and $Q$. Additionally, there is the $\fwdp$ construct, which allows forwarding messages between sessions, acting as a bridge between two sessions. For example\\
 \centerline{$\fwdc{x}{y}$}
-redirects messages sent to $x$ to $y$, and vice-versa, where $x$ and $y$ are session end points with dual types.
+redirects messages sent to $x$ to $y$, and vice-versa, where $x$ and $y$ are session endpoints with dual types.
 
 Table \ref{tab:muCLLActions} presents the actions that can be performed on session types in $\mu$CLL.
 
@@ -280,7 +275,7 @@ Below, some of the typing rules for $\mu$CLL are presented. The inaction process
 
 \subsection{Syntax of CLASS}
 
-The syntax of \ac{CLASS} used on this thesis differs slightly from $\mu$CLL. Additionally, while in $\mu$CLL the typing contexts are separated into linear and unrestricted parts, in \ac{CLASS} there's one extra division: the affine part. Process constructs and types for affine sessions, reference cells and non-determinism are also added. The types of \ac{CLASS} follow the correspondence to $\mu$CLL presented in \Cref{tab:CLASSTypes}, and are defined by the BNF grammar in \Cref{fig:CLASSTypesGrammar}.
+The syntax of \ac{CLASS} used in this work differs slightly from $\mu$CLL. Additionally, while in $\mu$CLL the typing contexts are separated into linear and unrestricted parts, in \ac{CLASS} there is one extra division: the affine part. Process constructs and types for affine sessions, reference cells and non-determinism are also added. The types of \ac{CLASS} follow the correspondence to $\mu$CLL presented in \Cref{tab:CLASSTypes}, and are defined by the BNF grammar in \Cref{fig:CLASSTypesGrammar}.
 
 \begin{figure}
     \centering
@@ -375,7 +370,7 @@ A process definition associates a name $\texttt{proc\_id}$ to a process $P$, whi
 
 Processes in \ac{CLASS}, defined by the BNF grammar in \Cref{fig:CLASSProcessGrammar}, have a direct correspondence to the process composition constructs in $\mu$CLL and the actions shown in \Cref{tab:muCLLActions}, with the exception of the process definition calling, affine, shared state, scan, print, let and if constructs. Note that in \ac{CLASS} the sum/choice type is expanded to allow for an arbitrary number of choices, as opposed to $\mu$CLL, where the sum type is binary. This simplifies the syntax of the language, and all arbitrary sized sums can be trivially encoded as binary sums. Additionally, \ac{CLASS} adds scan and print constructs for input and output, support for basic types such as integers, booleans and strings through the let and if constructs, and the process definition call construct, similar to a function call in an imperative language.
 
-With the introduction of basic types, along with the print, if and let processes, there's a need to define expressions in \ac{CLASS}. Expressions $E$ are defined as follows, where $i$ is an integer literal, $s$ is a string literal, and $x$ is a channel name:
+With the introduction of basic types, along with the print, if and let processes, there is a need to define expressions in \ac{CLASS}. Expressions $E$ are defined as follows, where $i$ is an integer literal, $s$ is a string literal, and $x$ is a channel name:
 \[\begin{aligned}
     E, E_1, E_2 ::=\ & E_1 + E_2    & & |\ E_1 - E_2 & & |\ E_1 * E_2  & & |\ E_1 / E_2 \\
                   |\ & E_1 \% E_2   & & |\ -E        & & |\ (E)        & & |\ x \\
@@ -458,7 +453,7 @@ Finally, the constructs $\cellp$, $\putp$, $\takep$, $\releasep$ and $\sharep$ b
 
 Some example programs in \ac{CLASS} are now presented, starting with a simple program which does nothing but close a session (\Cref{fig:CLASSWaitCloseExample}). The \texttt{main} process definition never has arguments of any kind. In this program, a session $x$ is initialized through a $\cutp$. Its type annotation $x: \closet$ indicates that on the right-hand side of the $\cutp$ the only action that can (and must) be performed is $\closep$. On the left-hand side, the dual is true - that is, the actions on $x$ must match the dual type of $\closet$, which is $\waitt$. The $\waitp$ action has a continuation, which in this case is set to $\emptyc$ (empty), indicating that the process has terminated.
 
-In \Cref{fig:CLASSSendAndReceiveExample} a program is presented which sends a session $y$ of type $\colintt$ through a session $x$, which then continues with type $\colboolt$. The sent session $y$ has one of its end points defined by the closure $\printlnc{y}{\emptyc}$, which prints the integer received through $y$ and terminates. On the right-hand side of the cut, session $y$ is received and bound to $z$. The type system forces an integer and a boolean, to be produced on $x$ and $z$, respectively. Since $\letp$ has no continuation, the $\parp$ construct is used to compose the two $\letp$ processes.
+In \Cref{fig:CLASSSendAndReceiveExample} a program is presented which sends a session $y$ of type $\colintt$ through a session $x$, which then continues with type $\colboolt$. The sent session $y$ has one of its endpoints defined by the closure $\printlnc{y}{\emptyc}$, which prints the integer received through $y$ and terminates. On the right-hand side of the cut, session $y$ is received and bound to $z$. The type system forces an integer and a boolean, to be produced on $x$ and $z$, respectively. Since $\letp$ has no continuation, the $\parp$ construct is used to compose the two $\letp$ processes.
 
 The program shown in \Cref{fig:CLASSChoiceExample} exemplifies the use of choice types in \ac{CLASS}. On the left-hand side of the cut, a choice between two actions is offered. Thus, the right-hand side must choose one of them, choosing, in this case, the $\labelp{inl}$ label. The right-hand-side must then follow the contract specified by the type $\waitt$. If the right-hand side had chosen the $\labelp{inr}$ label, the type would be $\closet$.
 
@@ -615,7 +610,7 @@ The choice rule, shown below, given an action $\choosec{c}{x}P$, pushes the labe
     \Mapsto
     (P,H[x:A\langle q@\labelp{c}, Q\rangle y:B])^{wr}
 $}
-Note that in this rule, a write-to-read adjustment is performed, denoted by $(P,H[x:A\langle q,Q\rangle y:B])^{wr}$. This operation swaps $P$ with $Q$, if and only if the continuation type $A$ is a negative type. This operation ensures that the next action will be executed by the positive end point of the session. In this specific rule, the write-to-read adjustment is performed because the choice action is a positive action, which means values are being pushed for the other end point to pop later on. If the continuation process $P$ on this end point will next perform a read action on $x$, i.e., $A$ is negative, then, for that action to be executed, the other end point must first perform the corresponding write action.
+Note that in this rule, a write-to-read adjustment is performed, denoted by $(P,H[x:A\langle q,Q\rangle y:B])^{wr}$. This operation swaps $P$ with $Q$, if and only if the continuation type $A$ is a negative type. This operation ensures that the next action will be executed by the positive endpoint of the session. In this specific rule, the write-to-read adjustment is performed because the choice action is a positive action, which means values are being pushed for the other endpoint to pop later on. If the continuation process $P$ on this endpoint will next perform a read action on $x$, i.e., $A$ is negative, then, for that action to be executed, the other endpoint must first perform the corresponding write action.
 
 The offer rule, shown below, performs the dual operation of the choice rule - it pops a label from the session queue, and transitions to the continuation of the $\casep$ action corresponding to the label.\vspace{2pt}\\
 \vspace{2pt}\centerline{$ 
@@ -623,7 +618,7 @@ The offer rule, shown below, performs the dual operation of the choice rule - it
         \Mapsto
         (P_c,H[x:A\langle q, Q\rangle y:B_c]^{rw})
 $}
-The rule performs a read-to-write adjustment, denoted by $[x:A\langle q, Q\rangle y:B]^{rw}$. This adjustment swaps the two end points of the session record, $x:A$ and $y:B$, if and only if $q$ is empty. Since processes are well-typed, then, if $q$ is empty, $P$ should have no more reads to perform. This adjustment then allows $P$ to start writing to the session.
+The rule performs a read-to-write adjustment, denoted by $[x:A\langle q, Q\rangle y:B]^{rw}$. This adjustment swaps the two endpoints of the session record, $x:A$ and $y:B$, if and only if $q$ is empty. Since processes are well-typed, then, if $q$ is empty, $P$ should have no more reads to perform. This adjustment then allows $P$ to start writing to the session.
 
 Finally, the $\fwdp$ rule is shown below, assuming, without loss of generality, that $B^+$ is a positive type.\vspace{2pt}\\
 \vspace{2pt}\centerline{$
@@ -631,7 +626,7 @@ Finally, the $\fwdp$ rule is shown below, assuming, without loss of generality, 
     \Mapsto
     (P,H[z:A\langle q_2@q_1, Q\rangle w:C])
 $}
-The rule merges two session records, $(z:A\langle q_1, Q\rangle x:\dual{B^+})$ and $(y:B^+\langle q_2, Q\rangle w:C)$, into a single session record with continuation $P$ and queue $q_2@q_1$. If $B^+$ is a negative type, $x$ and $y$ can be swapped, producing the equivalent process $\fwdc{y}{x}$. Since $x$ is the read end point of the session and $y$ is the write end point, then $Q$ must have written through $z$ the contents of $q_1$. and the current process will have written through $y$ the contents of $q_2$. Thus, $P$ is waiting to read the contents of $q_2@q_1$.
+The rule merges two session records, $(z:A\langle q_1, Q\rangle x:\dual{B^+})$ and $(y:B^+\langle q_2, Q\rangle w:C)$, into a single session record with continuation $P$ and queue $q_2@q_1$. If $B^+$ is a negative type, $x$ and $y$ can be swapped, producing the equivalent process $\fwdc{y}{x}$. Since $x$ is the read endpoint of the session and $y$ is the write endpoint, then $Q$ must have written through $z$ the contents of $q_1$. and the current process will have written through $y$ the contents of $q_2$. Thus, $P$ is waiting to read the contents of $q_2@q_1$.
 
 
 \subsection{Example Execution}
@@ -652,7 +647,7 @@ The execution of $P$ is shown below. The initial state of the \ac{SAM} is $(P, \
         (\emptyc, \emptyset)
 \end{aligned}\]
 
-The second example is the process $Q$ whose definition and execution is shown below. First, the $\cutp$ rule is applied, which inserts a new session record in the heap. Then, the choice rule is applied, which pushes the label $\labelp{inl}$ into the queue of the session record, after which, a write-to-read adjustment and a transition to the continuation $\casep$ is performed. Then, the $\casep$ reduction rule is applied, which pops the label $\labelp{inl}$ from the queue, and transitions to the continuation matching the label. Next, a read-to-write adjustment is performed, which means the session end points are swapped. With the end points swapped, the $\closep$ and $\waitp$ rules are applied as in the previous example and the final state $(\emptyc, \emptyset)$ is finally reached.
+The second example is the process $Q$ whose definition and execution is shown below. First, the $\cutp$ rule is applied, which inserts a new session record in the heap. Then, the choice rule is applied, which pushes the label $\labelp{inl}$ into the queue of the session record, after which, a write-to-read adjustment and a transition to the continuation $\casep$ is performed. Then, the $\casep$ reduction rule is applied, which pops the label $\labelp{inl}$ from the queue, and transitions to the continuation matching the label. Next, a read-to-write adjustment is performed, which means the session endpoints are swapped. With the endpoints swapped, the $\closep$ and $\waitp$ rules are applied as in the previous example and the final state $(\emptyc, \emptyset)$ is finally reached.
 \[\begin{aligned}
     Q &\equiv
     \cutc{
@@ -681,7 +676,7 @@ In this section, some works \cite{Ahmed:2007, Bernardy:2017,Kokke:2021,Jespersen
 
 \subsection{\texorpdfstring{L$^3$}{L3}}
 
-L$^3$ is a linear functional language developed by Ahmed et al. \cite{Ahmed:2007}. It is based on linear logic, and its main feature is the ability to perform \textit{strong updates} on memory cells - that is, to change the value and type of a cell, without invalidating existing pointers to it. This is achieved by using linear types to track \textit{capabilities}, which are permissions to access a memory location as a certain type. To perform a strong update, a capability of the original type for that location must be consumed, and in return, a capability of the new type is produced. Since capabilities are linear, there's no risk of another part of the program still holding a capability to the old type.
+L$^3$ is a linear functional language developed by Ahmed et al. \cite{Ahmed:2007}. It is based on linear logic, and its main feature is the ability to perform \textit{strong updates} on memory cells - that is, to change the value and type of a cell, without invalidating existing pointers to it. This is achieved by using linear types to track \textit{capabilities}, which are permissions to access a memory location as a certain type. To perform a strong update, a capability of the original type for that location must be consumed, and in return, a capability of the new type is produced. Since capabilities are linear, there is no risk of another part of the program still holding a capability to the old type.
 
 The restrictions placed by the type system also ensure that any program written in L$^3$ terminates: while cyclic graphs can be created through pointers, the linearity of the capabilities themselves prevents any infinite loops. Although L$^3$ is not a session-typed language, it is interesting to note that strong updates are in a way a feature present in session typed languages, where the type of a session changes during execution, after each action is performed.
 
@@ -705,4 +700,4 @@ Nonetheless, non-linear, i.e., affine session types have been implemented in Rus
 
 Move \cite{Move:2019,Move:2020} is a resource-oriented programming language first introduced for the Libra (now Diem) blockchain project. Its type system draws inspiration from linear logic by introducing the concept of \textit{resources} --- values that cannot be duplicated or discarded implicitly. This design prevents digital assets from being accidentally copied or lost. These guarantees are enforced through Move's type system and its bytecode verifier, which ensure at compile time that all resources are either moved, borrowed, or explicitly destroyed in accordance with well-defined global invariants.
 
-In contrast to \ac{CLASS}, which employs linear and session types to ensure communication safety and correct process interactions, Move's type system is tailored to the domain of asset management and ownership. Nevertheless, the language demonstrates the practical value of linear types in enforcing real-world safety properties at compile time, and it suggests that similar principles could be successfully applied to other domains.
+In contrast to \ac{CLASS}, which employs linear and session types to ensure communication safety and correct process interactions, Move's type system is tailored to the domain of asset management and ownership. Nevertheless, the language demonstrates the practical value of linear types for enforcing real-world safety properties at compile time, and it suggests that similar principles could be successfully applied to other domains.
