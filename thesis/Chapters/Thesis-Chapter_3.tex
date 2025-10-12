@@ -748,9 +748,9 @@ The number of exit points of branching processes is given by the maximum number 
 
 \subsection{Send and Receive}
 
-The $\sendc{x}{y}{P}Q$ process creates a new session $y$, sending one of its endpoints over session $x$. The other endpoint of $y$ is then used in process $P$, while process $Q$ continues using session $x$. To model this behavior, the continuation $c$ and and data section $d$ are created to implement session $y$, where $A$ is the type of session $y$. The layout $\alllocalslots{\theta}{A}$ is given to $d$, guaranteeing that enough space is allocated for all data which will be received by the local endpoint of $y$.
+The $\sendc{x}{y}{P}Q$ process creates a new session $y$, sending one of its endpoints over session $x$. The other endpoint of $y$ is then used in process $P$, while process $Q$ continues using session $x$. To model this behavior, the continuation $c$ and data section $d$ are created to implement session $y$, where $A$ is the type of session $y$. The layout $\alllocalslots{\theta}{A}$ is given to $d$, guaranteeing that enough space is allocated for all data that will be received by the local endpoint of $y$.
 
-The continuation $c$ is initialized with a return address pointing to \texttt{lhs} and $d$ as a writing location. The continuation $c$ is then written to the writing location of session $x$, $\writelocof{\Delta}{x}$. As before, a write-to-read adjustment might be necessary, and thus, the \texttt{continueIfNegative} pseudo-instruction is used.
+The continuation $c$ is initialized with return address \texttt{lhs} and writing location $d$. $c$ is then written to the writing location of session $x$, $\writelocof{\Delta}{x}$. As before, a write-to-read adjustment might be necessary and thus the \texttt{continueIfNegative} pseudo-instruction is used.
 
 \begin{compilation}{\theta}{\Delta}{\sendc{x}{y}{P}{Q}}
 {\getendpoints{\theta}{P} + \getendpoints{\theta}{Q}}
@@ -763,7 +763,7 @@ The continuation $c$ is initialized with a return address pointing to \texttt{lh
     \recurse{\theta}{\Delta[y \mapsto (c, d, 0)]}{P}
 \end{compilation}
 
-The $\recvc{x}{y}P$ process receives a session endpoint $y$ over session $x$, which then is used in process $P$. As in the \ac{SAM}, control must be passed to the other side of session endpoint $y$ if its type is negative, ensuring that the writing side of the session executes first. To receive data through $y$, a data section $d$ is created. A continuation $c$ is also created to bind $y$ to.
+The $\recvc{x}{y}P$ process receives a session endpoint $y$ over session $x$, which then is used in process $P$. As in the \ac{SAM}, control must be passed to the other side of session endpoint $y$ if its type is negative, ensuring that the writing side of the session runs first. A a data section $d$ is created on which $y$'s data will be received, along with a continuation $c$ to bind $y$ to.
 \begin{compilation}{\theta}{\Delta}{\recvc{x}{y: A}{P}}
 {\getendpoints{\theta}{P}}
     \bindcontinuation{c}{\readlocof{\Delta}{x}}{d} \comment{\makecont{c}, \makedata{d}{\alllocalslots{\theta}{A}}}
@@ -773,7 +773,7 @@ The $\recvc{x}{y}P$ process receives a session endpoint $y$ over session $x$, wh
 
 \subsection{Forwarding}
 
-Given a process $\fwdc{x}{y}$, it can be assumed without loss of generality that $x$ is of negative type and $y$ of positive type - if this is not the case, $x$ and $y$ can be swapped. Forwarding $x$ to $y$, as in the \ac{SAM}, requires moving any unread data which has already been received on $x$ to $y$. This data is described by $\slots{\theta}{A}$, where $y: A$. For example, if $A = \lintt$, then $\seqst{\ints}$ must be moved from $\readlocof{\Delta}{x}$ to the $\writelocof{\Delta}{y}$. Additionally, the continuations referenced by $x$ and $y$ are linked to each other through the \texttt{forward} instruction, ensuring that future communication happens directly between the other endpoints of $x$ and $y$. The \texttt{forward} instruction passes control directly to the other endpoint of $y$, which will not return, and thus, is marked as an exit point.
+Given a process $\fwdc{x}{y}$, it can be assumed without loss of generality that $x$ is of negative type and $y$ of positive type; if this is not the case, $x$ and $y$ can be swapped. Forwarding $x$ to $y$ requires moving any unread data which has already been received on $x$ to $y$, as in the \ac{SAM}. This data is described by $\slots{\theta}{A}$, where $y: A$. For example, if $A = \lintt$, then $\seqst{\ints}$ must be moved from $\readlocof{\Delta}{x}$ to the $\writelocof{\Delta}{y}$. Additionally, the continuations referenced by $x$ and $y$ are linked to each other through the \texttt{forward} instruction, ensuring that future communication happens directly between the other endpoints of $x$ and $y$. The \texttt{forward} instruction passes control directly to the other endpoint of $y$, which will not return, and thus, is marked as an exit point.
 \begin{compilation}{\theta}{\Delta}{\fwdc{x}{y}}
 {1}
     \moveslots{\writelocof{\Delta}{y}}{\readlocof{\Delta}{x}}{\slots{\theta}{A}}
@@ -798,7 +798,8 @@ Finally, the list of data arguments $D_1,\,\dots,\,D_{m+k}$ is generated similar
 
 The right-hand-side $P$ of a $\bangc{x}{y}{P}$ process is compiled as a separate \ac{IR} process, with a unique identifier $id$ generated from the name of the process definition being compiled. This new process inherits the same type parameters as the current process. Session $y$ is bound to a continuation $\makecont{c}$ in the new process header, along with a data section $\makedata{d}{\alllocalslots{\theta}{A}}$, where $y: A$. The number of exit points of the new process is set to $\getendpoints{\theta}{P}$.
 
-The type system of \ac{CLASS} guarantees that free names in $P$ other than $y$ are exponentials. For each free name $z_i \neq y$, a data section $\makedata{d_i}{\alllocalslots{\theta}{\whynott{\tau}}}$ is created in the new process header, where $z_i: \tau$. The environment used to compile $P$ is then $(\theta^*, \Delta^*) = (\theta, [y \mapsto (c, d, 0), z_1 \mapsto (0, d_1, 0), \dots, z_m \mapsto (0, d_m, 0)])$.
+The type system of \ac{CLASS} guarantees that free names in $P$ other than $y$ are exponentials. For each free name $z_i \neq y$, a data section $\makedata{d_i}{\alllocalslots{\theta}{\whynott{\tau}}}$ is created in the new process header, where $z_i: \tau$. The environment used to compile $P$ is thus defined as \vspace{2pt}\\
+\vspace{2pt}\centerline{$(\theta^*, \Delta^*) = (\theta, [y \mapsto (c, d, 0), z_1 \mapsto (0, d_1, 0),\,\dots,\,z_m \mapsto (0, d_m, 0)])$}
 
 On the original process, a \texttt{writeExponential} instruction is generated referencing the new process identifier, passing any necessary arguments. After writing the exponential, control is passed to the continuation of session $x$, as in a $\closep$ process, and thus, the instruction is marked as an exit point.
 \begin{compilation}{\theta}{\Delta}{\bangc{x}{y}{P}}
@@ -807,20 +808,20 @@ On the original process, a \texttt{writeExponential} instruction is generated re
     \finishcont{\continuationof{\Delta}{x}}{\hasexitpoint}
 \end{compilation}
 
-The list of type arguments $T_1,\,\dots,\,T_n$ is generated from the polarities and identifier of each type parameter in the current type environment $\theta$.
+The list of type parameters $T_1,\,\dots,\,T_n$ is generated from the polarities and identifier of each type parameter in the current type environment $\theta$.
 
 The list of data arguments $D_1,\,\dots,\,D_m$ is generated from the free names in $P$, excluding $y$. Each $D_i$ is a tuple $(d_t, d_s, t, c)$, where $d_t = \localdataof{\Delta^*}{z_i}$, $d_s = \readlocof{\Delta}{z_i}$, $t = \slots{\theta}{\whynott{\tau}}$ where $z_i: \tau$ and $c$ is the flag indicating whether the argument data should be cloned or moved, which in this case is always \texttt{clone}, as all free names in $P$ are exponentials.
 
-The compilation of a $\whynotc{x}P$ process is shown below. A new drop bit $\makedrop{e}{L}{S}$ is created, associated to the slots $S = \slots{\theta}{A}$, where $x: A$, at the location $L = \readlocof{\Delta}{x}$. This drop bit $e$, which points to the received exponential data, is set by the \texttt{deferDrop} instruction, ensuring that the exponential data is dropped when the process call ends.
+The compilation of a $\whynotc{x}P$ process is shown below. A new drop bit $e$ is created. This drop bit $e$, indicates that the received slots $\slots{\theta}{A}$ at $\readlocof{\Delta}{x}$ may need to be dropped when the process call ends. This bit is set by the \texttt{deferDrop} instruction. This mechanism ensures that if this process is behind a choice, the data is only dropped if this branch is taken and the data received.
 
 \begin{compilation}{\theta}{\Delta}{\whynotc{x}{P}}{\getendpoints{\theta}{P}}
-    \deferdrop{e}
+    \deferdrop{e} \comment{\makedrop{e}{\readlocof{\Delta}{x}}{\slots{\theta}{A}}\text{, where } x: \whynott{A}}
     \recurse{\theta}{\Delta}{P}
 \end{compilation}
 
 \subsection{Unfolding Recursive Sessions}
 
-Unfold processes are compiled such that positive unfolds ($\unfoldmuc{x}P$) always pass control to the opposite endpoint of $x$, as in the \ac{SAM}. The rationale behind this is that, given $x: A$, if $A$is negative, i.e., the next action on $x$ is a reading action, then control must be passed back to the other endpoint so that it can write the data before this side reads it. If $A$ is positive, then the next action on $x$ is a writing action, and control must be passed to the other point so that it can read any data which had already been written before the unfold.
+Unfold processes are compiled such that positive unfolds ($\unfoldmuc{x}P$) always pass control to the opposite endpoint of $x$, as in the \ac{SAM}. The rationale behind this is that, given $x: A$, if $A$ is negative, i.e., the next action on $x$ is a read, control must be passed back to the other endpoint so that it can write the data it is read. If $A$ is positive, then the next action on $x$ is a write, and control must be passed to the other endpoint so that it can read any data which had already been written before the unfold.
 
 Negative unfolds ($\unfoldnuc{x}{P}$) only pass control to their continuation if $A$ is negative, as in this case, the positive endpoint must have already executed a positive unfold, and thus, given control to this side. Since the positive side must execute first, control must be surrendered back to the opposite endpoint. Otherwise, if the remainder type is positive, we can continue executing immediately.
 
@@ -837,7 +838,7 @@ In both cases, the process finishes by recursing on the right-hand-side $P$ of t
 \begin{minipage}{0.45\textwidth}
     \begin{compilation}{\theta}{\Delta}{\unfoldnuc{x}{P}}
     {\getendpoints{\theta}{P}}
-        \commentline{\text{where } x:A \text{ in }P}
+        \commentline{x:A \text{ in }P}
         \continueifneg{\theta}{\Delta}{x}{A}
         \recurse{\theta}{\Delta[x \mapsto (\continuationof{\Delta}{x}, \localdataof{\Delta}{x}, 0)]}{P}
     \end{compilation}
@@ -845,9 +846,9 @@ In both cases, the process finishes by recursing on the right-hand-side $P$ of t
 
 \subsection{Receiving and Sending Types}
 
-Polymorphism in the \ac{IR} is modeled through process type parameters. Thus, to compile $\recvtyc{x}{X}P$, a new \ac{IR} process must be called in which $X$ is a type parameter. This mechanism is similar to the one used for exponentials, but in this case, the new process may have free linear names which must be passed as continuation arguments. Instead of just one, two \ac{IR} processes are generated: one for when $X$ is negative, another for when $X$ is positive, identified by $id^-$ and $id^+$ respectively.
+Polymorphism in the \ac{IR} is modeled through process type parameters. Thus, to compile $\recvtyc{x}{X}P$, a new \ac{IR} process implementing $P$ must be called in which $X$ is a type parameter. This mechanism is similar to the one used for exponentials, but in this case, the new process may have free linear names which must be passed as arguments. Instead of just one, two \ac{IR} processes are generated: one for when $X$ is negative, another for when $X$ is positive, identified by $id^-$ and $id^+$ respectively.
 
-The information sent by $\sendtyp$ and received by $\recvtyp$ consists of three slots $\seqst{\types; \conts; \tags}$, where $\types$ holds the type parameter information for $X$, $\conts$ holds a continuation to be used for the rest of the session, and $\tags$ indicates the polarity of $X$, with $0$ for negative types and $1$ for positive types. Thus, the $\recvtyp$ process is compiled as a branch on the received tag, calling either $id^-$ or $id^+$ depending on the tag value.
+The information sent by $\sendtyp$ and received by $\recvtyp$ consists of three slots $\seqst{\types; \conts; \tags}$, where $\types$ holds the type parameter information for $X$, $\conts$ holds a continuation to be used for the remainder of the session, and $\tags$ indicates the polarity of $X$. Thus, the $\recvtyp$ process is compiled as a branch on the received tag, calling either $id^-$ or $id^+$ depending on the tag value.
 \begin{compilation}{\theta}{\Delta}{\recvtyc{x}{X}P}{1}
     \branchtag{\concatst{\readlocof{\Delta}{x}}{\slotoffset{\seqst{\types; \conts}}}{\seqst{\tags}}}{\texttt{neg:1},\,\texttt{pos:1}}
     \labelir{neg}
@@ -858,7 +859,7 @@ The information sent by $\sendtyp$ and received by $\recvtyp$ consists of three 
 
 Type parameters $T$ are obtained from the current type environment $\theta$, with an extra entry for $X$, read from $\readlocof{\Delta}{x}$. Continuation arguments and data arguments $C$ and $D$ are generated in the same way as for process calls, from the free names in $P$ and their state in $\Delta$. The name $x$ on the right-hand-side $P$ has its continuation replaced by the continuation at $\concatst{\readlocof{\Delta}{x}}{\slotoffset{\seqst{\types}}{\seqst{\conts; \tags}}}$, and its offset reset to $0$.
 
-On the other hand, the $\sendtyc{x}{A}{P}$ process is compiled in a more direct manner, as shown below. This is possible because the type variable has a concrete type $A$ at the point of sending, known at compile time. First, a new continuation $c$ is initialized with $\texttt{cont}$ as return address, and writing address pointing to a new data section $d$. Then, the type $A$ is written to $x$, along with a reference to $c$ and a $\tags$ indicating $A$'s polarity. Future communication over $x$ will happen through $c$, so the old continuation of $x$ is finished.
+On the other hand, the $\sendtyc{x}{A}{P}$ process is compiled in a more direct manner, as shown below. First, a new continuation $c$ is initialized with $\texttt{cont}$ as return address, and writing address pointing to a new data section $d$. The type information of $A$ is written to $x$, along with $c$ and a $\tags$ indicating $A$'s polarity. The old continuation of $x$ is finished, returning control to the other endpoint of $x$.
 \begin{compilation}{\theta}{\Delta}{\sendtyc{x}{A}{P}}
 {\getendpoints{\theta}{P}}
     \commentline{\makecont{c}, \makeblock{\texttt{cont}}, \makedata{d}{\alllocalslots{\theta}{B}}, \text{ where }x: B \text{ in }P}
@@ -866,20 +867,21 @@ On the other hand, the $\sendtyc{x}{A}{P}$ process is compiled in a more direct 
     \writetype{\writelocof{\Delta}{x}}{\slots{\theta}{A}}
     \writecontinuation{\concatst{\writelocof{\Delta}{x}}{\slotoffset{\seqst{\types}}}{\seqst{\conts; \tags}}}{c}
     \writetag{\concatst{\writelocof{\Delta}{x}}{\slotoffset{\seqst{\types; \conts}}{\seqst{\tags}}}}{p} \comment{\text{where } p = 0 \text{ if } \polarityof{\theta}{A} = - \text{ or } 1 \text{ otherwise}}
-    \finishcont{\continuationof{\Delta}{x}}{\hasexitpoint}
+    \finishnoexit{\continuationof{\Delta}{x}}
     \labelir{cont}
     \recurse{\theta}{\Delta[x \mapsto (c, d, 0)]}{P}
 \end{compilation}
 
 \subsection{Affine, Use and Discard}
 
-The compilation of the $\affinec{x}P$ process, shown below, implements the affine protocol mentioned in \Cref{subsection:IRDroppingData}: a $\tags$ indicating whether $x$ is being used or discarded is received on $x$. If $x$ is being used, the execution continues to $P$. If $x$ is discarded, any co-affine data free in $P$ is also discarded and the $x$ is finished, returning control to the endpoint which discarded $x$.
+The compilation of the $\affinec{x}P$ process, shown below, implements the affine protocol mentioned in \Cref{subsection:IRDroppingData}: a $\tags$ indicating whether $x$ is being used or discarded is received on $x$. If $x$ is being used, the execution continues to $P$. If $x$ is discarded, any used shared state cells and co-affine data free in $P$ are also discarded and $x$ is finished, returning control to the endpoint which discarded $x$.
 \begin{compilation}{\theta}{\Delta}{\affinec{x}{P}}
 {\getendpoints{\theta}{P}}
     \branchtag{\localdataof{\Delta}{x}}{\texttt{use:}\getendpoints{\theta}{P},\,\texttt{discard:1}}
     \labelir{use}
     \recurse{\theta}{\advancech{\Delta}{x}{-}{\theta}{\seqst{\tags}}{A}}{P} \comment{\text{where } x:A \text{ in }P}
     \labelir{discard}
+    \recurse{\theta}{\Delta}{\releasec{y_i}} \comment{\text{for each free usage name }y_i\text{ in }P}
     \recurse{\theta}{\Delta}{\discardc{y_i}} \comment{\text{for each free co-affine name }y_i\text{ in }P}
     \finishcont{\continuationof{\Delta}{x}}{\hasexitpoint}
 \end{compilation}
@@ -941,7 +943,7 @@ The process $\putc{x}{y}{P}Q$, similarly to the $\cellp$ process, initializes a 
 The process $\releasec{x}$ decrements the reference count of the cell at session $x$ through \texttt{releaseCell}. The responsibility of correctly dropping the cell's contents when the reference count reaches zero is abstracted away by the \ac{IR}. This process finishes the current task, similarly to $\discardc{x}$.
 \begin{compilation}{\theta}{\Delta}{\releasec{x}}{1}
     \releasecell{\readlocof{\Delta}{x}}
-    \poptask{\hasexitpoint}
+    \poptask{\hasexitpoint} \comment{\text{unless part of an affine discard branch}}
 \end{compilation}
 
 Finally, the $\sharec{x}{P}{Q}$ process shares a cell $x$ between $P$ and $Q$, which are executed concurrently. Since the cell is going to be shared, its reference count is incremented through \texttt{acquireCell}. If concurrency is enabled, a new thread is launched to execute the right-hand-side $Q$ of the share process, as shown below. If concurrency is disabled, the right-hand-side is instead added as a new task to the task queue, which will be executed when the left-hand-side finishes.
