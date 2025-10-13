@@ -126,10 +126,6 @@ Finally, the optimized \ac{IR} program is compiled into C code. A segment of the
 
 The \texttt{main\_entry} label represents the \texttt{entry} block of the \ac{IR} \texttt{main} process. At the start of the program, an environment \texttt{env} is allocated and control is passed to this label. The \texttt{writeExpression} instruction is compiled into a simple assignment to the location of $d_0$ in the environment, which in this case is at offset $0$. The \texttt{print} instruction is compiled into a call to the C \texttt{printf} function, reading the integer from the same location. Finally, the \texttt{popTask} instruction is compiled into code which frees the current environment, and, in this case, ends the program.
 
-\hide{
-\section{Alternative Compilation Schemes}
-}
-
 During this work, several alternative compilation schemes were considered and partially explored. Particularly, a different \ac{IR} model was considered and fully implemented, but ultimately abandoned in favor of the current scheme due to its inferior performance. This alternative implementation is available in the project's repository\footnote{\url{https://github.com/RiscadoA/class}}, through the tag \texttt{old-impl}.
 
 On this alternative model, each session was represented as a heap-allocated object, separate from process environments. This meant allocating and deallocating sessions on the heap very frequently, which introduced a significant overhead. The \ac{IR} was much similar to the source language \ac{CLASS}, containing, for example, instructions for pushing and popping data from buffered communication channels, instead of direct reads and writes. This shifted a lot of complexity to the C generation phase, and additionally, made it harder to implement multiple optimizations.
