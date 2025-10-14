@@ -1,0 +1,717 @@
+\documentclass{beamer}
+% \documentclass[notes]{beamer}
+\usetheme{metropolis}
+
+\usepackage{graphicx} % Required for inserting images
+\usepackage{listings} % Required for code snippets
+\usepackage{pgfgantt}
+\usepackage{stmaryrd}
+\input{../commands.tex}
+\lstset{escapeinside=||}
+
+\title{Efficient Compilation for the Linear Language CLASS}
+\subtitle{From Session-Typed Programs to Efficient Native Code}
+\logo{\includegraphics[width=2cm,height=2cm,keepaspectratio]{../ist_logo.png}}
+\institute{Instituto Superior Técnico, Universidade de Lisboa\\
+Dissertation in Computer Science and Engineering}
+\author{Ricardo Antunes\texorpdfstring{\\}{}Supervisor: Luís Caires}
+\date{November 2025}
+
+\bibliographystyle{plain}
+\nocite{*}
+
+\begin{document}
+
+\frame{\titlepage}
+
+\note{
+  O projeto que vou apresentar chama-se "Compilação Eficiente para a Linguagem Linear CLASS"
+}
+
+\begin{frame}{Summary}
+  \tableofcontents
+\end{frame}
+
+\note{
+  Vamos começar com um breve resumo desta apresentaçõa.
+  Primeiro, vou introduzir o projeto, a sua motivação e objetivos.
+  Depois, vou resumir brevemente a história desta área, e introduzir a linguagem CLASS e o LSAM.
+  De seguida, vou apresentar a solução proposta.
+  Finalmente, vou introduzir a metodologia de avaliação e dar uma visão geral do nosso plano de trabalho.
+}
+
+\section{Introduction}
+
+% Outline:
+% - motivate the need for secure and efficient programming languages like CLASS
+% - present CLASS and its concepts
+% - introduce linear logic and process-calculus briefly to explain CLASS
+% - mention the original CLASS interpreter and its limitations
+% - introduce the LSAM and its benefits
+% - give an example of how the LSAM works
+% - introduce the proposed compilation scheme
+%   - the buffered communication
+%   - the flip mechanism
+%   - the task queue
+% - overview of the next steps
+% - work plan
+
+\begin{frame}{Motivation}
+  % TL;DR:
+  % - language safety guarantees are becoming more and more sought after
+  % - 
+  % - undefined behavior is a major source of security vulnerabilities and bugs
+  % - give example of the US government recommending moving from 'unsafe' languages like C to Rust.
+  \begin{itemize}
+    \item We depend more and more on software for critical tasks.
+    \item Software safety and robustness are becoming increasingly important.
+    \item Traditional languages such as C and C++ are prone to undefined behavior, or defer error checking to runtime.
+    \item Languages such as Rust and Go have gained popularity due to their strictness at compile time.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Motivation}
+  \begin{itemize}
+    \item Session typed programming languages, such as \textbf{CLASS}, enforce \textbf{memory safety, deadlock-freedom} and other useful properties \textbf{by construction}.
+    \item Session-based programs are parallel by nature, but large parts of most programs end up being implicitly sequential.
+    \item The Linear Session Abstract Machine (\textbf{LSAM}) was introduced to provide a formal model for efficiently executing \textbf{sequential} parts of session-typed programs.
+    \item However, the \textbf{LSAM} remains limited by its high-level nature and the overhead of its interpreter.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Key Idea}
+
+  \begin{itemize}
+    \item \textbf{CLASS} is very strongly statically typed, and thus has a lot of information available at compile time.
+    \item A compiler could leverage this information to generate efficient native code, while preserving the safety guarantees of the language.
+    \item This could enable \textbf{CLASS} and similar languages to be used in performance-critical applications, such as network servers.
+  \end{itemize}
+
+\end{frame}
+
+\begin{frame}{Expected Contributions}
+
+  \begin{itemize}
+    \item This project introduces a compilation scheme for \textbf{CLASS} programs to native C code.
+    \item During this project, a prototype has been implemented which already supports a significant subset of the language.
+    \item We aim to extend it to cover the full language, and to use the type information available to implement various optimizations.
+    \item Additionally, we will provide a formal proof of correctness for at least the core parts of the compiler.
+  \end{itemize}
+
+\end{frame}
+
+\section{Background}
+
+\note{
+  - Nesta secção, vou apresentar a noção de lógica linear, tipos de sessão, a linguagem CLASS, e o LSAM, que é a base deste trabalho.
+}
+
+\begin{frame}{Linear Logic}
+  \begin{itemize}
+    \item Introduced by Girard in the 80s \cite{Girard:1987}
+    \item Propositions are consumed exactly once, unlike classical logic.
+    \item Ideal for modeling resources on real-world systems, such as memory or network connections.
+    \item The proposition-as-types correspondence of linear logic \cite{Caires:2010} has proven useful to model concurrent systems.
+  \end{itemize}
+
+  \begin{figure}
+    \begin{prooftree}
+        \AxiomC{$\vdash \Gamma, A$}
+        \AxiomC{$A \vdash \Delta$}
+        \BinaryInfC{$\vdash \Gamma, \Delta$}
+    \end{prooftree}
+    \caption{Cut Rule}
+  \end{figure}
+\end{frame}
+
+\note{
+  - A lógica linear é uma lógica introduzida por Girard nos anos 80, onde as proposições são consumidas exatamente uma vez, ao contrário da lógica clássica. Isto é, não existem regras de enfraquecimento ou contração.
+
+  - Isto torna a lógica linear ideal para modelar recursos em sistemas do mundo real, como memória ou conexões de rede.
+  
+  - É útil não apenas para garantir propriedades de segurança, mas também para otimizar programas, permitindo ao compilador trocar cópias por in-place updates.
+
+  - Mais importantemente para este trabalho, a correspondência entre proposições e tipos da lógica linear revelou-se útil para modelar sistemas concorrentes.
+
+  - Por exemplo, esta é a regra de corte da lógica linear, que modela a passagem de recursos entre dois contextos.
+}
+
+\begin{frame}{Process Calculus}
+  \begin{itemize}
+    \item Formal languages for describing high-level concurrent systems.
+    \item Processes pass messages through \textit{channels}.
+    \item $\pi$-calculus introduces mobility of processes \cite{Milner:1992:1}, making it Turing complete.
+  \end{itemize}
+
+  \begin{figure}
+    \begin{align*}
+        (\nu x)\,(\, & \overline{x}\langle\texttt{"Hello World!"}\rangle.0 \\
+        |\           & x(y).\texttt{print}(y).0\,)
+    \end{align*}
+    \caption{Example $\pi$-calculus process}
+  \end{figure}
+\end{frame}
+
+\note{
+  - Outra base importante para este trabalho é o cálculo de processos. Os cálculos de processos são linguagens formais que descrevem sistemas concorrentes a um alto nível, que passam mensagens através de canais.
+
+  - O cálculo $\pi$ é um dos cálculos de processos mais conhecidos, e permite a mobilidade de processos - isto é, os próprios canais podem ser passados como mensagens através de outros canais.
+
+  - Isto torna o cálculo $\pi$ Turing-completo, sendo este uma espécie de análogo concorrente ao cálculo lambda.
+
+  - Por exemplo, este processo em $\pi$-calculus cria um canal $x$, e de seguida é composto por dois prcoessos paralelos: um que envia a mensagem "Hello World!" pelo canal $x$, e outro que a recebe e de seguida imprime.
+}
+
+\begin{frame}{Session Types}
+  \begin{itemize}
+    \item Session types \cite{Honda:1993} restrict communication on channels to predefined protocols.
+    \item Operations include sending, receiving, choice, and recursion.
+    \item Each operation is associated with a type, and with its \textit{dual} operation.
+    \item Direct correspondence between session types and linear logic \cite{Caires:2010}.
+  \end{itemize}
+\end{frame}
+
+\note{
+  - Enquanto que tipos em linguagens de programação funcionais tipificam termos, os tipos de sessão tipificam canais de comunicação (sessões).
+
+  - Estes permitem restringir a comunicação a protocolos pré-definidos, havendo um tipo associado a cada operação de comunicação (envio, receção, escolha, etc.).
+  
+  - Cada operação tem uma operação dual, que é a operação inversa.
+
+  - Existe uma correspondência direta entre os tipos de sessão e a lógica linear, e é sobre esta correspondência que a linguagem CLASS é construída.
+}
+
+\begin{frame}{CLASS}
+  \begin{itemize}
+    \item CLASS is an experimental language for session-based programs \cite{Rocha:2022}
+    \item Expands on the correspondence between session types and linear logic to enable affine types and mutable shared state.
+    \item Well-typed programs always terminate, and memory safety is guaranteed.
+    \item Allows higher-order polymorphism and even recursive types.
+  \end{itemize}
+\end{frame}
+
+\note{
+  O que é CLASS?
+
+  - É uma linguagem de programação experimental baseada em tipos de sessão, construída sobre a correspondência entre tipos de sessão e lógica linear.
+  
+  - Foi a primeira linguagem a garantir simultaneamente a segurança de memória e a ausência de deadlocks.
+
+  - Ainda assim, permite tipos afins, estado partilhado mutável, polimorfismo de ordem superior e até tipos recursivos.
+}
+
+\begin{frame}{CLASS: A first example}
+  \begin{itemize}
+    \item CLASS is a linear language - well-typed programs consume all their resources.
+  \end{itemize}
+  \begin{class}
+    \procdefc{recvPair}{x: \recvt{\waitt}{\closet}}{
+      \recvc{x}{y}
+      \waitc{y}
+      \closec{x}
+    }
+    % \procdefc{main}{}{
+    %   \cutc{
+    %     \waiti{x}\emptyc
+    %   }{x: \closet}{
+    %     \closec{x}
+    %   }
+    % }
+  \end{class}
+\end{frame}
+
+\note{
+  - Vou agora apresentar alguns exemplos de programas em CLASS. Este mostra uma definição de um processo que opera num canal $x$. Este canal $x$ está tipado de forma a receber um canal do tipo $\waitt$, e de seguida a tomar o tipo $\closet$.
+
+  - O processo executa então a unica operação possível sobre $x$, que é a receção de um canal $y$, seguida de uma espera sobre $y$, e finalmente o fecho de $x$.
+
+  - Os tipos close e wait são duais, e representam o fecho de uma sessão, e a espera por este fecho, respetivamente.
+
+  - Este programa é bem tipificado, pois todas as sessões são fechadas.
+}
+
+\begin{frame}{CLASS: Cut composition}
+  \begin{itemize}
+    \item Processes can be composed using the cut construct.
+  \end{itemize}
+  \begin{class}
+    \procdefc{sendPair}{x: \sendt{\closet}{\waitt}}{
+      \sendc{x}{y}{\closec{y}}
+      \waiti{x}\emptyc
+    }\z\z
+    \procdefc{main}{}{
+      \cuti{
+        \proccallc{sendPair}{x}
+      }{x}{
+        \proccallc{recvPair}{x}
+      }
+    }
+  \end{class}
+\end{frame}
+
+\note{
+  - Neste exemplo, definimos um processo sendPair que executa as operações duais ao processo anterior. Este processo envia um canal $y$ pelo canal $x$, em que $y$ é imediatamente fechado. De seguida, espera que o canal $x$ seja fechado. Como a operaçao de espera exige um processo de continuação, terminamos com o processo vazio $\emptyc$.
+
+  - O processo main compõe as duas definições anteriores, utilizando a operação de corte, que corresponde à regra de corte da lógica linear. Um novo canal $x$ é introduzido, e passado como argumento a sendPair e recvPair, que são executados em paralelo.
+
+  - O sistema de tipos garante que o unico canal partilhado entre os dois processos é $x$.
+}
+
+\begin{frame}{CLASS: Parallel composition}
+  \begin{itemize}
+    \item Processes can also be composed in parallel, using the par construct.
+    \item Used to model independent processes.
+  \end{itemize}
+  \begin{class}
+    \procdefc{closeTwo}{x: \closet, y: \closet}{
+      \pari{\closec{x}}{\closec{y}}
+    }
+  \end{class}
+\end{frame}
+
+\note{
+  - CLASS também permite a composição paralela de procesoss, que corresponde à mix rule com que muitas vezes se extende a lógica linear.
+  - Nesta composição, os processos não partilham qualquer canal, e logo, podem ser executados independentemente, em paralelo.
+}
+
+
+% \begin{frame}{CLASS: Choice and selection}
+%   \begin{class}
+%     \procdefc{main}{}{
+%       \cutc{
+%         \casec{x}{
+%           \labelc{left}{\closec{x}}
+%           \labelc{right}{\waiti{x}\emptyc}
+%         }
+%       }{x: \choicet{\labelt{left}{\waitt}\ \labelt{right}{\closet}}}{
+%         \choosec{left}{x}{\waiti{x}\emptyc}
+%       }
+%     }
+%   \end{class}
+% \end{frame}
+
+% \begin{frame}{Background: CLASS - Recursion}
+%   \begin{class}
+%     \rectypedefc{Nat}{\choicet{\iz\z
+%         \labelt{zero}{\waitt}\z
+%         \labelt{succ}{Nat}\dz\z
+%       }}
+%   \end{class}
+% \end{frame}
+
+% \begin{frame}{Background: CLASS - Recursion}
+%   \begin{class}
+%     \recprocdefc{printNat}{x: \dualt{Nat}}{
+%       \casec{x}{
+%         \labelc{zero}{\printlni{0}\closec{x}}
+%         \labelc{succ}{\printi{S}\proccallc{printNat}{x}}
+%       }
+%     }
+%   \end{class}
+% \end{frame}
+
+% \begin{frame}{Background: CLASS - Recursion}
+%   \begin{class}
+%     \procdefc{main}{}{
+%       \cutc{
+%         \proccallc{printNat}{x}
+%       }{x: Nat}{
+%         \choosei{succ}{x}
+%         \choosei{succ}{x}
+%         \choosec{zero}{x}
+%         \waiti{x}\emptyc
+%       }
+%     }
+%   \end{class}
+% \end{frame}
+
+\begin{frame}{LSAM: Linear Session Abstract Machine}
+  \begin{itemize}
+    \item Session based languages are naturally concurrent, but large chunks of most programs are implicitly sequential.
+    \item Threads incur a high overhead for small tasks.
+    \item However, concurrency is still desirable in many cases.
+    \item The LSAM was introduced as an abstract machine that executes session-typed programs efficiently, deterministically and sequentially, while still allowing explicit concurrency.
+    \item A proof of concept implementation was integrated as an alternative backend for the CLASS interpreter.
+  \end{itemize}
+\end{frame}
+
+\note{
+  - CLASS, tal como outras linguagens baseadas em sessões, apesar de naturalmente concurrente, acaba por ter grandes partes dos seus programas implicitamente sequenciais. Um exemplo foi o primeiro programa que apresentei, em que os processos sendPair e recvPair acabam por executar sequencialmente.
+  
+  - Manter a execução de todos os processos em threads separadas seria ineficiente, devido ao overhead de criação e sincronização de threads.
+
+  - Simultaneamente, a concorrência é desejável em muitos casos.
+
+  - Como tal, o LSAM foi introduzido como uma máquina abstrata que executa de forma eficiente, determinística e sequencial programas à base de sessões, sem sacrificar a possibilidade de optar explicitamente por concorrência quando necessário.
+}
+
+\begin{frame}{LSAM: Session records and asynchronous communication}
+  \begin{itemize}
+    \item Session records: $x\langle q,P\rangle y$
+    \begin{itemize}
+      \item $x$ and $y$ are channel names.
+      \item $q$ is a queue of values.
+      \item $P$ is a continuation process.
+    \end{itemize}
+    \item Values can take the form of close tokens, process closures, branching/choice tokens, etc.
+  \end{itemize}
+\end{frame}
+
+\note{
+  - O esquema de compilação que propomos baseia-se fortemente no LSAM, e por isso, é importante mencionar o seu componente principal, os session records.
+
+  - Para cada sessão ou canal, é criado um session record, que é descrito pelos nomes dos canais nos respetivos extremos, uma fila de valores por receber, e um processo de continuação. Este processo de continuação será executado quando o processo que está a executar atualmente terminar ou for suspenso.
+}
+\note{
+  - Os valores enviados pelos canais podem corresponder a tokens de fecho de sessão, processos de continuação, tokens de escolha, etc.
+
+  - Os processos executam o maior numero possível de operações, nas quais escrevem novos valores nas filas dos session records, e suspendem-se quando já tiverem lido todos os valores de uma fila, ou quando não houverem mais operações a executar. Nesse momento, o controlo é passado ao extremo oposto do session record, e o processo antigo é guardado como a nova continuação do respetivo session record.
+}
+
+\begin{frame}{LSAM: Example execution}
+  \begin{itemize}
+    \item The abstract machine's state is a pair $(P, H)$, where $P$ is the current process and $H$ is a set of session records.
+    \item Let $P \equiv \cutc{\waitc{x}\emptyc}{x}{\closec{x}}$,
+  \end{itemize}
+  \begin{eqnarray*}
+        (P, \emptyset)
+        &\equiv&
+        (\cutc{\waitc{x}{\emptyc}}{x}{\closec{x}}, \emptyset) \pause               \\
+        &\Mapsto&
+        (\closec{x}, x\langle nil, \waitc{y}\emptyc\rangle y) \pause                \\
+        &\Mapsto& (\waitc{y}\emptyc, x\langle \checkmark, \emptyp\rangle y) \pause \\
+        &\Mapsto&
+        (\emptyc, \emptyset)
+    \end{eqnarray*}
+\end{frame}
+
+\note{
+  - O estado da máquina é um par $(P, H)$, onde $P$ é o processo atual, e $H$ é um conjunto de session records.
+
+  - Neste exemplo, o processo $P$ é um corte entre um processo de espera sobre o canal $x$ e um processo de fecho do canal $x$. O estado inicial da máquina é o processo $P$ e um conjunto vazio de session records.
+
+  - O primeiro passo da execução aloca um novo session record para o canal $x$, e executa primeiro o lado direito do cut - o fecho do canal $x$. Executamos primeiro o lado que escreve em $x$ do cut, de forma a garantir que quando o lado leitor for executado, já exista um valor para ler. O lado esquerdo do cut fica suspenso, como continuação do session record, e a fila é inicialmente vazia (nil).
+}
+\note{
+  - O próximo passo é a execução do close sobre o canal $x$, que escreve um token de fecho no session record, e passa o controlo para o lado esquerdo do cut, que estava suspenso.
+
+  - O wait sobre o canal $y$ é executado, ao retirar o token de fecho do session record, e o dealocando de seguida.
+}
+
+% \begin{frame}{Related Work: Alternative Approaches}
+%   \begin{itemize}
+%     \item L$^3$
+%     \item Linear Haskell
+%     \item Rust
+%   \end{itemize}
+% \end{frame}
+
+\section{Towards a CLASS Compiler}
+
+\note{
+  - Nesta secção, vou apresentar a solução proposta para compilar programas CLASS.
+}
+
+\begin{frame}{A CLASS Compilation Scheme}
+  \begin{itemize}
+    \item Compilation scheme heavily based on the LSAM interpreter.
+    \item Execution is done sequentially and deterministically, with continuation-based coroutining.
+    \item Processes communicate in a buffered manner through session records.
+    \item CLASS programs are compiled to an Intermediate Representation (IR) which is then translated to C code.
+  \end{itemize}
+\end{frame}
+
+\note{
+  - O esquema que propomos é fortemente baseado na LSAM: executa de forma sequencial e determinística, com corotinas baseadas em continuações.
+
+  - Os processos comunicam assincronamente, tal como na LSAM, ao escreverem e lerem valores de session records.
+
+  - Um proof of concept já foi implementado, e está construído sobre o código existente do interpretador CLASS e LSAM.
+
+  - De forma a facilitar a implementação,os programas CLASS são compilados para uma representação intermédia (IR) imperativa, que é depois traduzida para código C.
+}
+
+\begin{frame}[fragile]{Memory Layout: Session records and environments}
+  \begin{lstlisting}[language=C]
+struct record {
+  void* cont;
+  struct environment* cont_env;
+  unsigned char written, read;
+  unsigned char buffer[];
+};
+
+struct environment {
+    struct record* records[];
+};
+
+struct environment *env;
+  \end{lstlisting}
+\end{frame}
+
+\note{
+  - No lado de C, representamos os session records como structs. Os primeiros dois fields, cont e cont\_env, descrevem o processo de continuação, ou seja, o endereço na memória do programa para onde a execução deve saltar, e o ambiente em que deve ser executado. 
+
+  - Além disso, contém um buffer que guarda os dados transmitidos assincronamente, cujo tamanho é determinado em tempo de compilação, e registos que mantém o número de bytes já escritos ou lidos.
+
+  - Um ambiente é um array de session records, e é utilizado para traduzir os nomes (neste caso, indices) dos canais para os respetivos session records. Um ponteiro global env aponta para o ambiente atual.
+}
+
+\begin{frame}[fragile]{Memory Layout: Tasks}
+  \begin{lstlisting}[language=C]
+struct task {
+    struct task* next;
+    void* cont;
+    struct environment* cont_env;
+};
+
+struct task *task;
+  \end{lstlisting}
+\end{frame}
+
+\note{
+  - Adicionalmente, definimos uma estrutura task, que representa um ponto de execução a ser retomado no futuro. Esta continuação, tal como no session record, é composta por um endereço de programa e um ambiente.
+  
+  - Isto é necessário para implementar a composição paralela de processos; um dos processos é imediatamente executado, enquanto que uma tarefa é criada para o outro. Estas tarefas formam uma linked list, que vai sendo percorrida à medida que as tarefas são completadas.
+
+  - A próxima tarefa a ser executada é guardada num ponteiro global task.
+}
+
+\begin{frame}[fragile]{Main Function}
+  \begin{lstlisting}[language=C]
+int main() {
+  task = malloc(sizeof(struct task));
+  task->loc = &&end;
+
+  env = malloc(sizeof(struct environment)
+      + /*n*/ * sizeof(struct record*));
+  goto proc_main;
+
+  /* ... process definitions ... */
+
+end:
+  return 0;
+}
+  \end{lstlisting}
+\end{frame}
+
+\note{
+  - Os programas gerados pelo compilador começam por inicializar a linked list de tarefas. A última tarefa da lista, é a tarefa que termina o programa, e aponta para uma label no fim da função main.
+  
+  - De seguida, é alocado um ambiente para o processo principal do programa, com o tamanho que o compilador determinar em tempo de compilação. Finalmente, o programa salta para a label que corresponde ao início da definição do processo principal.
+
+  - O resto do programa é composto pelas várias definições de processos, cada uma com uma label associada.
+}
+
+\begin{frame}{Example Compilation}
+  \begin{class}
+    \procdefc{main}{}{
+      \cuti{
+        \waiti{x}\emptyc
+      }{x}{
+        \closec{x}
+      }
+    }
+  \end{class}
+  \begin{itemize}
+    \item There's a single cut, and thus the environment will have size 1.
+    \item Index 0 is associated to the channel $x$.
+  \end{itemize}
+\end{frame}
+
+% \begin{frame}{Example Compilation: Process definitions}
+%   \begin{itemize}
+%     \item Process definitions are preceded by a label, so that they can be called from the rest of the program.
+%     \item Indices are associated to each channel name.
+%   \end{itemize}
+%   \begin{compilation}{\procdefc{main}{}{\cutc{\waitc{x}\emptyc}{x}{\closec{x}}}}{\emptyset}
+%     \labelir{proc\_main}
+%     \recurse{\cutc{\waitc{x}\emptyc}{x}{\closec{x}}}{\{x\,\mapsto\,0\}}
+%   \end{compilation}
+% \end{frame}
+
+% \note{
+%   - Neste slide temos um exemplo da compilação de um processo simples em CLASS, que já tinhamos visto anteriormente, para a representação intermédia. Este processo espera por um canal $x$ e de seguida fecha-o.
+
+%   - Neste passo da compilação, é adicionada uma label, que permite o resto do programa chamar este processo. Além disso, é criado um mapeamento entre os nomes dos canais e os respetivos índices no ambiente, que é passado como argumento à compilação do processo interior à definição.
+% }
+
+% \begin{frame}{Example Compilation: Cut}
+%   \begin{itemize}
+%     \item The buffer size of the session is determined from its type $\closet$, through $\phi(\closet)$.
+%     \item The reading end point is set as the continuation, and code is generated so that the writing end point executes first.
+%   \end{itemize}
+%   \begin{compilation}{\cutc{\waitc{x}\emptyc}{x}{\closec{x}}}{\varepsilon}
+%     \initcontinuation{\varepsilon(x)}{\phi(\closet)}{\texttt{lhs}}
+%     \recurse{\closec{x}}{\varepsilon}
+%     \labelir{lhs}
+%     \recurse{\waitc{x}\emptyc}{\varepsilon}
+%   \end{compilation}
+% \end{frame}
+
+% \note{
+%   - Ao compilar o cut, é gerado código para inicializar o session record associado ao canal $x$, com o índice atribuído no passo anterior, e com um buffer do tamanho necessário para uma sessão do tipo close - no caso, 0. A continuação do session record é inicializada com um ponteiro para a label lhs, que corresponde ao lado esquerdo do cut.
+
+%   - É de salientar que neste caso o compilador gera o código de forma ao lado direito do cut ser executado antes do lado esquerdo, pois o lado direito começa por escrever no canal $x$, e o lado esquerdo lê. Desta forma, garantimos que quando o lado esquerdo for executado, já existirá um valor no buffer do session record para ser lido.
+
+%   - Sendo assim, é gerado código para o lado direito do cut, o close, e de seguida, depois da label lhs, é gerado código para o lado esquerdo, o wait.
+% }
+
+% \begin{frame}{Example Compilation: Close}
+%   \begin{itemize}
+%     \item Code is generated for pushing a close token onto the session record.
+%     \item A flip is generated which suspends the current process and yields control to the opposite end point of the session record.
+%     \item Control won't return, as the close process has no continuation.
+%   \end{itemize}
+%   \begin{compilation}{\closec{x}}{\varepsilon}
+%     \pushclose{\varepsilon(x)}
+%     \flip{\varepsilon(x)}
+%   \end{compilation}
+% \end{frame}
+
+% \note{
+%   - Comecemos então pelo lado de escrita do cut. É gerada uma instrução que escreve um token de fecho no session record associado ao canal $x$, e de seguida, é gerada um flip.
+
+%   - O flip é uma instrução que passa o controlo para o lado oposto do session record, suspendendo o processo atual. Neste caso, salta para o lado de leitura do cut. Isto é feito guardando o endereço e ambiente atual de execução no session record, e de seguida, saltando com um goto para o endereço de execução que já lá estava guardado.
+
+%   - Como o close é a última operação do processo, a execução já não volta ao lado de escrita do cut.
+% }
+
+% \begin{frame}{Example Compilation: Wait}
+%   \begin{itemize}
+%     \item Code is generated for popping a close token from the session record.
+%     \item The session record is deallocated as it is no longer needed.
+%     \item The continuation of the wait process is compiled (in this case, the empty process).
+%   \end{itemize}
+%   \begin{compilation}{\waitc{x}\emptyc}{\varepsilon}
+%     \popclose{\varepsilon(x)}
+%     \freesession{\varepsilon(x)}
+%     \recurse{\emptyc}{\varepsilon}
+%   \end{compilation}
+% \end{frame}
+
+% \begin{frame}{Example Compilation: Empty process}
+%   \begin{itemize}
+%     \item The empty process $\emptyp$ does not perform any operations.
+%     \item The next task is removed from the global task linked list, and control is passed to it.
+%     \item In this example, the program terminates, as no more tasks are left.
+%   \end{itemize}
+%   \begin{compilation}{\emptyc}{\varepsilon}
+%     \nexttask
+%   \end{compilation}
+% \end{frame}
+
+\begin{frame}[fragile]{Example Compilation: The end product}
+  \begin{class}
+    \procdefi{main}{}{
+      \cuti{
+        \waiti{x}\emptyc
+      }{x}{
+        \closec{x}
+      }
+    }
+  \end{class}
+  \begin{lstlisting}[language=C]
+proc_main:
+    initSession(0 /*x*/, 0 /*size*/, lhs);
+    pushClose(0); /* close x */
+    flip(0);
+lhs:
+    popClose(0); /* wait x; */
+    freeSession(0);
+    nextTask();  /* () */
+  \end{lstlisting}
+\end{frame}
+
+% \note{
+%   - Primeiro, a label proc\_main é colocada. De seguida, o cut é compilado: é inicializada uma sessão para o canal $x$, que é indexado no ambiente pelo índice 0, e com buffer de tamanho 0 - o token de fecho tem tamanho 0. Estes índices e tamanhos são determinados em tempo de compilação. Finalmente, a continuação do session record é inicializada com um ponteiro para a label cut\_lhs.
+
+%   - O compilador determina que o lado esquerdo do cut deve ser executado depois do lado direito, pois o lado esquerdo começa por ler,
+
+%   - No próximo passo, o compilador gera o código do lado 
+% }
+
+% \begin{frame}[fragile]{Solution: Example Compilation 2}
+%   \begin{class}
+%     \procdefc{foo}{y: \offert{\labelt{inl}{\closet}\ \labelt{inr}{\waitt}}}{
+%       \casec{y}{
+%         \labelc{inl}{\closec{y}}
+%         \labelc{inr}{\waiti{y}\emptyc}
+%       }
+%     }
+%   \end{class}
+% \end{frame}
+
+% \begin{frame}[fragile]{Solution: Example Compilation 2}
+%   \begin{lstlisting}[language=C]
+% proc_foo:
+%     popChoice(0 /*y*/, {0 => &&inl, 1 => &&inr});
+% inl:
+%     pushClose(0);
+%     flip(0);
+% inr:
+%     popClose(0);
+%     freeSession(0);
+%     nextTask();
+%   \end{lstlisting}
+% \end{frame}
+
+
+% \begin{frame}[fragile]{Solution: Example Compilation 2}
+%   \begin{class}
+%     \procdefc{main}{}{
+%       \cutc{
+%         \proccallc{foo}{x}
+%       }{x: \choicet{\labelt{inl}{\waitt}\ \labelt{inr}{\closet}}}{
+%         \choosec{inl}{x}
+%         \waiti{x}\emptyc
+%       }
+%     }
+%   \end{class}
+% \end{frame}
+
+% \begin{frame}[fragile]{Solution: Example Compilation 2}
+%   \begin{lstlisting}[language=C]
+% proc_main:
+%     initSession(0 /*x*/, 1 /*size*/, &&cut_rhs);
+%     pushChoice(0 /*x*/, 0 /*inl*/);
+%     flip(0);
+%     popClose(0);
+%     nextTask();
+% cut_rhs:
+%     call(proc_foo, 1, {0 /*x*/ => 0 /*y*/});
+    
+%   \end{lstlisting}
+% \end{frame}
+
+% \begin{frame}{Next Steps}
+%   \begin{itemize}
+%     \item Expand the compiler to cover the full CLASS language.
+%     \item Deallocate environments using a reference counting scheme.
+%     \item Profile and optimize the existing implementation.
+%     \item Explore parallelization using thread pools.
+%     \item Enable interop with C code.
+%     % \item Emit LLVM IR instead of C code.
+%   \end{itemize}
+% \end{frame}
+
+\section{Evaluation}
+
+\begin{frame}{Evaluation}
+  \begin{itemize}
+    \item Extensive testing using incremental unit tests.
+    \item Performance comparison with the original CLASS interpreter and SAM interpreter.
+    \item Compare performance with C, Haskell (GHC) and possibly other languages.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[shrink=20]
+  \bibliography{./Bibliography}
+\end{frame}
+
+\begin{frame}{}
+  \begin{center}
+    \huge Thank you!
+  \end{center}
+
+\end{frame}
+\end{document}

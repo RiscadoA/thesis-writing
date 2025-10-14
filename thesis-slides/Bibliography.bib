@@ -1,0 +1,79 @@
+
+@article{Girard:1987,
+  title    = {Linear logic},
+  journal  = {Theoretical Computer Science},
+  volume   = {50},
+  number   = {1},
+  pages    = {1-101},
+  year     = {1987},
+  issn     = {0304-3975},
+  doi      = {https://doi.org/10.1016/0304-3975(87)90045-4},
+  url      = {https://www.sciencedirect.com/science/article/pii/0304397587900454},
+  author   = {Jean-Yves Girard},
+  abstract = {The familiar connective of negation is broken into two operations: linear negation which is the purely negative part of negation and the modality “of course” which has the meaning of a reaffirmation. Following this basic discovery, a completely new approach to the whole area between constructive logics and programmation is initiated.}
+}
+
+@article{Milner:1992:1,
+  title    = {A calculus of mobile processes, I},
+  journal  = {Information and Computation},
+  volume   = {100},
+  number   = {1},
+  pages    = {1-40},
+  year     = {1992},
+  issn     = {0890-5401},
+  doi      = {https://doi.org/10.1016/0890-5401(92)90008-4},
+  url      = {https://www.sciencedirect.com/science/article/pii/0890540192900084},
+  author   = {Robin Milner and Joachim Parrow and David Walker},
+  abstract = {We present the π-calculus, a calculus of communicating systems in which one can naturally express processes which have changing structure. Not only may the component agents of a system be arbitrarily linked, but a communication between neighbours may carry information which changes that linkage. The calculus is an extension of the process algebra CCS, following work by Engberg and Nielsen, who added mobility to CCS while preserving its algebraic properties. The π-calculus gains simplicity by removing all distinction between variables and constants; communication links are identified by names, and computation is represented purely as the communication of names across links. After an illustrated description of how the π-calculus generalises conventional process algebras in treating mobility, several examples exploiting mobility are given in some detail. The important examples are the encoding into the π-calculus of higher-order functions (the λ-calculus and combinatory algebra), the transmission of processes as values, and the representation of data structures as processes. The paper continues by presenting the algebraic theory of strong bisimilarity and strong equivalence, including a new notion of equivalence indexed by distinctions—i.e., assumptions of inequality among names. These theories are based upon a semantics in terms of a labeled transition system and a notion of strong bisimulation, both of which are expounded in detail in a companion paper. We also report briefly on work-in-progress based upon the corresponding notion of weak bisimulation, in which internal actions cannot be observed.}
+}
+
+@inproceedings{Honda:1993,
+  author    = {Honda, Kohei},
+  editor    = {Best, Eike},
+  title     = {Types for dyadic interaction},
+  booktitle = {CONCUR'93},
+  year      = {1993},
+  publisher = {Springer Berlin Heidelberg},
+  address   = {Berlin, Heidelberg},
+  pages     = {509--523},
+  abstract  = {We formulate a typed formalism for concurrency where types denote freely composable structure of dyadic interaction in the symmetric scheme. The resulting calculus is a typed reconstruction of name passing process calculi. Systems with both the explicit and implicit typing disciplines, where types form a simple hierarchy of types, are presented, which are proved to be in accordance with each other. A typed variant of bisimilarity is formulated and it is shown that typed $\beta$-equality has a clean embedding in the bisimilarity. Name reference structure induced by the simple hierarchy of types is studied, which fully characterises the typable terms in the set of untyped terms. It turns out that the name reference structure results in the deadlock-free property for a subset of terms with a certain regular structure, showing behavioural significance of the simple type discipline.},
+  isbn      = {978-3-540-47968-0}
+}
+
+@article{Abramsky:1993,
+  title    = {Computational interpretations of linear logic},
+  journal  = {Theoretical Computer Science},
+  volume   = {111},
+  number   = {1},
+  pages    = {3-57},
+  year     = {1993},
+  issn     = {0304-3975},
+  doi      = {https://doi.org/10.1016/0304-3975(93)90181-R},
+  url      = {https://www.sciencedirect.com/science/article/pii/030439759390181R},
+  author   = {Samson Abramsky},
+  abstract = {We study Girard's linear logic from the point of view of giving a concrete computational interpretation of the logic, based on the Curry—Howard isomorphism. In the case of Intuitionistic linear logic, this leads to a refinement of the lambda calculus, giving finer control over order of evaluation and storage allocation, while maintaining the logical content of programs as proofs, and computation as cut-elimination. In the classical case, it leads to a concurrent process paradigm with an operational semantics in the style of Berry and Boudol's chemical abstract machine. This opens up a promising new approach to the parallel implementation of functional programming languages; and offers the prospect of typed concurrent programming in which correctness is guaranteed by the typing.}
+}
+
+@inproceedings{Caires:2010,
+  author    = {Caires, Lu{\'i}s
+               and Pfenning, Frank},
+  editor    = {Gastin, Paul
+               and Laroussinie, Fran{\c{c}}ois},
+  title     = {Session Types as Intuitionistic Linear Propositions},
+  booktitle = {CONCUR 2010 - Concurrency Theory},
+  year      = {2010},
+  publisher = {Springer Berlin Heidelberg},
+  address   = {Berlin, Heidelberg},
+  pages     = {222--236},
+  abstract  = {Several type disciplines for $\pi$-calculi have been proposed in which linearity plays a key role, even if their precise relationship with pure linear logic is still not well understood. In this paper, we introduce a type system for the $\pi$-calculus that exactly corresponds to the standard sequent calculus proof system for dual intuitionistic linear logic. Our type system is based on a new interpretation of linear propositions as session types, and provides the first purely logical account of all (both shared and linear) features of session types. We show that our type discipline is useful from a programming perspective, and ensures session fidelity, absence of deadlocks, and a tight operational correspondence between $\pi$-calculus reductions and cut elimination steps.},
+  isbn      = {978-3-642-15375-4}
+}
+
+@phdthesis{Rocha:2022,
+  author = {Pedro Rocha},
+  school = {NOVA University Lisbon},
+  title  = {CLASS: A Logical Foundation for Typeful Programming with Shared State},
+  year   = {2022},
+  month  = {July},
+  note   = {Supervised by Lu\'{\i}s Caires}
+}
