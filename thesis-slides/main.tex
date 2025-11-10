@@ -1,6 +1,7 @@
 \documentclass{beamer}
 % \documentclass[notes]{beamer}
-\usetheme{metropolis}
+% \usetheme{metropolis}
+\setbeamertemplate{navigation symbols}{}
 
 \usepackage{graphicx} % Required for inserting images
 \usepackage{listings} % Required for code snippets
@@ -406,10 +407,10 @@ Dissertation in Computer Science and Engineering}
 %   \end{itemize}
 % \end{frame}
 
-\section{Towards a CLASS Compiler}
+\section{Compiling a Session-Based Language}
 
 \note{
-  - Nesta secção, vou apresentar a solução proposta para compilar programas CLASS.
+  - Nesta secção, vou apresentar a solução desenvolvida para compilar programas à base de sessões, e em particular, programas em CLASS.
 }
 
 \begin{frame}{A CLASS Compilation Scheme}
@@ -422,13 +423,13 @@ Dissertation in Computer Science and Engineering}
 \end{frame}
 
 \note{
-  - O esquema que propomos é fortemente baseado na LSAM: executa de forma sequencial e determinística, com corotinas baseadas em continuações.
+  - O esquema desenvolvido é fortemente baseado na LSAM: executa de forma sequencial e determinística, com corotinas baseadas em continuações.
 
-  - Os processos comunicam assincronamente, tal como na LSAM, ao escreverem e lerem valores de session records.
+  - Os processos comunicam assincronamente, tal como na LSAM, ao escreverem e lerem valores de buffers.
 
   - Um proof of concept já foi implementado, e está construído sobre o código existente do interpretador CLASS e LSAM.
 
-  - De forma a facilitar a implementação,os programas CLASS são compilados para uma representação intermédia (IR) imperativa, que é depois traduzida para código C.
+  - De forma a facilitar a implementação, os programas CLASS são compilados para uma representação intermédia (IR) imperativa, que é depois traduzida para código C.
 }
 
 \begin{frame}[fragile]{Memory Layout: Session records and environments}
