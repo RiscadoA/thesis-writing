@@ -2,13 +2,57 @@
 % \documentclass[notes]{beamer}
 % \usetheme{metropolis}
 \setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}{
+  \vspace{-5em}
+  \leavevmode%
+  \hbox{%
+    \hspace*{0.93\paperwidth}%
+    \usebeamerfont{footline}\insertframenumber{} / \inserttotalframenumber\hspace*{2ex}%
+  }%
+  \vskip3pt%
+}
+
+\usepackage{tikz}
+\usetikzlibrary{shadows,positioning,arrows.meta,fit,shapes.geometric}
+\tikzset{
+    frame/.style={draw, thick, fill=gray!10, inner sep=0pt},
+    row/.style={
+        fill=white,
+        minimum width=6.6cm,
+        minimum height=0.5cm,
+        anchor=west,
+        font=\ttfamily\small,
+        inner xsep=6pt,
+        text width=6.3cm,
+        align=left,
+        append after command={
+            \pgfextra{\draw (\tikzlastnode.north west) -- (\tikzlastnode.north east);}
+        }
+    },
+    arrow/.style={->, thick, >=Stealth},
+    biarrow/.style={<->, thick, >=Stealth},
+    doublearrow/.style={
+        ->,
+        double,
+        line width=0.6pt,
+        double distance=1pt,
+        >=Stealth,
+        thick
+    }
+}
 
 \usepackage{graphicx} % Required for inserting images
 \usepackage{listings} % Required for code snippets
 \usepackage{pgfgantt}
 \usepackage{stmaryrd}
 \input{../commands.tex}
-\lstset{escapeinside=||}
+\lstset{
+  escapeinside=||,
+  keywordstyle=\usebeamercolor*[fg]{palette primary},
+  commentstyle=\color{olive},
+  stringstyle=\usebeamercolor*[fg]{palette tertiary},
+  backgroundcolor={\usebeamercolor*[fg]{palette primary}\color{palette primary.fg!5}}
+}
 
 \title{Efficient Compilation for the Linear Language CLASS}
 \subtitle{From Session-Typed Programs to Efficient Native Code}
@@ -20,6 +64,38 @@ Dissertation in Computer Science and Engineering}
 
 \bibliographystyle{plain}
 \nocite{*}
+
+\AtBeginSection[]{
+  \begin{frame}
+  \vfill
+  \centering
+  \begin{beamercolorbox}[sep=8pt,center,shadow=true,rounded=true]{title}
+    \usebeamerfont{title}\insertsectionhead\par%
+  \end{beamercolorbox}
+  \vfill
+  \end{frame}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Presentation plan:
+% 1. Presentation structure
+% 2. Introduction
+%    a) Motivation
+%    b) Key idea
+%    c) Contributions
+% 3. Background
+%    a) CLASS Example
+%    b) LSAM Overview
+% 4. Compilation
+%    a) Pipeline overview (CLASS -> IR -> C -> binary)
+%    b) IR structure 
+% 5. Implemented Optimizations
+% 6. Evaluation
+%    a) Unit tests / validation
+%       - Memory safety (valgrind, asan)
+%       - Thread safety (tsan)
+%    b) Performance profiling
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \begin{document}
 
@@ -37,8 +113,8 @@ Dissertation in Computer Science and Engineering}
   Vamos começar com um breve resumo desta apresentaçõa.
   Primeiro, vou introduzir o projeto, a sua motivação e objetivos.
   Depois, vou resumir brevemente a história desta área, e introduzir a linguagem CLASS e o LSAM.
-  De seguida, vou apresentar a solução proposta.
-  Finalmente, vou introduzir a metodologia de avaliação e dar uma visão geral do nosso plano de trabalho.
+  De seguida, vou apresentar a solução que foi desenvolvida.
+  Finalmente, vou dar uma visão geral sobre o trabalho realizado e os resultados obtidos.
 }
 
 \section{Introduction}
@@ -73,33 +149,54 @@ Dissertation in Computer Science and Engineering}
 
 \begin{frame}{Motivation}
   \begin{itemize}
-    \item Session typed programming languages, such as \textbf{CLASS}, enforce \textbf{memory safety, deadlock-freedom} and other useful properties \textbf{by construction}.
-    \item Session-based programs are parallel by nature, but large parts of most programs end up being implicitly sequential.
-    \item The Linear Session Abstract Machine (\textbf{LSAM}) was introduced to provide a formal model for efficiently executing \textbf{sequential} parts of session-typed programs.
+    \item Session-typed programming languages, such as \textbf{CLASS}, enforce \textbf{memory safety, deadlock-freedom} and other useful properties \textbf{by construction}.
+    \item The Linear Session Abstract Machine (\textbf{LSAM}) was introduced to provide a formal model for efficiently executing session-typed programs.
     \item However, the \textbf{LSAM} remains limited by its high-level nature and the overhead of its interpreter.
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Key Idea}
+\note{
+  - A ideia chave deste projeto, é, então, aproveitar a informação que o sistema de tipos de CLASS disponibiliza em tempo de compilação para gerar código nativo eficiente, ao mesmo tempo que preserva as garantias de segurança da linguagem.
+
+  - Isto tornaria possível utilizar CLASS e linguagens semelhantes em aplicações que exijam alto desempenho, como servidores.
+}
+
+\begin{frame}{Key Idea and Contributions}
 
   \begin{itemize}
-    \item \textbf{CLASS} is very strongly statically typed, and thus has a lot of information available at compile time.
-    \item A compiler could leverage this information to generate efficient native code, while preserving the safety guarantees of the language.
-    \item This could enable \textbf{CLASS} and similar languages to be used in performance-critical applications, such as network servers.
+    \item Design a compilation scheme from \textbf{CLASS} into efficient native code, leveraging compile-time guarantees.
+    \item Develop and validate a full implementation of this scheme.
+    \item Design and implement various optimizations.
+    \item Demonstrate competitive performance through benchmarks.
   \end{itemize}
 
 \end{frame}
 
-\begin{frame}{Expected Contributions}
+\note{
+  - Os principais contributos do projeto foram então:
 
-  \begin{itemize}
-    \item This project introduces a compilation scheme for \textbf{CLASS} programs to native C code.
-    \item During this project, a prototype has been implemented which already supports a significant subset of the language.
-    \item We aim to extend it to cover the full language, and to use the type information available to implement various optimizations.
-    \item Additionally, we will provide a formal proof of correctness for at least the core parts of the compiler.
-  \end{itemize}
+  - O desenvolvimento da primeira representação intermédia (IR) entre linguagens baseadas em sessões e linguagens de baixo nível como C.
 
-\end{frame}
+  - Um esquema de tradução de toda a linguagem CLASS para esta IR.
+
+  - Uma implementação fortemente testada do esquema desenvolvido.
+
+  - Uma série de otimizações, incluindo algumas que tiram partido do sistema de tipos.
+
+  - 
+}
+
+% \begin{frame}{Contributions}
+
+%   \begin{itemize}
+%     \item The first intermediate representation (IR) between session-based languages and low-level languages such as C.
+%     \item A translation scheme from the full CLASS language to the IR.
+%     \item A validated working implementation of the developed scheme.
+%     \item Several optimizations taking advantage of the type system.
+%     \item Benchmarks demonstrating that session-typed programs can perform competitively with existing alternatives.
+%   \end{itemize}
+
+% \end{frame}
 
 \section{Background}
 
@@ -107,23 +204,23 @@ Dissertation in Computer Science and Engineering}
   - Nesta secção, vou apresentar a noção de lógica linear, tipos de sessão, a linguagem CLASS, e o LSAM, que é a base deste trabalho.
 }
 
-\begin{frame}{Linear Logic}
-  \begin{itemize}
-    \item Introduced by Girard in the 80s \cite{Girard:1987}
-    \item Propositions are consumed exactly once, unlike classical logic.
-    \item Ideal for modeling resources on real-world systems, such as memory or network connections.
-    \item The proposition-as-types correspondence of linear logic \cite{Caires:2010} has proven useful to model concurrent systems.
-  \end{itemize}
+% \begin{frame}{Linear Logic}
+%   \begin{itemize}
+%     \item Introduced by Girard in the 80s \cite{Girard:1987}.
+%     \item Propositions are consumed exactly once, unlike classical logic.
+%     \item Ideal for modeling resources on real-world systems, such as memory or network connections.
+%     \item The proposition-as-types correspondence of linear logic \cite{Caires:2010} has proven useful to model concurrent systems.
+%   \end{itemize}
 
-  \begin{figure}
-    \begin{prooftree}
-        \AxiomC{$\vdash \Gamma, A$}
-        \AxiomC{$A \vdash \Delta$}
-        \BinaryInfC{$\vdash \Gamma, \Delta$}
-    \end{prooftree}
-    \caption{Cut Rule}
-  \end{figure}
-\end{frame}
+%   \begin{figure}
+%     \begin{prooftree}
+%         \AxiomC{$\vdash \Gamma, A$}
+%         \AxiomC{$A \vdash \Delta$}
+%         \BinaryInfC{$\vdash \Gamma, \Delta$}
+%     \end{prooftree}
+%     \caption{Cut Rule}
+%   \end{figure}
+% \end{frame}
 
 \note{
   - A lógica linear é uma lógica introduzida por Girard nos anos 80, onde as proposições são consumidas exatamente uma vez, ao contrário da lógica clássica. Isto é, não existem regras de enfraquecimento ou contração.
@@ -206,18 +303,10 @@ Dissertation in Computer Science and Engineering}
     \item CLASS is a linear language - well-typed programs consume all their resources.
   \end{itemize}
   \begin{class}
-    \procdefc{recvPair}{x: \recvt{\waitt}{\closet}}{
-      \recvc{x}{y}
-      \waitc{y}
-      \closec{x}
+    \procdefc{doubleInt}{f: \recvt{\colintt}{\lintt}}{
+      \recvc{f}{x}
+      \letc{f}{x * 2}
     }
-    % \procdefc{main}{}{
-    %   \cutc{
-    %     \waiti{x}\emptyc
-    %   }{x: \closet}{
-    %     \closec{x}
-    %   }
-    % }
   \end{class}
 \end{frame}
 
@@ -236,15 +325,12 @@ Dissertation in Computer Science and Engineering}
     \item Processes can be composed using the cut construct.
   \end{itemize}
   \begin{class}
-    \procdefc{sendPair}{x: \sendt{\closet}{\waitt}}{
-      \sendc{x}{y}{\closec{y}}
-      \waiti{x}\emptyc
-    }\z\z
     \procdefc{main}{}{
-      \cuti{
-        \proccallc{sendPair}{x}
-      }{x}{
-        \proccallc{recvPair}{x}
+      \cutc{
+        \proccallc{doubleInt}{f}
+      }{f: \sendt{\lintt}{\colintt}}{
+        \sendc{f}{x}{\letc{x}{3}}
+        \printi{f}\emptyc
       }
     }
   \end{class}
@@ -258,22 +344,22 @@ Dissertation in Computer Science and Engineering}
   - O sistema de tipos garante que o unico canal partilhado entre os dois processos é $x$.
 }
 
-\begin{frame}{CLASS: Parallel composition}
-  \begin{itemize}
-    \item Processes can also be composed in parallel, using the par construct.
-    \item Used to model independent processes.
-  \end{itemize}
-  \begin{class}
-    \procdefc{closeTwo}{x: \closet, y: \closet}{
-      \pari{\closec{x}}{\closec{y}}
-    }
-  \end{class}
-\end{frame}
+% \begin{frame}{CLASS: Parallel composition}
+%   \begin{itemize}
+%     \item Processes can also be composed in parallel, using the par construct.
+%     \item Used to model independent processes.
+%   \end{itemize}
+%   \begin{class}
+%     \procdefc{closeTwo}{x: \closet, y: \closet}{
+%       \pari{\closec{x}}{\closec{y}}
+%     }
+%   \end{class}
+% \end{frame}
 
-\note{
-  - CLASS também permite a composição paralela de procesoss, que corresponde à mix rule com que muitas vezes se extende a lógica linear.
-  - Nesta composição, os processos não partilham qualquer canal, e logo, podem ser executados independentemente, em paralelo.
-}
+% \note{
+%   - CLASS também permite a composição paralela de procesoss, que corresponde à mix rule com que muitas vezes se extende a lógica linear.
+%   - Nesta composição, os processos não partilham qualquer canal, e logo, podem ser executados independentemente, em paralelo.
+% }
 
 
 % \begin{frame}{CLASS: Choice and selection}
@@ -332,7 +418,7 @@ Dissertation in Computer Science and Engineering}
     \item Threads incur a high overhead for small tasks.
     \item However, concurrency is still desirable in many cases.
     \item The LSAM was introduced as an abstract machine that executes session-typed programs efficiently, deterministically and sequentially, while still allowing explicit concurrency.
-    \item A proof of concept implementation was integrated as an alternative backend for the CLASS interpreter.
+    % \item A proof of concept implementation was integrated as an alternative backend for the CLASS interpreter.
   \end{itemize}
 \end{frame}
 
@@ -346,58 +432,58 @@ Dissertation in Computer Science and Engineering}
   - Como tal, o LSAM foi introduzido como uma máquina abstrata que executa de forma eficiente, determinística e sequencial programas à base de sessões, sem sacrificar a possibilidade de optar explicitamente por concorrência quando necessário.
 }
 
-\begin{frame}{LSAM: Session records and asynchronous communication}
-  \begin{itemize}
-    \item Session records: $x\langle q,P\rangle y$
-    \begin{itemize}
-      \item $x$ and $y$ are channel names.
-      \item $q$ is a queue of values.
-      \item $P$ is a continuation process.
-    \end{itemize}
-    \item Values can take the form of close tokens, process closures, branching/choice tokens, etc.
-  \end{itemize}
-\end{frame}
+% \begin{frame}{LSAM: Session records and asynchronous communication}
+%   \begin{itemize}
+%     \item Session records: $x\langle q,P\rangle y$
+%     \begin{itemize}
+%       \item $x$ and $y$ are channel names.
+%       \item $q$ is a queue of values.
+%       \item $P$ is a continuation process.
+%     \end{itemize}
+%     \item Values can take the form of close tokens, process closures, branching/choice tokens, etc.
+%   \end{itemize}
+% \end{frame}
 
-\note{
-  - O esquema de compilação que propomos baseia-se fortemente no LSAM, e por isso, é importante mencionar o seu componente principal, os session records.
+% \note{
+%   - O esquema de compilação que propomos baseia-se fortemente no LSAM, e por isso, é importante mencionar o seu componente principal, os session records.
 
-  - Para cada sessão ou canal, é criado um session record, que é descrito pelos nomes dos canais nos respetivos extremos, uma fila de valores por receber, e um processo de continuação. Este processo de continuação será executado quando o processo que está a executar atualmente terminar ou for suspenso.
-}
-\note{
-  - Os valores enviados pelos canais podem corresponder a tokens de fecho de sessão, processos de continuação, tokens de escolha, etc.
+%   - Para cada sessão ou canal, é criado um session record, que é descrito pelos nomes dos canais nos respetivos extremos, uma fila de valores por receber, e um processo de continuação. Este processo de continuação será executado quando o processo que está a executar atualmente terminar ou for suspenso.
+% }
+% \note{
+%   - Os valores enviados pelos canais podem corresponder a tokens de fecho de sessão, processos de continuação, tokens de escolha, etc.
 
-  - Os processos executam o maior numero possível de operações, nas quais escrevem novos valores nas filas dos session records, e suspendem-se quando já tiverem lido todos os valores de uma fila, ou quando não houverem mais operações a executar. Nesse momento, o controlo é passado ao extremo oposto do session record, e o processo antigo é guardado como a nova continuação do respetivo session record.
-}
+%   - Os processos executam o maior numero possível de operações, nas quais escrevem novos valores nas filas dos session records, e suspendem-se quando já tiverem lido todos os valores de uma fila, ou quando não houverem mais operações a executar. Nesse momento, o controlo é passado ao extremo oposto do session record, e o processo antigo é guardado como a nova continuação do respetivo session record.
+% }
 
-\begin{frame}{LSAM: Example execution}
-  \begin{itemize}
-    \item The abstract machine's state is a pair $(P, H)$, where $P$ is the current process and $H$ is a set of session records.
-    \item Let $P \equiv \cutc{\waitc{x}\emptyc}{x}{\closec{x}}$,
-  \end{itemize}
-  \begin{eqnarray*}
-        (P, \emptyset)
-        &\equiv&
-        (\cutc{\waitc{x}{\emptyc}}{x}{\closec{x}}, \emptyset) \pause               \\
-        &\Mapsto&
-        (\closec{x}, x\langle nil, \waitc{y}\emptyc\rangle y) \pause                \\
-        &\Mapsto& (\waitc{y}\emptyc, x\langle \checkmark, \emptyp\rangle y) \pause \\
-        &\Mapsto&
-        (\emptyc, \emptyset)
-    \end{eqnarray*}
-\end{frame}
+% \begin{frame}{LSAM: Example execution}
+%   \begin{itemize}
+%     \item The abstract machine's state is a pair $(P, H)$, where $P$ is the current process and $H$ is a set of session records.
+%     \item Let $P \equiv \cutc{\waitc{x}\emptyc}{x}{\closec{x}}$,
+%   \end{itemize}
+%   \begin{eqnarray*}
+%         (P, \emptyset)
+%         &\equiv&
+%         (\cutc{\waitc{x}{\emptyc}}{x}{\closec{x}}, \emptyset) \pause               \\
+%         &\Mapsto&
+%         (\closec{x}, x\langle nil, \waitc{y}\emptyc\rangle y) \pause                \\
+%         &\Mapsto& (\waitc{y}\emptyc, x\langle \checkmark, \emptyp\rangle y) \pause \\
+%         &\Mapsto&
+%         (\emptyc, \emptyset)
+%     \end{eqnarray*}
+% \end{frame}
 
-\note{
-  - O estado da máquina é um par $(P, H)$, onde $P$ é o processo atual, e $H$ é um conjunto de session records.
+% \note{
+%   - O estado da máquina é um par $(P, H)$, onde $P$ é o processo atual, e $H$ é um conjunto de session records.
 
-  - Neste exemplo, o processo $P$ é um corte entre um processo de espera sobre o canal $x$ e um processo de fecho do canal $x$. O estado inicial da máquina é o processo $P$ e um conjunto vazio de session records.
+%   - Neste exemplo, o processo $P$ é um corte entre um processo de espera sobre o canal $x$ e um processo de fecho do canal $x$. O estado inicial da máquina é o processo $P$ e um conjunto vazio de session records.
 
-  - O primeiro passo da execução aloca um novo session record para o canal $x$, e executa primeiro o lado direito do cut - o fecho do canal $x$. Executamos primeiro o lado que escreve em $x$ do cut, de forma a garantir que quando o lado leitor for executado, já exista um valor para ler. O lado esquerdo do cut fica suspenso, como continuação do session record, e a fila é inicialmente vazia (nil).
-}
-\note{
-  - O próximo passo é a execução do close sobre o canal $x$, que escreve um token de fecho no session record, e passa o controlo para o lado esquerdo do cut, que estava suspenso.
+%   - O primeiro passo da execução aloca um novo session record para o canal $x$, e executa primeiro o lado direito do cut - o fecho do canal $x$. Executamos primeiro o lado que escreve em $x$ do cut, de forma a garantir que quando o lado leitor for executado, já exista um valor para ler. O lado esquerdo do cut fica suspenso, como continuação do session record, e a fila é inicialmente vazia (nil).
+% }
+% \note{
+%   - O próximo passo é a execução do close sobre o canal $x$, que escreve um token de fecho no session record, e passa o controlo para o lado esquerdo do cut, que estava suspenso.
 
-  - O wait sobre o canal $y$ é executado, ao retirar o token de fecho do session record, e o dealocando de seguida.
-}
+%   - O wait sobre o canal $y$ é executado, ao retirar o token de fecho do session record, e o dealocando de seguida.
+% }
 
 % \begin{frame}{Related Work: Alternative Approaches}
 %   \begin{itemize}
@@ -413,306 +499,396 @@ Dissertation in Computer Science and Engineering}
   - Nesta secção, vou apresentar a solução desenvolvida para compilar programas à base de sessões, e em particular, programas em CLASS.
 }
 
-\begin{frame}{A CLASS Compilation Scheme}
-  \begin{itemize}
-    \item Compilation scheme heavily based on the LSAM interpreter.
-    \item Execution is done sequentially and deterministically, with continuation-based coroutining.
-    \item Processes communicate in a buffered manner through session records.
-    \item CLASS programs are compiled to an Intermediate Representation (IR) which is then translated to C code.
+\begin{frame}{Compilation Pipeline}
+\centering
+\resizebox{0.9\linewidth}{!}{%
+\begin{tikzpicture}[
+  box/.style={
+    draw, rounded corners=6pt, minimum width=32mm, minimum height=10mm,
+    align=center, font=\footnotesize, fill=white, drop shadow
+  },
+  arr/.style={-Latex, line width=0.8pt},
+  node distance=10mm and 20mm
+]
+
+% Left column (top to bottom)
+\node[box] (class) {CLASS};
+\node[box, below=of class] (parser) {Type-annotated AST};
+\node[box, below=of parser] (ir) {IR};
+
+% Right column (top to bottom)
+\node[box, right=40mm of class] (opt) {Optimized IR};
+\node[box, below=of opt] (cgen) {C code};
+\node[box, below=of cgen] (native) {Native executable};
+
+% Arrows (left column downward)
+\draw[arr] (class) -- node[right]{parse \& type-check} (parser);
+\draw[arr] (parser) -- node[right]{translate} (ir);
+
+% Arrows (connecting columns)
+\draw[arr] (ir.east) .. controls +(10mm,0) and +(-10mm,0) .. node[above, xshift=8mm, yshift=-3mm]{optimize} (opt.west);
+
+% Arrows (right column downward)
+
+\draw[arr] (opt) -- node[right]{emit C} (cgen);
+\draw[arr] (cgen) -- node[right]{compile} (native);
+
+\end{tikzpicture}%
+}
+\end{frame}
+
+\begin{frame}{The Intermediate Representation (IR)}
+\begin{itemize}
+  \item \textbf{Purpose:} Bridge between high-level CLASS semantics and low-level C code.
+  \item Simplified code generation and optimization.
+  \item Sequential execution model inspired by the \textit{Linear Session Abstract Machine (SAM)}. \begin{itemize}
+    \item Deterministic, continuation-based control flow.
+    \item Buffered communication via data sections.
   \end{itemize}
+\end{itemize}
 \end{frame}
 
-\note{
-  - O esquema desenvolvido é fortemente baseado na LSAM: executa de forma sequencial e determinística, com corotinas baseadas em continuações.
+% \begin{frame}{IR Program Structure}
+% \centering
+% \begin{tikzpicture}[
+%   node distance=7mm and 8mm,
+%   every node/.style={font=\footnotesize, align=center},
+%   box/.style={
+%     draw, rounded corners=4pt, fill=white,
+%     minimum width=30mm, minimum height=8mm
+%   },
+%   arr/.style={-Latex, line width=0.7pt}
+% ]
 
-  - Os processos comunicam assincronamente, tal como na LSAM, ao escreverem e lerem valores de buffers.
+% % Root
+% \node[box] (program) {IR Program};
 
-  - Um proof of concept já foi implementado, e está construído sobre o código existente do interpretador CLASS e LSAM.
+% % Processes
+% \node[box, below=of program, xshift=-20mm] (proc1) {Process 1};
+% \node[box, below=of program, xshift=20mm] (proc2) {Process n};
+% \node at ($(proc1)!0.5!(proc2)$) [below=2mm,font=\scriptsize] {...};
 
-  - De forma a facilitar a implementação, os programas CLASS são compilados para uma representação intermédia (IR) imperativa, que é depois traduzida para código C.
-}
+% % Composition arrows
+% \draw[arr] (program.south) -- (proc1.north);
+% \draw[arr] (program.south) -- (proc2.north);
 
-\begin{frame}[fragile]{Memory Layout: Session records and environments}
-  \begin{lstlisting}[language=C]
-struct record {
-  void* cont;
-  struct environment* cont_env;
-  unsigned char written, read;
-  unsigned char buffer[];
-};
+% % Structure of a process (left)
+% \node[box, below=8mm of proc1, xshift=-17mm] (header) {Header};
+% \node[box, below=8mm of proc1, xshift=17mm] (body) {Body};
 
-struct environment {
-    struct record* records[];
-};
+% \draw[arr] (proc1.south) -- (header.north);
+% \draw[arr] (proc1.south) -- (body.north);
 
-struct environment *env;
-  \end{lstlisting}
-\end{frame}
+% % Body details
+% \node[box, below=8mm of body, xshift=-20mm] (block1) {Block 1};
+% \node[box, below=8mm of body, xshift=20mm] (block2) {Block m};
+% \node at ($(block1)!0.5!(block2)$) [below=2mm,font=\scriptsize] {...};
+% \draw[arr] (body.south) -- (block1.north);
+% \draw[arr] (body.south) -- (block2.north);
 
-\note{
-  - No lado de C, representamos os session records como structs. Os primeiros dois fields, cont e cont\_env, descrevem o processo de continuação, ou seja, o endereço na memória do programa para onde a execução deve saltar, e o ambiente em que deve ser executado. 
-
-  - Além disso, contém um buffer que guarda os dados transmitidos assincronamente, cujo tamanho é determinado em tempo de compilação, e registos que mantém o número de bytes já escritos ou lidos.
-
-  - Um ambiente é um array de session records, e é utilizado para traduzir os nomes (neste caso, indices) dos canais para os respetivos session records. Um ponteiro global env aponta para o ambiente atual.
-}
-
-\begin{frame}[fragile]{Memory Layout: Tasks}
-  \begin{lstlisting}[language=C]
-struct task {
-    struct task* next;
-    void* cont;
-    struct environment* cont_env;
-};
-
-struct task *task;
-  \end{lstlisting}
-\end{frame}
+% \end{tikzpicture}
+% \end{frame}
 
 \note{
-  - Adicionalmente, definimos uma estrutura task, que representa um ponto de execução a ser retomado no futuro. Esta continuação, tal como no session record, é composta por um endereço de programa e um ambiente.
+  - O modelo de execução da IR, tal como na LSAM, é sequencial e determinístico, com controlo baseado em continuações e comunicação buffered.
+
+  - O estado de execução é descrito por um ambiente $E$, uma espécie de stack-frame alocada no heap, uma pilha de tarefas $T$, pontos de execução a serem retomados no futuro, e um contador de programa.
+
+  - Tal como stack frames contém o estado necessário para executar funções em linguagens como C, ambientes contêm o estado necessário para executar processos. Ao contrário de funções em C, que têm apenas um local para onde retornam, processos podem ser suspensos e retornar várias vezes para diferentes locais.
+
+  - Então, para gerir a memória dos ambientes, estes guardam um contador de pontos de saída, que essencialmente representa o número de traços de execução não concluídos que dependem deste ambiente. Quando chegar a zero, é a memória associada ao ambiente pode ser dealocada.
   
-  - Isto é necessário para implementar a composição paralela de processos; um dos processos é imediatamente executado, enquanto que uma tarefa é criada para o outro. Estas tarefas formam uma linked list, que vai sendo percorrida à medida que as tarefas são completadas.
+  - Em vez de apenas um endereço de retorno, ambientes guardam várias continuações, que modelam as sessões: guardam um endereço de memória para onde devem ser escritos dados enviados, e um endereço de programa para onde a execução deve saltar quando a sessão terminar our for suspensa.
 
-  - A próxima tarefa a ser executada é guardada num ponteiro global task.
+  - Finalmente, as secções de dados são buffers onde os valores comunicados são realmente guardado, permitindo comunicação assíncrona.
 }
 
-\begin{frame}[fragile]{Main Function}
-  \begin{lstlisting}[language=C]
-int main() {
-  task = malloc(sizeof(struct task));
-  task->loc = &&end;
-
-  env = malloc(sizeof(struct environment)
-      + /*n*/ * sizeof(struct record*));
-  goto proc_main;
-
-  /* ... process definitions ... */
-
-end:
-  return 0;
-}
-  \end{lstlisting}
-\end{frame}
-
-\note{
-  - Os programas gerados pelo compilador começam por inicializar a linked list de tarefas. A última tarefa da lista, é a tarefa que termina o programa, e aponta para uma label no fim da função main.
-  
-  - De seguida, é alocado um ambiente para o processo principal do programa, com o tamanho que o compilador determinar em tempo de compilação. Finalmente, o programa salta para a label que corresponde ao início da definição do processo principal.
-
-  - O resto do programa é composto pelas várias definições de processos, cada uma com uma label associada.
-}
-
-\begin{frame}{Example Compilation}
-  \begin{class}
-    \procdefc{main}{}{
-      \cuti{
-        \waiti{x}\emptyc
-      }{x}{
-        \closec{x}
-      }
-    }
-  \end{class}
+\begin{frame}{IR Execution Model}
+\begin{itemize}
+  \item Execution state: $\langle E, C \rangle$
   \begin{itemize}
-    \item There's a single cut, and thus the environment will have size 1.
-    \item Index 0 is associated to the channel $x$.
+    \item $E$ --- Environment (similar to a heap-allocated stack frame)
+    \item $C$ --- Program counter (next instruction)
   \end{itemize}
-\end{frame}
-
-% \begin{frame}{Example Compilation: Process definitions}
-%   \begin{itemize}
-%     \item Process definitions are preceded by a label, so that they can be called from the rest of the program.
-%     \item Indices are associated to each channel name.
-%   \end{itemize}
-%   \begin{compilation}{\procdefc{main}{}{\cutc{\waitc{x}\emptyc}{x}{\closec{x}}}}{\emptyset}
-%     \labelir{proc\_main}
-%     \recurse{\cutc{\waitc{x}\emptyc}{x}{\closec{x}}}{\{x\,\mapsto\,0\}}
-%   \end{compilation}
-% \end{frame}
-
-% \note{
-%   - Neste slide temos um exemplo da compilação de um processo simples em CLASS, que já tinhamos visto anteriormente, para a representação intermédia. Este processo espera por um canal $x$ e de seguida fecha-o.
-
-%   - Neste passo da compilação, é adicionada uma label, que permite o resto do programa chamar este processo. Além disso, é criado um mapeamento entre os nomes dos canais e os respetivos índices no ambiente, que é passado como argumento à compilação do processo interior à definição.
-% }
-
-% \begin{frame}{Example Compilation: Cut}
-%   \begin{itemize}
-%     \item The buffer size of the session is determined from its type $\closet$, through $\phi(\closet)$.
-%     \item The reading end point is set as the continuation, and code is generated so that the writing end point executes first.
-%   \end{itemize}
-%   \begin{compilation}{\cutc{\waitc{x}\emptyc}{x}{\closec{x}}}{\varepsilon}
-%     \initcontinuation{\varepsilon(x)}{\phi(\closet)}{\texttt{lhs}}
-%     \recurse{\closec{x}}{\varepsilon}
-%     \labelir{lhs}
-%     \recurse{\waitc{x}\emptyc}{\varepsilon}
-%   \end{compilation}
-% \end{frame}
-
-% \note{
-%   - Ao compilar o cut, é gerado código para inicializar o session record associado ao canal $x$, com o índice atribuído no passo anterior, e com um buffer do tamanho necessário para uma sessão do tipo close - no caso, 0. A continuação do session record é inicializada com um ponteiro para a label lhs, que corresponde ao lado esquerdo do cut.
-
-%   - É de salientar que neste caso o compilador gera o código de forma ao lado direito do cut ser executado antes do lado esquerdo, pois o lado direito começa por escrever no canal $x$, e o lado esquerdo lê. Desta forma, garantimos que quando o lado esquerdo for executado, já existirá um valor no buffer do session record para ser lido.
-
-%   - Sendo assim, é gerado código para o lado direito do cut, o close, e de seguida, depois da label lhs, é gerado código para o lado esquerdo, o wait.
-% }
-
-% \begin{frame}{Example Compilation: Close}
-%   \begin{itemize}
-%     \item Code is generated for pushing a close token onto the session record.
-%     \item A flip is generated which suspends the current process and yields control to the opposite end point of the session record.
-%     \item Control won't return, as the close process has no continuation.
-%   \end{itemize}
-%   \begin{compilation}{\closec{x}}{\varepsilon}
-%     \pushclose{\varepsilon(x)}
-%     \flip{\varepsilon(x)}
-%   \end{compilation}
-% \end{frame}
-
-% \note{
-%   - Comecemos então pelo lado de escrita do cut. É gerada uma instrução que escreve um token de fecho no session record associado ao canal $x$, e de seguida, é gerada um flip.
-
-%   - O flip é uma instrução que passa o controlo para o lado oposto do session record, suspendendo o processo atual. Neste caso, salta para o lado de leitura do cut. Isto é feito guardando o endereço e ambiente atual de execução no session record, e de seguida, saltando com um goto para o endereço de execução que já lá estava guardado.
-
-%   - Como o close é a última operação do processo, a execução já não volta ao lado de escrita do cut.
-% }
-
-% \begin{frame}{Example Compilation: Wait}
-%   \begin{itemize}
-%     \item Code is generated for popping a close token from the session record.
-%     \item The session record is deallocated as it is no longer needed.
-%     \item The continuation of the wait process is compiled (in this case, the empty process).
-%   \end{itemize}
-%   \begin{compilation}{\waitc{x}\emptyc}{\varepsilon}
-%     \popclose{\varepsilon(x)}
-%     \freesession{\varepsilon(x)}
-%     \recurse{\emptyc}{\varepsilon}
-%   \end{compilation}
-% \end{frame}
-
-% \begin{frame}{Example Compilation: Empty process}
-%   \begin{itemize}
-%     \item The empty process $\emptyp$ does not perform any operations.
-%     \item The next task is removed from the global task linked list, and control is passed to it.
-%     \item In this example, the program terminates, as no more tasks are left.
-%   \end{itemize}
-%   \begin{compilation}{\emptyc}{\varepsilon}
-%     \nexttask
-%   \end{compilation}
-% \end{frame}
-
-\begin{frame}[fragile]{Example Compilation: The end product}
-  \begin{class}
-    \procdefi{main}{}{
-      \cuti{
-        \waiti{x}\emptyc
-      }{x}{
-        \closec{x}
-      }
-    }
-  \end{class}
-  \begin{lstlisting}[language=C]
-proc_main:
-    initSession(0 /*x*/, 0 /*size*/, lhs);
-    pushClose(0); /* close x */
-    flip(0);
-lhs:
-    popClose(0); /* wait x; */
-    freeSession(0);
-    nextTask();  /* () */
-  \end{lstlisting}
-\end{frame}
-
-% \note{
-%   - Primeiro, a label proc\_main é colocada. De seguida, o cut é compilado: é inicializada uma sessão para o canal $x$, que é indexado no ambiente pelo índice 0, e com buffer de tamanho 0 - o token de fecho tem tamanho 0. Estes índices e tamanhos são determinados em tempo de compilação. Finalmente, a continuação do session record é inicializada com um ponteiro para a label cut\_lhs.
-
-%   - O compilador determina que o lado esquerdo do cut deve ser executado depois do lado direito, pois o lado esquerdo começa por ler,
-
-%   - No próximo passo, o compilador gera o código do lado 
-% }
-
-% \begin{frame}[fragile]{Solution: Example Compilation 2}
-%   \begin{class}
-%     \procdefc{foo}{y: \offert{\labelt{inl}{\closet}\ \labelt{inr}{\waitt}}}{
-%       \casec{y}{
-%         \labelc{inl}{\closec{y}}
-%         \labelc{inr}{\waiti{y}\emptyc}
-%       }
-%     }
-%   \end{class}
-% \end{frame}
-
-% \begin{frame}[fragile]{Solution: Example Compilation 2}
-%   \begin{lstlisting}[language=C]
-% proc_foo:
-%     popChoice(0 /*y*/, {0 => &&inl, 1 => &&inr});
-% inl:
-%     pushClose(0);
-%     flip(0);
-% inr:
-%     popClose(0);
-%     freeSession(0);
-%     nextTask();
-%   \end{lstlisting}
-% \end{frame}
-
-
-% \begin{frame}[fragile]{Solution: Example Compilation 2}
-%   \begin{class}
-%     \procdefc{main}{}{
-%       \cutc{
-%         \proccallc{foo}{x}
-%       }{x: \choicet{\labelt{inl}{\waitt}\ \labelt{inr}{\closet}}}{
-%         \choosec{inl}{x}
-%         \waiti{x}\emptyc
-%       }
-%     }
-%   \end{class}
-% \end{frame}
-
-% \begin{frame}[fragile]{Solution: Example Compilation 2}
-%   \begin{lstlisting}[language=C]
-% proc_main:
-%     initSession(0 /*x*/, 1 /*size*/, &&cut_rhs);
-%     pushChoice(0 /*x*/, 0 /*inl*/);
-%     flip(0);
-%     popClose(0);
-%     nextTask();
-% cut_rhs:
-%     call(proc_foo, 1, {0 /*x*/ => 0 /*y*/});
-    
-%   \end{lstlisting}
-% \end{frame}
-
-% \begin{frame}{Next Steps}
-%   \begin{itemize}
-%     \item Expand the compiler to cover the full CLASS language.
-%     \item Deallocate environments using a reference counting scheme.
-%     \item Profile and optimize the existing implementation.
-%     \item Explore parallelization using thread pools.
-%     \item Enable interop with C code.
-%     % \item Emit LLVM IR instead of C code.
-%   \end{itemize}
-% \end{frame}
-
-\section{Evaluation}
-
-\begin{frame}{Evaluation}
+  \item An environment contains the state of:
   \begin{itemize}
-    \item Extensive testing using incremental unit tests.
-    \item Performance comparison with the original CLASS interpreter and SAM interpreter.
-    \item Compare performance with C, Haskell (GHC) and possibly other languages.
+    \item Continuations: return addresses/writing locations for sessions
+    \item Data sections: buffers holding communicated values
   \end{itemize}
+\end{itemize}
+\begin{figure}
+\begin{tikzpicture}
+\node[font=\ttfamily] (main title) {main};
+\node[row, below=0pt of main title] (main c0) {continuation c0: main:cut0, d0};
+\node[row, below=0pt of main c0] (main c1) {continuation c1: [uninit]};
+\node[row, below=0pt of main c1] (main d0) {data d0: "Hello World!"};
+\node[draw, inner sep=0pt, fit=(main title) (main d0)] (main box) {};
+\end{tikzpicture}
+\caption{Environment for some process \texttt{main}}
+\end{figure}
 \end{frame}
 
-\begin{frame}[shrink=20]
-  \bibliography{./Bibliography}
+
+\begin{frame}[fragile]{IR Example Program}
+\vspace{-7mm}
+\begin{lstlisting}[language=CLASS]
+proc main() {
+  cut { let x 1 |\textbar|x: colint|\textbar| print(x); () }
+};;
+\end{lstlisting}
+\begin{lstlisting}[language=IR]
+main:
+  continuations: c0
+  data d0: <[int]>
+entry:
+  initContinuation(c0, cut0, d0)
+  writeExpression(c0, 1)
+  finish(c0)
+cut0:
+  print(move(d0, int))
+  popTask()
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{Example Execution (1/5)}
+\vspace{-3mm}
+\begin{lstlisting}[language=IR]
+main:
+  continuations: c0
+  data d0: <[int]>
+entry:
+  initContinuation(c0, cut0, d0) // <<<<<<<<<<
+  writeExpression(c0, 1)
+  finish(c0)
+cut0:
+  print(move(d0, int))
+  popTask()
+\end{lstlisting}
+\begin{center}
+\begin{tikzpicture}
+\node[font=\ttfamily] (main title) {main};
+\node[row, below=0pt of main title] (main c0) {continuation c0: [uninit]};
+\node[row, below=0pt of main c0] (main d0) {data d0: [uninit]};
+\node[draw, inner sep=0pt, fit=(main title) (main d0)] (main box) {};
+\end{tikzpicture}
+\end{center}
+\end{frame}
+
+\begin{frame}[fragile]{Example Execution (2/5)}
+\vspace{-3mm}
+\begin{lstlisting}[language=IR]
+main:
+  continuations: c0
+  data d0: <[int]>
+entry:
+  initContinuation(c0, cut0, d0)
+  writeExpression(c0, 1) // <<<<<<<<<<
+  finish(c0)
+cut0:
+  print(move(d0, int))
+  popTask()
+\end{lstlisting}
+\begin{center}
+\begin{tikzpicture}
+\node[font=\ttfamily] (main title) {main};
+\node[row, below=0pt of main title] (main c0) {continuation c0: \changed{main:cut0, d0}};
+\node[row, below=0pt of main c0] (main d0) {data d0: [uninit]};
+\node[draw, inner sep=0pt, fit=(main title) (main d0)] (main box) {};
+\end{tikzpicture}
+\end{center}
+\end{frame}
+
+\begin{frame}[fragile]{Example Execution (3/5)}
+\vspace{-3mm}
+\begin{lstlisting}[language=IR]
+main:
+  continuations: c0
+  data d0: <[int]>
+entry:
+  initContinuation(c0, cut0, d0)
+  writeExpression(c0, 1)
+  finish(c0) // <<<<<<<<<<
+cut0:
+  print(move(d0, int))
+  popTask()
+\end{lstlisting}
+\begin{center}
+\begin{tikzpicture}
+\node[font=\ttfamily] (main title) {main};
+\node[row, below=0pt of main title] (main c0) {continuation c0: main:cut0, d0};
+\node[row, below=0pt of main c0] (main d0) {data d0: \changed{1}};
+\node[draw, inner sep=0pt, fit=(main title) (main d0)] (main box) {};
+\end{tikzpicture}
+\end{center}
+\end{frame}
+
+\begin{frame}[fragile]{Example Execution (4/5)}
+\vspace{-3mm}
+\begin{lstlisting}[language=IR]
+main:
+  continuations: c0
+  data d0: <[int]>
+entry:
+  initContinuation(c0, cut0, d0)
+  writeExpression(c0, 1)
+  finish(c0)
+cut0:
+  print(move(d0, int)) // <<<<<<<<<<
+  popTask()
+\end{lstlisting}
+\begin{center}
+\begin{tikzpicture}
+\node[font=\ttfamily] (main title) {main};
+\node[row, below=0pt of main title] (main c0) {continuation c0: \changed{[uninit]}};
+\node[row, below=0pt of main c0] (main d0) {data d0: 1};
+\node[draw, inner sep=0pt, fit=(main title) (main d0)] (main box) {};
+\end{tikzpicture}
+\end{center}
+\end{frame}
+
+\begin{frame}[fragile]{Example Execution (5/5)}
+\vspace{-3mm}
+\begin{lstlisting}[language=IR]
+main:
+  continuations: c0
+  data d0: <[int]>
+entry:
+  initContinuation(c0, cut0, d0)
+  writeExpression(c0, 1)
+  finish(c0)
+cut0:
+  print(move(d0, int))
+  popTask() // <<<<<<<<<<
+\end{lstlisting}
+\begin{center}
+\begin{tikzpicture}
+\node[font=\ttfamily] (main title) {main};
+\node[row, below=0pt of main title] (main c0) {continuation c0: [uninit]};
+\node[row, below=0pt of main c0] (main d0) {data d0: \changed{[uninit]}};
+\node[draw, inner sep=0pt, fit=(main title) (main d0)] (main box) {};
+\end{tikzpicture}
+\end{center}
+\end{frame}
+
+\begin{frame}{Optimizing the Compiled Programs}
+\begin{itemize}
+  \item Leverage type properties to more efficiently represent data. \begin{itemize}
+    \item Allows tuples to be stored contiguously, avoiding indirections. 
+    \item Compute exponential types once instead of once per usage.
+  \end{itemize}
+  \item Tail call optimization.
+  \item IR program flow/data analysis, and simplifications based on known values.
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Example Compilation: Optimization (1/2)}
+\begin{lstlisting}[language=IR]
+main:
+  continuations: c0
+  data d0: <[int]>
+entry:
+  initContinuation(c0, cut0, d0)
+  writeExpression(c0, 1) // known write to d0
+  finish(c0) // known jump to cut0
+cut0:
+  print(move(d0, int))
+  popTask()
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{Example Compilation: Optimization (2/2)}
+\begin{lstlisting}[language=IR]
+main:
+  data d0: <[int]>
+entry:
+  writeExpression(d0, 1)
+  print(move(d0, int))
+  popTask()
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{Example Compilation: Emitting C}
+\vspace{-3mm}
+\begin{itemize}
+  \item Entire IR program compiled into one \texttt{executor()} C function
+  \item Instructions operate on the current environment
+  \item Address of current environment stored on a register
+  \item Environments are heap-allocated buffers with known layouts
+  \item Continuations implemented using GCC's \texttt{computed goto}
+\end{itemize}
+\begin{lstlisting}[language=C]
+main_entry:
+  // writeExpression(d0, 1)
+  *(int*)(env + 0) = 1;
+  // print(move(d0, int))
+  printf("%d", *(int*)(env + 0));
+  // popTask()
+  free(env);
+\end{lstlisting}
+\end{frame}
+
+\section{Results and Conclusion}
+
+\begin{frame}{Results: Implementation and Validation}
+\begin{itemize}
+  \item Compiler implemented in Java within the existing CLASS/SAM codebase.
+  \item Fully covers CLASS, including affine sessions, shared state and polymorphism.
+  \item Over \textbf{180 unit tests} written in CLASS verifying semantics and code generation for each language construct.
+  \item Test suite also includes complex examples (e.g. prime sieve, game of life), covering use cases encountered in real-world applications.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Results: Sieve Benchmarks}
+\includegraphics[width=\linewidth]{Images/execution_time_sieve_compiler_vs_alternatives.pdf}
+\end{frame}
+
+\begin{frame}{Future Work}
+\begin{itemize}
+  \item \textbf{Lower-Level Code Generation}
+  \begin{itemize}
+    \item Target LLVM IR or assembly.
+    \item Store frequently accessed data in CPU registers.
+  \end{itemize}
+
+  \item \textbf{Standard Library}
+  \begin{itemize}
+    \item Provide native implementations of data structures.
+  \end{itemize}
+
+  \item \textbf{Further IR Optimizations}
+  \begin{itemize}
+    \item Remove redundant data moves and copies.
+    \item Reuse data sections to reduce memory footprint.
+  \end{itemize}
+
+  \item \textbf{Formal Verification}
+  \begin{itemize}
+    \item Develop a proof of correctness for the compilation scheme.
+    \item Base the proof on the verified SAM execution model.
+  \end{itemize}
+\end{itemize}
 \end{frame}
 
 \begin{frame}{}
   \begin{center}
     \huge Thank you!
   \end{center}
-
 \end{frame}
+
+\begin{frame}[shrink=20]
+  \bibliography{./Bibliography}
+\end{frame}
+
+\begin{frame}{Results: Sieve Benchmarks}
+\includegraphics[width=\linewidth]{Images/memory_usage_sieve_compiler_vs_alternatives.pdf}
+\end{frame}
+
+\begin{frame}{Results: Game of Life Benchmarks}
+\includegraphics[width=\linewidth]{Images/execution_time_gol_compiler_vs_ghc.pdf}
+\end{frame}
+
+\begin{frame}{Results: Game of Life Benchmarks}
+\includegraphics[width=\linewidth]{Images/memory_usage_gol_compiler_vs_ghc.pdf}
+\end{frame}
+
 \end{document}
