@@ -164,7 +164,7 @@ Dissertation in Computer Science and Engineering}
 \begin{frame}{Key Idea and Contributions}
 
   \begin{itemize}
-    \item Design a compilation scheme from \textbf{CLASS} into efficient native code, leveraging compile-time guarantees.
+    \item Design a compilation scheme based on \textbf{LSAM} from \textbf{CLASS} into efficient native code.
     \item Develop and validate a full implementation of this scheme.
     \item Design and implement various optimizations.
     \item Demonstrate competitive performance through benchmarks.
@@ -263,7 +263,7 @@ Dissertation in Computer Science and Engineering}
 \begin{frame}{Session Types}
   \begin{itemize}
     \item Session types \cite{Honda:1993} restrict communication on channels to predefined protocols.
-    \item Operations include sending, receiving, choice, and recursion.
+    \item Operations include sending, receiving, and choice.
     \item Each operation is associated with a type, and with its \textit{dual} operation.
     \item Direct correspondence between session types and linear logic \cite{Caires:2010}.
   \end{itemize}
@@ -603,18 +603,11 @@ Dissertation in Computer Science and Engineering}
   - Finalmente, as secções de dados são buffers onde os valores comunicados são realmente guardado, permitindo comunicação assíncrona.
 }
 
-\begin{frame}{IR Execution Model}
+\begin{frame}{IR Execution Concepts}
 \begin{itemize}
-  \item Execution state: $\langle E, C \rangle$
-  \begin{itemize}
-    \item $E$ --- Environment (similar to a heap-allocated stack frame)
-    \item $C$ --- Program counter (next instruction)
-  \end{itemize}
-  \item An environment contains the state of:
-  \begin{itemize}
-    \item Continuations: return addresses/writing locations for sessions
-    \item Data sections: buffers holding communicated values
-  \end{itemize}
+  \item \textbf{Environment} --- Context necessary to execute a process.
+  \item \textbf{Continuation} --- Return address and data writing location for a session end-point.
+  \item \textbf{Data Section} --- Buffer holding communicated values.
 \end{itemize}
 \begin{figure}
 \begin{tikzpicture}
@@ -628,180 +621,228 @@ Dissertation in Computer Science and Engineering}
 \end{figure}
 \end{frame}
 
+\begin{frame}[fragile]{IR Communication Example}
+\vspace{-1.5em}
+\begin{tikzpicture}[
+    font=\sffamily,
+    lifeline/.style={thick},
+    msg/.style={-Stealth, thick},
+    dashedmsg/.style={msg, dashed},
+    node distance=1cm
+]
+
+% Lifelines
+\node (doubleInt) {doubleInt};
+\node[right=of doubleInt] (d0) {d0};
+\node[right=of d0] (c0) {c0};
+\node[right=of c0] (c1) {c1};
+\node[right=of c1] (d1) {d1};
+\node[right=of d1] (client) {client};
+
+% Lifeline vertical lines
+\foreach \x in {doubleInt, d0, c0, c1, d1, client} {
+    \draw[lifeline] (\x.south) ++(0,-0.2) -- ++(0,-6);
+}
+
+% Messages
+\draw[msg] ([yshift=-1cm]client.south) -- node[above left, pos=0] {\textbf{write 3}} ([yshift=-1cm]c1.south);
+\draw[msg] ([yshift=-1cm]c1.south) -- ([yshift=-1cm]d0.south);
+\draw[dashedmsg] ([yshift=-2cm]client.south) -- node[above left, pos=0] {\textbf{yield}} ([yshift=-2cm]c1.south);
+\draw[dashedmsg] ([yshift=-2cm]c1.south) -- ([yshift=-2cm]doubleInt.south);
+\draw[msg] ([yshift=-3cm]d0.south) -- node[above right, pos=1] {\textbf{read 3}} ([yshift=-3cm]doubleInt.south);
+\draw[msg] ([yshift=-4cm]doubleInt.south) -- node[above right, pos=0] {\textbf{write 6}} ([yshift=-4cm]c0.south);
+\draw[msg] ([yshift=-4cm]c0.south) -- ([yshift=-4cm]d1.south);
+\draw[dashedmsg] ([yshift=-5cm]doubleInt.south) -- node[above right, pos=0] {\textbf{yield}} ([yshift=-5cm]c0.south);
+\draw[dashedmsg] ([yshift=-5cm]c0.south) -- ([yshift=-5cm]client.south);
+\draw[msg] ([yshift=-6cm]d1.south) -- node[above left, pos=1] {\textbf{read 6}} ([yshift=-6cm]client.south);
+
+\node[fit=(doubleInt)(d0)(c0), draw, rounded corners, inner sep=5pt] {};
+\node[fit=(c1)(d1)(client), draw, rounded corners, inner sep=5pt] {};
+
+\end{tikzpicture}
+\end{frame}
+
+\begin{frame}[plain, fragile]{IR Example Program}
+\begin{lstlisting}[language=IR]
+doubleInt:
+  continuations: c0
+  data d0: <[int]>
+entry:
+  writeExpression(c0, move(d0, int) * 2)
+  finish(c0)
+\end{lstlisting}
+\end{frame}
 
 \begin{frame}[fragile]{IR Example Program}
-\vspace{-7mm}
-\begin{lstlisting}[language=CLASS]
-proc main() {
-  cut { let x 1 |\textbar|x: colint|\textbar| print(x); () }
-};;
-\end{lstlisting}
 \begin{lstlisting}[language=IR]
-main:
-  continuations: c0
-  data d0: <[int]>
+client:
+  continuations: c1
+  data d1: <[int]>
 entry:
-  initContinuation(c0, cut0, d0)
-  writeExpression(c0, 1)
-  finish(c0)
-cut0:
-  print(move(d0, int))
+  writeExpression(c1, 3)
+  continue(c1, ret)
+ret:
+  print(move(d1, int))
   popTask()
 \end{lstlisting}
 \end{frame}
 
-\begin{frame}[fragile]{Example Execution (1/5)}
-\vspace{-3mm}
-\begin{lstlisting}[language=IR]
-main:
-  continuations: c0
-  data d0: <[int]>
-entry:
-  initContinuation(c0, cut0, d0) // <<<<<<<<<<
-  writeExpression(c0, 1)
-  finish(c0)
-cut0:
-  print(move(d0, int))
-  popTask()
-\end{lstlisting}
-\begin{center}
-\begin{tikzpicture}
-\node[font=\ttfamily] (main title) {main};
-\node[row, below=0pt of main title] (main c0) {continuation c0: [uninit]};
-\node[row, below=0pt of main c0] (main d0) {data d0: [uninit]};
-\node[draw, inner sep=0pt, fit=(main title) (main d0)] (main box) {};
-\end{tikzpicture}
-\end{center}
-\end{frame}
+% \begin{frame}[fragile]{IR Example Program}
+% \vspace{-7mm}
+% \begin{lstlisting}[language=CLASS]
+% proc main() {
+%   cut { let x 1 |\textbar|x: colint|\textbar| print(x); () }
+% };;
+% \end{lstlisting}
+% \begin{lstlisting}[language=IR]
+% main:
+%   continuations: c0
+%   data d0: <[int]>
+% entry:
+%   initContinuation(c0, cut0, d0)
+%   writeExpression(c0, 1)
+%   finish(c0)
+% cut0:
+%   print(move(d0, int))
+%   popTask()
+% \end{lstlisting}
+% \end{frame}
 
-\begin{frame}[fragile]{Example Execution (2/5)}
-\vspace{-3mm}
-\begin{lstlisting}[language=IR]
-main:
-  continuations: c0
-  data d0: <[int]>
-entry:
-  initContinuation(c0, cut0, d0)
-  writeExpression(c0, 1) // <<<<<<<<<<
-  finish(c0)
-cut0:
-  print(move(d0, int))
-  popTask()
-\end{lstlisting}
-\begin{center}
-\begin{tikzpicture}
-\node[font=\ttfamily] (main title) {main};
-\node[row, below=0pt of main title] (main c0) {continuation c0: \changed{main:cut0, d0}};
-\node[row, below=0pt of main c0] (main d0) {data d0: [uninit]};
-\node[draw, inner sep=0pt, fit=(main title) (main d0)] (main box) {};
-\end{tikzpicture}
-\end{center}
-\end{frame}
+% \begin{frame}[fragile]{Example Execution (1/5)}
+% \vspace{-3mm}
+% \begin{lstlisting}[language=IR]
+% main:
+%   continuations: c0
+%   data d0: <[int]>
+% entry:
+%   initContinuation(c0, cut0, d0) // <<<<<<<<<<
+%   writeExpression(c0, 1)
+%   finish(c0)
+% cut0:
+%   print(move(d0, int))
+%   popTask()
+% \end{lstlisting}
+% \begin{center}
+% \begin{tikzpicture}
+% \node[font=\ttfamily] (main title) {main};
+% \node[row, below=0pt of main title] (main c0) {continuation c0: [uninit]};
+% \node[row, below=0pt of main c0] (main d0) {data d0: [uninit]};
+% \node[draw, inner sep=0pt, fit=(main title) (main d0)] (main box) {};
+% \end{tikzpicture}
+% \end{center}
+% \end{frame}
 
-\begin{frame}[fragile]{Example Execution (3/5)}
-\vspace{-3mm}
-\begin{lstlisting}[language=IR]
-main:
-  continuations: c0
-  data d0: <[int]>
-entry:
-  initContinuation(c0, cut0, d0)
-  writeExpression(c0, 1)
-  finish(c0) // <<<<<<<<<<
-cut0:
-  print(move(d0, int))
-  popTask()
-\end{lstlisting}
-\begin{center}
-\begin{tikzpicture}
-\node[font=\ttfamily] (main title) {main};
-\node[row, below=0pt of main title] (main c0) {continuation c0: main:cut0, d0};
-\node[row, below=0pt of main c0] (main d0) {data d0: \changed{1}};
-\node[draw, inner sep=0pt, fit=(main title) (main d0)] (main box) {};
-\end{tikzpicture}
-\end{center}
-\end{frame}
+% \begin{frame}[fragile]{Example Execution (2/5)}
+% \vspace{-3mm}
+% \begin{lstlisting}[language=IR]
+% main:
+%   continuations: c0
+%   data d0: <[int]>
+% entry:
+%   initContinuation(c0, cut0, d0)
+%   writeExpression(c0, 1) // <<<<<<<<<<
+%   finish(c0)
+% cut0:
+%   print(move(d0, int))
+%   popTask()
+% \end{lstlisting}
+% \begin{center}
+% \begin{tikzpicture}
+% \node[font=\ttfamily] (main title) {main};
+% \node[row, below=0pt of main title] (main c0) {continuation c0: \changed{main:cut0, d0}};
+% \node[row, below=0pt of main c0] (main d0) {data d0: [uninit]};
+% \node[draw, inner sep=0pt, fit=(main title) (main d0)] (main box) {};
+% \end{tikzpicture}
+% \end{center}
+% \end{frame}
 
-\begin{frame}[fragile]{Example Execution (4/5)}
-\vspace{-3mm}
-\begin{lstlisting}[language=IR]
-main:
-  continuations: c0
-  data d0: <[int]>
-entry:
-  initContinuation(c0, cut0, d0)
-  writeExpression(c0, 1)
-  finish(c0)
-cut0:
-  print(move(d0, int)) // <<<<<<<<<<
-  popTask()
-\end{lstlisting}
-\begin{center}
-\begin{tikzpicture}
-\node[font=\ttfamily] (main title) {main};
-\node[row, below=0pt of main title] (main c0) {continuation c0: \changed{[uninit]}};
-\node[row, below=0pt of main c0] (main d0) {data d0: 1};
-\node[draw, inner sep=0pt, fit=(main title) (main d0)] (main box) {};
-\end{tikzpicture}
-\end{center}
-\end{frame}
+% \begin{frame}[fragile]{Example Execution (3/5)}
+% \vspace{-3mm}
+% \begin{lstlisting}[language=IR]
+% main:
+%   continuations: c0
+%   data d0: <[int]>
+% entry:
+%   initContinuation(c0, cut0, d0)
+%   writeExpression(c0, 1)
+%   finish(c0) // <<<<<<<<<<
+% cut0:
+%   print(move(d0, int))
+%   popTask()
+% \end{lstlisting}
+% \begin{center}
+% \begin{tikzpicture}
+% \node[font=\ttfamily] (main title) {main};
+% \node[row, below=0pt of main title] (main c0) {continuation c0: main:cut0, d0};
+% \node[row, below=0pt of main c0] (main d0) {data d0: \changed{1}};
+% \node[draw, inner sep=0pt, fit=(main title) (main d0)] (main box) {};
+% \end{tikzpicture}
+% \end{center}
+% \end{frame}
 
-\begin{frame}[fragile]{Example Execution (5/5)}
-\vspace{-3mm}
-\begin{lstlisting}[language=IR]
-main:
-  continuations: c0
-  data d0: <[int]>
-entry:
-  initContinuation(c0, cut0, d0)
-  writeExpression(c0, 1)
-  finish(c0)
-cut0:
-  print(move(d0, int))
-  popTask() // <<<<<<<<<<
-\end{lstlisting}
-\begin{center}
-\begin{tikzpicture}
-\node[font=\ttfamily] (main title) {main};
-\node[row, below=0pt of main title] (main c0) {continuation c0: [uninit]};
-\node[row, below=0pt of main c0] (main d0) {data d0: \changed{[uninit]}};
-\node[draw, inner sep=0pt, fit=(main title) (main d0)] (main box) {};
-\end{tikzpicture}
-\end{center}
-\end{frame}
+% \begin{frame}[fragile]{Example Execution (4/5)}
+% \vspace{-3mm}
+% \begin{lstlisting}[language=IR]
+% main:
+%   continuations: c0
+%   data d0: <[int]>
+% entry:
+%   initContinuation(c0, cut0, d0)
+%   writeExpression(c0, 1)
+%   finish(c0)
+% cut0:
+%   print(move(d0, int)) // <<<<<<<<<<
+%   popTask()
+% \end{lstlisting}
+% \begin{center}
+% \begin{tikzpicture}
+% \node[font=\ttfamily] (main title) {main};
+% \node[row, below=0pt of main title] (main c0) {continuation c0: \changed{[uninit]}};
+% \node[row, below=0pt of main c0] (main d0) {data d0: 1};
+% \node[draw, inner sep=0pt, fit=(main title) (main d0)] (main box) {};
+% \end{tikzpicture}
+% \end{center}
+% \end{frame}
 
-\begin{frame}{Optimizing the Compiled Programs}
+% \begin{frame}[fragile]{Example Execution (5/5)}
+% \vspace{-3mm}
+% \begin{lstlisting}[language=IR]
+% main:
+%   continuations: c0
+%   data d0: <[int]>
+% entry:
+%   initContinuation(c0, cut0, d0)
+%   writeExpression(c0, 1)
+%   finish(c0)
+% cut0:
+%   print(move(d0, int))
+%   popTask() // <<<<<<<<<<
+% \end{lstlisting}
+% \begin{center}
+% \begin{tikzpicture}
+% \node[font=\ttfamily] (main title) {main};
+% \node[row, below=0pt of main title] (main c0) {continuation c0: [uninit]};
+% \node[row, below=0pt of main c0] (main d0) {data d0: \changed{[uninit]}};
+% \node[draw, inner sep=0pt, fit=(main title) (main d0)] (main box) {};
+% \end{tikzpicture}
+% \end{center}
+% \end{frame}
+
+\begin{frame}[fragile]{Optimizing the Compiled Programs}
 \begin{itemize}
   \item Leverage type properties to more efficiently represent data. \begin{itemize}
     \item Allows tuples to be stored contiguously, avoiding indirections. 
     \item Compute exponential types once instead of once per usage.
   \end{itemize}
-  \item Tail call optimization.
+  \item Inlining, tail call optimization.
   \item IR program flow/data analysis, and simplifications based on known values.
 \end{itemize}
-\end{frame}
-
-\begin{frame}[fragile]{Example Compilation: Optimization (1/2)}
-\begin{lstlisting}[language=IR]
-main:
-  continuations: c0
-  data d0: <[int]>
-entry:
-  initContinuation(c0, cut0, d0)
-  writeExpression(c0, 1) // known write to d0
-  finish(c0) // known jump to cut0
-cut0:
-  print(move(d0, int))
-  popTask()
-\end{lstlisting}
-\end{frame}
-
-\begin{frame}[fragile]{Example Compilation: Optimization (2/2)}
 \begin{lstlisting}[language=IR]
 main:
   data d0: <[int]>
 entry:
-  writeExpression(d0, 1)
+  writeExpression(d0, 3)
+  writeExpression(d0, move(d0) * 2)
   print(move(d0, int))
   popTask()
 \end{lstlisting}
@@ -811,10 +852,9 @@ entry:
 \vspace{-3mm}
 \begin{itemize}
   \item Entire IR program compiled into one \texttt{executor()} C function
+  \item Environments are heap-allocated buffers with known layouts
   \item Instructions operate on the current environment
   \item Address of current environment stored on a register
-  \item Environments are heap-allocated buffers with known layouts
-  \item Continuations implemented using GCC's \texttt{computed goto}
 \end{itemize}
 \begin{lstlisting}[language=C]
 main_entry:
@@ -822,8 +862,6 @@ main_entry:
   *(int*)(env + 0) = 1;
   // print(move(d0, int))
   printf("%d", *(int*)(env + 0));
-  // popTask()
-  free(env);
 \end{lstlisting}
 \end{frame}
 
@@ -876,7 +914,20 @@ main_entry:
 \end{frame}
 
 \begin{frame}[shrink=20]
-  \bibliography{./Bibliography}
+  \bibliography{Bibliography}
+\end{frame}
+
+\begin{frame}[fragile]{IR Example Program}
+\begin{lstlisting}[language=IR]
+main:
+  continuations: c2
+  data d2: <[int]>
+entry:
+  initContinuation(c2, cut, d2)
+  call(client, c1 <- c2)
+cut:
+  call(doubleInt, c0 <- c2, d0 <-[int] d2)
+\end{lstlisting}
 \end{frame}
 
 \begin{frame}{Results: Sieve Benchmarks}
