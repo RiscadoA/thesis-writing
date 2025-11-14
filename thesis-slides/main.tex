@@ -683,7 +683,6 @@ entry:
   continue(c1, ret)
 ret:
   print(move(d1, int))
-  popTask()
 \end{lstlisting}
 \end{frame}
 
@@ -844,7 +843,6 @@ entry:
   writeExpression(d0, 3)
   writeExpression(d0, move(d0) * 2)
   print(move(d0, int))
-  popTask()
 \end{lstlisting}
 \end{frame}
 
@@ -858,10 +856,10 @@ entry:
 \end{itemize}
 \begin{lstlisting}[language=C]
 main_entry:
-  // writeExpression(d0, 1)
-  *(int*)(env + 0) = 1;
-  // print(move(d0, int))
-  printf("%d", *(int*)(env + 0));
+  // writeExpression(d1, 1)
+  *(int*)(env + 16) = 1;
+  // print(move(d1, int))
+  printf("%d", *(int*)(env + 16));
 \end{lstlisting}
 \end{frame}
 
