@@ -541,7 +541,7 @@ Dissertation in Computer Science and Engineering}
 \begin{itemize}
   \item \textbf{Purpose:} Bridge between high-level CLASS semantics and low-level C code.
   \item Simplified code generation and optimization.
-  \item Sequential execution model inspired by the \textit{Linear Session Abstract Machine (SAM)}. \begin{itemize}
+  \item Sequential execution model inspired by the \textit{Linear Session Abstract Machine (LSAM)}. \begin{itemize}
     \item Deterministic, continuation-based control flow.
     \item Buffered communication via data sections.
   \end{itemize}
@@ -871,6 +871,7 @@ main_entry:
   \item Fully covers CLASS, including affine sessions, shared state and polymorphism.
   \item Over \textbf{180 unit tests} written in CLASS verifying semantics and code generation for each language construct.
   \item Test suite also includes complex examples (e.g. prime sieve, game of life), covering use cases encountered in real-world applications.
+  \item Evaluated execution time and memory usage across alternatives and different configurations.
 \end{itemize}
 \end{frame}
 
@@ -900,7 +901,7 @@ main_entry:
   \item \textbf{Formal Verification}
   \begin{itemize}
     \item Develop a proof of correctness for the compilation scheme.
-    \item Base the proof on the verified SAM execution model.
+    \item Base the proof on the verified LSAM execution model.
   \end{itemize}
 \end{itemize}
 \end{frame}
